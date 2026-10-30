@@ -79,6 +79,112 @@ pub async fn delete_panel(
 }
 
 #[tauri::command]
+pub async fn create_panel_api_key(
+    _app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    panel_id: String,
+    description: String,
+    allowed_ips: Vec<String>,
+) -> Result<crate::providers::models::CreatedPanelApiKey> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|p| p.id == panel_id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let provider = provider_for(&panel);
+    let result = provider.create_api_key(&description, &allowed_ips).await?;
+    if !result.supported {
+        return Err(app_error(
+            "not_supported",
+            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+        ));
+    }
+    result.value.ok_or_else(|| app_error("api_error", "Réponse invalide."))
+}
+
+#[tauri::command]
+pub async fn create_panel_ssh_key(
+    _app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    panel_id: String,
+    name: String,
+    public_key: String,
+) -> Result<crate::providers::models::PanelSshKey> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|p| p.id == panel_id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let provider = provider_for(&panel);
+    let result = provider.create_ssh_key(&name, &public_key).await?;
+    if !result.supported {
+        return Err(app_error(
+            "not_supported",
+            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+        ));
+    }
+    result.value.ok_or_else(|| app_error("api_error", "Réponse invalide."))
+}
+
+#[tauri::command]
+pub async fn revoke_panel_api_key(
+    _app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    panel_id: String,
+    identifier: String,
+) -> Result<()> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|p| p.id == panel_id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let provider = provider_for(&panel);
+    let result = provider.revoke_api_key(&identifier).await?;
+    if !result.supported {
+        return Err(app_error(
+            "not_supported",
+            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_panel_ssh_key(
+    _app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    panel_id: String,
+    fingerprint: String,
+) -> Result<()> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|p| p.id == panel_id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let provider = provider_for(&panel);
+    let result = provider.delete_ssh_key(&fingerprint).await?;
+    if !result.supported {
+        return Err(app_error(
+            "not_supported",
+            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn check_panel(
     _app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,

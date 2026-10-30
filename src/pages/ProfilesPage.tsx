@@ -58,9 +58,21 @@ export default function ProfilesPage() {
     onError: (e) => toast.error(String(e)),
   });
 
+  const importProfiles = useMutation({
+    mutationFn: () => commands.importSshConfigProfiles(),
+    onSuccess: (data) => {
+      toast.success(`${data.length} profil(s) importé(s)`);
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+    },
+    onError: (e) => toast.error(String(e)),
+  });
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">Profils de connexion SSH</h2>
+      <button className="bg-slate-700 px-4 py-2 rounded text-sm" onClick={() => importProfiles.mutate()}>
+        Importer depuis ~/.ssh/config
+      </button>
       <section className="space-y-2 max-w-2xl">
         <h3 className="text-lg font-medium">Ajouter un profil</h3>
         <input className="bg-slate-800 px-3 py-2 rounded w-full" placeholder="Nom" value={name} onChange={(e) => setName(e.target.value)} />

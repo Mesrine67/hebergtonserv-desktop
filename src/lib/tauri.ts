@@ -155,11 +155,21 @@ export const commands = {
   savePanel: (panel: PanelConfig) => invoke<void>("save_panel", { panel }),
   deletePanel: (id: string) => invoke<void>("delete_panel", { id }),
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
+  createPanelApiKey: (panelId: string, description: string, allowedIps: string[]) =>
+    invoke<unknown>("create_panel_api_key", { panelId, description, allowedIps }),
+  createPanelSshKey: (panelId: string, name: string, publicKey: string) =>
+    invoke<unknown>("create_panel_ssh_key", { panelId, name, publicKey }),
+  revokePanelApiKey: (panelId: string, identifier: string) =>
+    invoke<void>("revoke_panel_api_key", { panelId, identifier }),
+  deletePanelSshKey: (panelId: string, fingerprint: string) =>
+    invoke<void>("delete_panel_ssh_key", { panelId, fingerprint }),
   listProfiles: () => invoke<SshProfile[]>("list_ssh_profiles"),
   saveProfile: (profile: SshProfile) => invoke<void>("save_ssh_profile", { profile }),
   deleteProfile: (id: string) => invoke<void>("delete_ssh_profile", { id }),
   getSettings: () => invoke<SettingsDocument>("get_settings"),
   updateSettings: (closeToTray: boolean, startWithWindows: boolean) =>
     invoke<void>("update_settings", { closeToTray, startWithWindows }),
+  enableAutostart: () => invoke<void>("enable_autostart"),
+  disableAutostart: () => invoke<void>("disable_autostart"),
   getSecurityState: () => invoke<SecurityState>("get_security_state"),
 };

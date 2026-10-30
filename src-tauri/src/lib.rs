@@ -11,6 +11,8 @@ pub mod storage;
 use crate::state::AppState;
 use crate::storage::Storage;
 use tauri::Manager;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::menu::{Menu, MenuItem};
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -44,8 +46,55 @@ pub fn run() {
                 home_dir.clone(),
                 home_dir.join(".ssh"),
             );
+            storage.ensure_dirs().ok();
             app.manage(AppState::new(storage));
+
+            // Tray icon
+            let show_item = MenuItem::with_id(app, "show", "Afficher", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            let _tray = TrayIconBuilder::with_id("main")
+                .icon(tauri::image::Image::from_bytes(include_bytes!(
+                    "../icons/32x32.png"
+                ))?)
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Hide to tray instead of closing
+                let _ = window.hide();
+                api.prevent_close();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -71,12 +120,18 @@ pub fn run() {
             commands::panels::save_panel,
             commands::panels::delete_panel,
             commands::panels::check_panel,
+            commands::panels::create_panel_api_key,
+            commands::panels::create_panel_ssh_key,
+            commands::panels::revoke_panel_api_key,
+            commands::panels::delete_panel_ssh_key,
             commands::profiles::list_ssh_profiles,
             commands::profiles::save_ssh_profile,
             commands::profiles::delete_ssh_profile,
             commands::settings::get_settings,
             commands::settings::update_settings,
             commands::security::get_security_state,
+            commands::settings::enable_autostart,
+            commands::settings::disable_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

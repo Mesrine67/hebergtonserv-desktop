@@ -5,8 +5,14 @@ import { toast } from "sonner";
 export default function SettingsPage() {
   const settings = useQuery({ queryKey: ["settings"], queryFn: commands.getSettings });
   const update = useMutation({
-    mutationFn: (vals: { closeToTray: boolean; startWithWindows: boolean }) =>
-      commands.updateSettings(vals.closeToTray, vals.startWithWindows),
+    mutationFn: async (vals: { closeToTray: boolean; startWithWindows: boolean }) => {
+      await commands.updateSettings(vals.closeToTray, vals.startWithWindows);
+      if (vals.startWithWindows) {
+        await commands.enableAutostart();
+      } else {
+        await commands.disableAutostart();
+      }
+    },
     onSuccess: () => toast.success("Paramètres enregistrés"),
     onError: (e) => toast.error(String(e)),
   });
