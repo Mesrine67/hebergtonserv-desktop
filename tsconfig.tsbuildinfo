@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/__tests__/smoke.test.ts","./src/lib/tauri.ts","./src/pages/panelspage.tsx","./src/pages/profilespage.tsx","./src/pages/securitypage.tsx","./src/pages/settingspage.tsx","./src/pages/sshconfigpage.tsx","./src/pages/sshkeyspage.tsx"],"version":"6.0.3"}

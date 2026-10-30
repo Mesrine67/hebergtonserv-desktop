@@ -43,12 +43,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Ensure updater signing is configured
+        shell: pwsh
+        env:
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UPDATER_KEY)) {
+            throw "Missing TAURI_SIGNING_PRIVATE_KEY; refusing to publish unsigned updater artifacts."
+          }
       - name: Build and publish signed update artifacts
         id: tauri
         uses: tauri-apps/tauri-action@v0
