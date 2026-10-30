@@ -15,7 +15,10 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "runner:start": "node scripts/runner.mjs start",
+    "runner:stop": "node scripts/runner.mjs stop",
+    "runner:status": "node scripts/runner.mjs status"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.2.1",
