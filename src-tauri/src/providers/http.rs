@@ -59,8 +59,8 @@ impl ApiClient {
             .request(method, &url)
             .bearer_auth(&self.token)
             .header(reqwest::header::ACCEPT, self.accept.clone());
-        if body.is_some() {
-            builder = builder.json(body.unwrap());
+        if let Some(b) = body {
+            builder = builder.json(b);
         }
         let response = builder
             .send()

@@ -37,27 +37,27 @@ fn find_blocks(lines: &[String]) -> Vec<Block> {
     let mut host: Option<String> = None;
     for (index, line) in lines.iter().enumerate() {
         if let Some(current_host) = host_of(line) {
-            if let Some(start_index) = start.take() {
-                if let Some(host_value) = host.take() {
-                    blocks.push(Block {
-                        host: host_value,
-                        start: start_index,
-                        end: index,
-                    });
-                }
+            if let Some(start_index) = start.take()
+                && let Some(host_value) = host.take()
+            {
+                blocks.push(Block {
+                    host: host_value,
+                    start: start_index,
+                    end: index,
+                });
             }
             start = Some(index);
             host = Some(current_host);
         }
     }
-    if let Some(start_index) = start.take() {
-        if let Some(host_value) = host.take() {
-            blocks.push(Block {
-                host: host_value,
-                start: start_index,
-                end: lines.len(),
-            });
-        }
+    if let Some(start_index) = start.take()
+        && let Some(host_value) = host.take()
+    {
+        blocks.push(Block {
+            host: host_value,
+            start: start_index,
+            end: lines.len(),
+        });
     }
     blocks
 }

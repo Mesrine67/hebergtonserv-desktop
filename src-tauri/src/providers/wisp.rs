@@ -3,7 +3,6 @@ use crate::providers::http::ApiClient;
 use crate::providers::models::{CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelSshKey};
 use crate::providers::{Capability, PanelProvider, ProviderKind};
 use async_trait::async_trait;
-use serde_json::Value;
 
 pub struct WispProvider {
     pub base_url: String,

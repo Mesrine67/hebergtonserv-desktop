@@ -7,7 +7,6 @@ use crate::ssh::models::{
 use crate::ssh::{AgentStatus, GenerateKeyInput, TestConnectionInput};
 use crate::storage::models::SshProfile;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestConnectionCommandInput {
@@ -32,10 +31,10 @@ pub async fn generate_ssh_key(
     state: tauri::State<'_, AppState>,
     input: GenerateKeyInput,
 ) -> Result<SshKeySummary> {
-    Ok(crate::ssh::generate_ssh_key(
+    crate::ssh::generate_ssh_key(
         &input,
         &state.storage.ssh_dir,
-    )?)
+    )
 }
 
 #[tauri::command]
@@ -45,11 +44,11 @@ pub async fn import_public_key(
     name: String,
     public_key: String,
 ) -> Result<PublicKeyContent> {
-    Ok(crate::ssh::import_public_key_text(
+    crate::ssh::import_public_key_text(
         &state.storage.ssh_dir,
         &name,
         &public_key,
-    )?)
+    )
 }
 
 #[tauri::command]
@@ -58,7 +57,7 @@ pub async fn read_ssh_public_key(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<PublicKeyContent> {
-    Ok(crate::ssh::read_public_key(&state.storage.ssh_dir, &id)?)
+    crate::ssh::read_public_key(&state.storage.ssh_dir, &id)
 }
 
 #[tauri::command]
@@ -67,10 +66,10 @@ pub async fn delete_ssh_key(
     state: tauri::State<'_, AppState>,
     trash_id: String,
 ) -> Result<TrashEntry> {
-    Ok(crate::ssh::delete_ssh_key(
+    crate::ssh::delete_ssh_key(
         &trash_id,
         &state.storage.app_data_dir,
-    )?)
+    )
 }
 
 #[tauri::command]
@@ -84,7 +83,7 @@ pub async fn list_ssh_trash(
 #[tauri::command]
 pub async fn test_ssh_connection(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
     input: TestConnectionCommandInput,
 ) -> Result<SshConnectionResult> {
     let connection_input = TestConnectionInput {
@@ -100,7 +99,7 @@ pub async fn test_ssh_connection(
 #[tauri::command]
 pub async fn open_ssh_connection(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
     input: TestConnectionCommandInput,
 ) -> Result<()> {
     let connection_input = TestConnectionInput {
@@ -116,7 +115,7 @@ pub async fn open_ssh_connection(
 #[tauri::command]
 pub async fn scan_host_key(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
     host: String,
     port: u16,
 ) -> Result<crate::ssh::known_hosts::HostKeyEntry> {
@@ -126,7 +125,7 @@ pub async fn scan_host_key(
 #[tauri::command]
 pub async fn append_host_key(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
     host: String,
     port: u16,
     entry: crate::ssh::known_hosts::HostKeyEntry,
@@ -137,7 +136,7 @@ pub async fn append_host_key(
 #[tauri::command]
 pub async fn read_ssh_config(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
 ) -> Result<SshConfigSnapshot> {
     let path = crate::ssh::open_ssh_config_path()
         .ok_or_else(|| app_error("ssh_path_error", "Répertoire SSH introuvable."))?;
@@ -147,29 +146,29 @@ pub async fn read_ssh_config(
 #[tauri::command]
 pub async fn upsert_ssh_config(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
     entry: SshConfigEntry,
 ) -> Result<SshConfigSnapshot> {
     let path = crate::ssh::open_ssh_config_path()
         .ok_or_else(|| app_error("ssh_path_error", "Répertoire SSH introuvable."))?;
-    Ok(crate::ssh::upsert_ssh_config(&path, &entry)?)
+    crate::ssh::upsert_ssh_config(&path, &entry)
 }
 
 #[tauri::command]
 pub async fn delete_ssh_config(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
     host: String,
 ) -> Result<bool> {
     let path = crate::ssh::open_ssh_config_path()
         .ok_or_else(|| app_error("ssh_path_error", "Répertoire SSH introuvable."))?;
-    Ok(crate::ssh::delete_ssh_config_entry(&path, &host)?)
+    crate::ssh::delete_ssh_config_entry(&path, &host)
 }
 
 #[tauri::command]
 pub async fn import_ssh_config_profiles(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
 ) -> Result<Vec<SshProfile>> {
     let path = crate::ssh::open_ssh_config_path()
         .ok_or_else(|| app_error("ssh_path_error", "Répertoire SSH introuvable."))?;
@@ -179,7 +178,7 @@ pub async fn import_ssh_config_profiles(
 #[tauri::command]
 pub async fn agent_status(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
 ) -> Result<AgentStatus> {
     crate::ssh::agent_service_status().await
 }
@@ -187,7 +186,7 @@ pub async fn agent_status(
 #[tauri::command]
 pub async fn agent_identities(
     _app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    _state: tauri::State<'_, AppState>,
 ) -> Result<Vec<AgentIdentity>> {
     crate::ssh::agent_identities().await
 }

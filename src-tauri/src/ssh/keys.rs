@@ -97,15 +97,15 @@ fn private_key_summary(file_name: &str, private_path: &Path) -> SshKeySummary {
         encrypted: false,
         permissions_warning: false,
     };
-    if let Ok(content) = std::fs::read_to_string(private_path) {
-        if let Ok(private_key) = PrivateKey::from_openssh(content.as_bytes()) {
-            summary.encrypted = private_key.is_encrypted();
-            if !private_key.is_encrypted() {
-                let public_key = private_key.public_key();
-                summary.key_type = Some(key_type_string(&public_key.algorithm()));
-                summary.fingerprint = Some(public_key.fingerprint(HashAlg::Sha256).to_string());
-                summary.comment = Some(public_key.comment().to_string());
-            }
+    if let Ok(content) = std::fs::read_to_string(private_path)
+        && let Ok(private_key) = PrivateKey::from_openssh(content.as_bytes())
+    {
+        summary.encrypted = private_key.is_encrypted();
+        if !private_key.is_encrypted() {
+            let public_key = private_key.public_key();
+            summary.key_type = Some(key_type_string(&public_key.algorithm()));
+            summary.fingerprint = Some(public_key.fingerprint(HashAlg::Sha256).to_string());
+            summary.comment = Some(public_key.comment().to_string());
         }
     }
     summary
@@ -157,7 +157,7 @@ pub fn is_valid_public_key_content(content: &str) -> bool {
     if content.trim().len() > 16384 || content.to_ascii_uppercase().contains("PRIVATE KEY") {
         return false;
     }
-    PublicKey::from_openssh(&content).is_ok()
+    PublicKey::from_openssh(content).is_ok()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -213,10 +213,10 @@ pub fn generate_ssh_key(input: &GenerateKeyInput, ssh_dir: &Path) -> Result<SshK
     };
     let mut private_key = PrivateKey::random(&mut rng, algorithm)?;
     private_key.set_comment(&input.comment);
-    if let Some(passphrase) = &input.passphrase {
-        if !passphrase.is_empty() {
-            private_key = private_key.encrypt(&mut rng, passphrase.as_bytes())?;
-        }
+    if let Some(passphrase) = &input.passphrase
+        && !passphrase.is_empty()
+    {
+        private_key = private_key.encrypt(&mut rng, passphrase.as_bytes())?;
     }
     let private_pem = private_key
         .to_openssh(LineEnding::LF)
@@ -261,7 +261,7 @@ pub fn delete_ssh_key(trash_id: &str, app_data_dir: &Path) -> Result<TrashEntry>
         .map_err(|_| app_error("io_error", "Corbeille illisible."))?;
     let private_file = std::fs::read_dir(&entry_dir)
         .ok()
-        .and_then(|mut entries| {
+        .and_then(|entries| {
             let mut found = None;
             for entry in entries.flatten() {
                 let candidate = entry.path();
@@ -300,7 +300,7 @@ pub fn list_ssh_trash(app_data_dir: &Path) -> Vec<TrashEntry> {
             }
             let original_name =
                 std::fs::read_to_string(path.join("original-name.txt")).unwrap_or_default();
-            let private_file = std::fs::read_dir(&path).ok().and_then(|mut dirs| {
+            let private_file = std::fs::read_dir(&path).ok().and_then(|dirs| {
                 let mut found = None;
                 for dir in dirs.flatten() {
                     if dir.path().is_file() {
