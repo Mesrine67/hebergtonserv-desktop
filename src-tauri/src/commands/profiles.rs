@@ -1,9 +1,7 @@
 use crate::AppState;
 use crate::errors::Result;
 use crate::storage::Storage;
-use crate::storage::models::{ProfilesData, ProfilesDocument, SshProfile};
-use serde::Serialize;
-use tauri::State;
+use crate::storage::models::{ProfilesDocument, SshProfile};
 
 #[tauri::command]
 pub async fn list_ssh_profiles(
@@ -26,7 +24,7 @@ pub async fn save_ssh_profile(
         .data
         .profiles
         .iter_mut()
-        .find(|profile| profile.id == profile.id)
+        .find(|existing| existing.id == profile.id)
     {
         *existing = profile;
     } else {

@@ -1,8 +1,7 @@
 use crate::AppState;
 use crate::errors::Result;
 use crate::storage::Storage;
-use crate::storage::models::{SettingsData, SettingsDocument};
-use serde::Serialize;
+use crate::storage::models::SettingsDocument;
 use tauri_plugin_autostart::ManagerExt;
 
 #[tauri::command]
@@ -10,10 +9,10 @@ pub async fn get_settings(
     _app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<SettingsDocument> {
-    Ok(Storage::read_json(
+    Storage::read_json(
         &state.storage.settings_path,
         SettingsDocument::default(),
-    )?)
+    )
 }
 
 #[tauri::command]

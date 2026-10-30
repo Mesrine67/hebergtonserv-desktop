@@ -125,8 +125,6 @@ pub async fn test_ssh_connection(input: &TestConnectionInput<'_>) -> Result<SshC
 
 pub async fn open_ssh_connection(input: &TestConnectionInput<'_>) -> Result<()> {
     let binary = ssh_binary()?;
-    #[cfg(windows)]
-    use std::os::windows::process::CommandExt;
     let key_path = input.key_name.and_then(|key_name| {
         let ssh_dir = crate::ssh::ssh_dir_path()?;
         Some(ssh_dir.join(key_name).to_string_lossy().to_string())

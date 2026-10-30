@@ -1,9 +1,6 @@
-use crate::AppState;
 use crate::errors::Result;
-use crate::storage::Storage;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityState {

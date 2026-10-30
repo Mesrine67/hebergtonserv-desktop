@@ -7,7 +7,6 @@ use crate::security::url;
 use crate::storage::Storage;
 use crate::storage::models::{PanelConfig, PanelsDocument};
 use serde::Serialize;
-use tauri::State;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PanelCheckResult {
@@ -56,7 +55,7 @@ pub async fn save_panel(
         .data
         .panels
         .iter_mut()
-        .find(|panel| panel.id == panel.id)
+        .find(|existing| existing.id == panel.id)
     {
         *existing = panel;
     } else {
