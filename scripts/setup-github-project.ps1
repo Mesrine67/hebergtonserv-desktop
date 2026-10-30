@@ -125,6 +125,9 @@ if (@($fields | Where-Object { $_.name -eq 'Domaine' }).Count -eq 0) {
   [void](Invoke-GhJson -Command @('project','field-create',"$ProjectNumber",'--owner',$Owner,'--name','Domaine','--data-type','SINGLE_SELECT','--single-select-options','CI,Panels,SSH,Windows,Security,Release,Other','--format','json'))
   Write-Host 'Created Domaine field'
 }
+# Refresh field IDs and options after creation.
+$fieldResponse = Invoke-GhJson -Command @('project','field-list',"$ProjectNumber",'--owner',$Owner,'--limit','100','--format','json')
+$fields = @($fieldResponse.fields)
 
 $existingResponse = Invoke-GhJson -Command @('project','item-list',"$ProjectNumber",'--owner',$Owner,'--limit','1000','--format','json')
 $knownUrls = @{}
@@ -169,18 +172,25 @@ foreach ($entry in $entries) {
   $normalized = $url.TrimEnd('/')
   $newItem = -not $knownUrls.ContainsKey($normalized)
   if ($newItem) {
-    [void](Invoke-GhJson -Command @('project','item-add',"$ProjectNumber",'--owner',$Owner,'--url',$url,'--format','json'))
+    $addedItem = Invoke-GhJson -Command @('project','item-add',"$ProjectNumber",'--owner',$Owner,'--url',$url,'--format','json')
     $knownUrls[$normalized] = $true
     $added++
-  } else { $skipped++ }
 
-  # Only initialize fields on new items; preserve existing manual board edits.
-  if ($newItem -and $priorityByNumber.ContainsKey($entry.key)) {
-    Invoke-GhCommand -Command @('project','item-edit',"$ProjectNumber",'--owner',$Owner,'--url',$url,'--field','Priorite','--value',$priorityByNumber[$entry.key])
-  }
-  if ($newItem -and $areaByNumber.ContainsKey($entry.key)) {
-    Invoke-GhCommand -Command @('project','item-edit',"$ProjectNumber",'--owner',$Owner,'--url',$url,'--field','Domaine','--value',$areaByNumber[$entry.key])
-  }
+    # GitHub CLI requires GraphQL IDs for item-edit, not URLs or field names.
+    $itemId = [string]$addedItem.id
+    $projectId = [string]$project.id
+    foreach ($assignment in @(
+      [pscustomobject]@{ field='Priorite'; value=$priorityByNumber[$entry.key] },
+      [pscustomobject]@{ field='Domaine'; value=$areaByNumber[$entry.key] }
+    )) {
+      if ([string]::IsNullOrWhiteSpace([string]$assignment.value)) { continue }
+      $field = @($fields | Where-Object { $_.name -eq $assignment.field }) | Select-Object -First 1
+      if ($null -eq $field) { throw "Field not found: $($assignment.field)" }
+      $option = @($field.options | Where-Object { $_.name -eq $assignment.value }) | Select-Object -First 1
+      if ($null -eq $option) { throw "Field option not found: $($assignment.field) / $($assignment.value)" }
+      Invoke-GhCommand -Command @('project','item-edit','--id',$itemId,'--project-id',$projectId,'--field-id',[string]$field.id,'--single-select-option-id',[string]$option.id)
+    }
+  } else { $skipped++ }
 }
 
 Write-Host "Project board: $($project.url)"
