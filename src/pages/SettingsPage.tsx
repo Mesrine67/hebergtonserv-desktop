@@ -1,6 +1,8 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { commands } from "../lib/tauri";
 import { toast } from "sonner";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 export default function SettingsPage() {
   const settings = useQuery({ queryKey: ["settings"], queryFn: commands.getSettings });
@@ -47,6 +49,28 @@ export default function SettingsPage() {
           </label>
         </div>
       )}
+      <section className="space-y-2 border-t border-slate-700 pt-4">
+        <h3 className="text-lg font-medium">Mises à jour</h3>
+        <button
+          className="bg-blue-600 px-4 py-2 rounded"
+          onClick={async () => {
+            try {
+              const update = await check();
+              if (update) {
+                toast.info(`Mise à jour ${update.version} disponible`);
+                await update.downloadAndInstall();
+                await relaunch();
+              } else {
+                toast.success("Vous êtes à jour");
+              }
+            } catch (e) {
+              toast.error(String(e));
+            }
+          }}
+        >
+          Vérifier les mises à jour
+        </button>
+      </section>
     </div>
   );
 }
