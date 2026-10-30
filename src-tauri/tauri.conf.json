@@ -27,7 +27,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRBRTY0N0I4Nzc5NkI4NzIKUldSeXVKWjN1RWZtU3ByNmhWRUxMUVFUaU9Ca0FYMGJRUnhHbXlMZnd4T2RxSWpmVGNqNU8xQnkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxRjRBMThDODc0QkZFREIKUldUYi9rdUhqS0gwc1o1RG1lWHAvYkc2aFdwODZmVkhta0RNaUxXdUNzVVRMcjQ5eVFvdW9peVkK",
       "endpoints": [
         "https://github.com/Mesrine67/hebergtonserv-desktop/releases/latest/download/latest.json"
       ],
