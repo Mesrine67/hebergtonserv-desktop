@@ -13,7 +13,26 @@ on:
         default: true
 
 jobs:
+  validate-source:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check tag and aligned versions
+        id: verify
+        shell: bash
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+        run: |
+          node scripts/validate-release.mjs
   publish-tauri:
+    needs: validate-source
     if: ${{ github.event_name == 'push' }}
     permissions:
       contents: write
@@ -42,17 +61,25 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 12
+          version: 12.15.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Ensure updater signing is configured
+        shell: pwsh
+        env:
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UPDATER_KEY)) {
+            throw "Missing TAURI_SIGNING_PRIVATE_KEY; refusing to publish unsigned updater artifacts."
+          }
       - name: Build and publish signed update artifacts
         id: tauri
         uses: tauri-apps/tauri-action@v0
