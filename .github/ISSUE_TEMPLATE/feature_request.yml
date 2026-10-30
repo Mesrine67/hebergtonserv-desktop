@@ -1,0 +1,34 @@
+name: Demande de fonctionnalité
+description: Proposer une fonctionnalité pour HébergTonServ Desktop
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de proposer une amélioration pour HébergTonServ Desktop.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème à résoudre
+      description: Quel problème cette fonctionnalité résout-elle ?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution proposée
+      description: Décrivez la solution souhaitée.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+      description: Autres solutions possibles.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptation
+      description: Liste des critères pour considérer la fonctionnalité terminée.
+      placeholder: "- [ ] ..."

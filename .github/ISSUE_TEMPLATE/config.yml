@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Signaler une vulnérabilité en privé
+    url: https://github.com/Mesrine67/hebergtonserv-desktop/security/advisories/new
+    about: N’utilisez pas une Issue publique pour signaler une faille.
+  - name: Consulter les versions
+    url: https://github.com/Mesrine67/hebergtonserv-desktop/releases
+    about: Vérifiez si une version plus récente est disponible.

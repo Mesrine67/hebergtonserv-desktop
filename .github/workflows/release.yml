@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      verifyOnly:
+        description: Verify assets already present in the draft release without rebuilding.
+        type: boolean
+        required: true
+        default: true
+
+jobs:
+  publish-tauri:
+    if: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: --bundles nsis,msi
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and publish signed update artifacts
+        id: tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: v__VERSION__
+          releaseDraft: true
+          releaseBody: "Release automatique de HébergTonServ Desktop."
+          generateReleaseNotes: true
+          tauriScript: pnpm tauri
+          args: ${{ matrix.args }}
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+
+      - name: Release summary
+        if: steps.tauri.outputs.releaseHtmlUrl != ''
+        shell: bash
+        run: |
+          {
+            echo "## Tauri Release"
+            echo ""
+            echo "- Platform: ${{ matrix.platform }}"
+            echo "- Version: ${{ steps.tauri.outputs.appVersion }}"
+            echo "- Draft release: ${{ steps.tauri.outputs.releaseHtmlUrl }}"
+          } >> "$GITHUB_STEP_SUMMARY"
