@@ -11,8 +11,8 @@ pub mod storage;
 use crate::state::AppState;
 use crate::storage::Storage;
 use tauri::Manager;
-use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 #[tauri::command]
 fn greet(name: &str) -> String {

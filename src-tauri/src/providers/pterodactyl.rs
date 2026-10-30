@@ -63,9 +63,7 @@ impl PanelProvider for PterodactylProvider {
     async fn account(&self) -> Result<PanelAccount> {
         let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
         client.get_account_pterodactyl().await.map(|user| {
-            let attributes = user
-                .map(|user| user.attributes)
-                .unwrap_or_default();
+            let attributes = user.map(|user| user.attributes).unwrap_or_default();
             let display_name = if attributes.first_name.is_some() || attributes.last_name.is_some()
             {
                 format!(

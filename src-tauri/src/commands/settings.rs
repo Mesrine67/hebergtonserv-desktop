@@ -9,10 +9,7 @@ pub async fn get_settings(
     _app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<SettingsDocument> {
-    Storage::read_json(
-        &state.storage.settings_path,
-        SettingsDocument::default(),
-    )
+    Storage::read_json(&state.storage.settings_path, SettingsDocument::default())
 }
 
 #[tauri::command]
@@ -32,12 +29,22 @@ pub async fn update_settings(
 
 #[tauri::command]
 pub async fn enable_autostart(app: tauri::AppHandle) -> Result<()> {
-    app.autolaunch().enable().map_err(|_| crate::errors::app_error("autostart_error", "Impossible d'activer le démarrage automatique."))?;
+    app.autolaunch().enable().map_err(|_| {
+        crate::errors::app_error(
+            "autostart_error",
+            "Impossible d'activer le démarrage automatique.",
+        )
+    })?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn disable_autostart(app: tauri::AppHandle) -> Result<()> {
-    app.autolaunch().disable().map_err(|_| crate::errors::app_error("autostart_error", "Impossible de désactiver le démarrage automatique."))?;
+    app.autolaunch().disable().map_err(|_| {
+        crate::errors::app_error(
+            "autostart_error",
+            "Impossible de désactiver le démarrage automatique.",
+        )
+    })?;
     Ok(())
 }

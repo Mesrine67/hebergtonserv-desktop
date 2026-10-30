@@ -31,10 +31,7 @@ pub async fn generate_ssh_key(
     state: tauri::State<'_, AppState>,
     input: GenerateKeyInput,
 ) -> Result<SshKeySummary> {
-    crate::ssh::generate_ssh_key(
-        &input,
-        &state.storage.ssh_dir,
-    )
+    crate::ssh::generate_ssh_key(&input, &state.storage.ssh_dir)
 }
 
 #[tauri::command]
@@ -44,11 +41,7 @@ pub async fn import_public_key(
     name: String,
     public_key: String,
 ) -> Result<PublicKeyContent> {
-    crate::ssh::import_public_key_text(
-        &state.storage.ssh_dir,
-        &name,
-        &public_key,
-    )
+    crate::ssh::import_public_key_text(&state.storage.ssh_dir, &name, &public_key)
 }
 
 #[tauri::command]
@@ -66,10 +59,7 @@ pub async fn delete_ssh_key(
     state: tauri::State<'_, AppState>,
     trash_id: String,
 ) -> Result<TrashEntry> {
-    crate::ssh::delete_ssh_key(
-        &trash_id,
-        &state.storage.app_data_dir,
-    )
+    crate::ssh::delete_ssh_key(&trash_id, &state.storage.app_data_dir)
 }
 
 #[tauri::command]

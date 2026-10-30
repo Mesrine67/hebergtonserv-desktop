@@ -98,10 +98,14 @@ pub async fn create_panel_api_key(
     if !result.supported {
         return Err(app_error(
             "not_supported",
-            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+            result
+                .message
+                .unwrap_or_else(|| "Non supporté.".to_string()),
         ));
     }
-    result.value.ok_or_else(|| app_error("api_error", "Réponse invalide."))
+    result
+        .value
+        .ok_or_else(|| app_error("api_error", "Réponse invalide."))
 }
 
 #[tauri::command]
@@ -125,10 +129,14 @@ pub async fn create_panel_ssh_key(
     if !result.supported {
         return Err(app_error(
             "not_supported",
-            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+            result
+                .message
+                .unwrap_or_else(|| "Non supporté.".to_string()),
         ));
     }
-    result.value.ok_or_else(|| app_error("api_error", "Réponse invalide."))
+    result
+        .value
+        .ok_or_else(|| app_error("api_error", "Réponse invalide."))
 }
 
 #[tauri::command]
@@ -151,7 +159,9 @@ pub async fn revoke_panel_api_key(
     if !result.supported {
         return Err(app_error(
             "not_supported",
-            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+            result
+                .message
+                .unwrap_or_else(|| "Non supporté.".to_string()),
         ));
     }
     Ok(())
@@ -177,7 +187,9 @@ pub async fn delete_panel_ssh_key(
     if !result.supported {
         return Err(app_error(
             "not_supported",
-            result.message.unwrap_or_else(|| "Non supporté.".to_string()),
+            result
+                .message
+                .unwrap_or_else(|| "Non supporté.".to_string()),
         ));
     }
     Ok(())
