@@ -17,6 +17,9 @@ pnpm-debug.log*
 /src-tauri/target/
 /src-tauri/gen/schemas/
 
+# Tauri updater signing keys (NEVER commit)
+/.tauri/
+
 # Editor and OS files
 .vscode/*
 !.vscode/extensions.json
