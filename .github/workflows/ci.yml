@@ -12,8 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 12
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,7 +26,6 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml
