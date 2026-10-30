@@ -21,9 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: windows-latest
+          - platform: [self-hosted, Windows, X64]
             args: --bundles nsis,msi
-    runs-on: ${{ matrix.platform }}
+    runs-on: [self-hosted, Windows, X64]
 
     steps:
       - name: Checkout repository
