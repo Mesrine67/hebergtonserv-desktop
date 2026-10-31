@@ -64,6 +64,24 @@ fn deserialize_success<T: DeserializeOwned>(
     })
 }
 
+/// Preserve structured panel API errors. A JSON object cannot be
+/// deserialized as a borrowed byte slice and then parsed a second time.
+fn parse_panel_error_detail(status: reqwest::StatusCode, bytes: &[u8]) -> String {
+    let error_value: Option<Value> = serde_json::from_slice(bytes).ok();
+    error_value
+        .as_ref()
+        .and_then(|value| value.get("message").and_then(Value::as_str))
+        .or_else(|| {
+            error_value
+                .as_ref()
+                .and_then(|value| value.get("errors").and_then(Value::as_array))
+                .and_then(|errors| errors.first())
+                .and_then(|error| error.get("detail").and_then(Value::as_str))
+        })
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("Réponse HTTP {status}"))
+}
+
 impl ApiClient {
     pub fn new(base_url: &str, token: &str, accept: &str, allow_local: bool) -> Result<Self> {
         if base_url.trim().is_empty() {
@@ -154,26 +172,7 @@ impl ApiClient {
             bytes.extend_from_slice(&chunk);
         }
         if !status.is_success() {
-            let error_value: Option<Value> = serde_json::from_slice(bytes.as_ref())
-                .ok()
-                .and_then(|slice| serde_json::from_slice::<Value>(slice).ok());
-            let detail = error_value
-                .as_ref()
-                .and_then(|value| value.get("message").and_then(|message| message.as_str()))
-                .map(|value| value.to_string())
-                .or_else(|| {
-                    error_value.as_ref().and_then(|value| {
-                        value
-                            .get("errors")
-                            .and_then(|errors| errors.as_array())
-                            .and_then(|errors| errors.first())
-                            .and_then(|error| {
-                                error.get("detail").and_then(|detail| detail.as_str())
-                            })
-                            .map(|detail| detail.to_string())
-                    })
-                })
-                .unwrap_or_else(|| format!("Réponse HTTP {}", status));
+            let detail = parse_panel_error_detail(status, bytes.as_ref());
             return Err(http_error(http_error_code(status), detail));
         }
         deserialize_success(status, bytes.as_ref())
@@ -239,6 +238,30 @@ impl ApiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preserves_panel_error_messages_for_authentication_failures() {
+        let error = parse_panel_error_detail(
+            reqwest::StatusCode::UNAUTHORIZED,
+            br#"{"message":"API token invalid"}"#,
+        );
+        assert_eq!(error, "API token invalid");
+        assert_eq!(
+            http_error_code(reqwest::StatusCode::UNAUTHORIZED),
+            "api_auth_failed"
+        );
+    }
+
+    #[test]
+    fn preserves_pterodactyl_error_details_and_falls_back_on_invalid_json() {
+        let detail = parse_panel_error_detail(
+            reqwest::StatusCode::FORBIDDEN,
+            br#"{"errors":[{"detail":"Permission denied"}]}"#,
+        );
+        assert_eq!(detail, "Permission denied");
+        let fallback = parse_panel_error_detail(reqwest::StatusCode::FORBIDDEN, b"{broken");
+        assert!(fallback.starts_with("Réponse HTTP 403"));
+    }
 
     #[test]
     fn rejects_missing_api_token_without_network_access() {
