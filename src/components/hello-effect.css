@@ -90,3 +90,66 @@
     opacity: 1;
   }
 }
+
+/* The welcome drawing may finish, but navigation remains user-controlled. */
+.hts-welcome-progress {
+  width: min(100%, 280px);
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(148 163 184 / 0.16);
+}
+.hts-welcome-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #818cf8, #93c5fd);
+  box-shadow: 0 0 12px rgb(129 140 248 / 0.35);
+  animation: hts-welcome-reveal-progress 2.6s ease-out forwards;
+  transition: width 300ms ease-out;
+}
+.hts-welcome-progress-fill.is-complete {
+  width: 100%;
+  animation: none;
+}
+@keyframes hts-welcome-reveal-progress {
+  from { width: 0; }
+  to { width: 95%; }
+}
+.hts-welcome-status {
+  min-height: 20px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.hts-welcome-start {
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  border: 1px solid rgb(165 180 252 / 0.48);
+  border-radius: 10px;
+  background: linear-gradient(125deg, #4338ca, #2563eb);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 22px;
+  box-shadow: 0 6px 25px rgb(67 56 202 / 0.2);
+  cursor: pointer;
+  animation: hts-welcome-button-appear 260ms ease-out both;
+}
+.hts-welcome-start:hover,
+.hts-welcome-start:focus-visible {
+  background: linear-gradient(125deg, #4f46e5, #3b82f6);
+  border-color: #c7d2fe;
+  outline-offset: 3px;
+}
+@keyframes hts-welcome-button-appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hts-welcome-progress-fill { animation: none; width: 100%; transition: none; }
+  .hts-welcome-start { animation: none; }
+}
