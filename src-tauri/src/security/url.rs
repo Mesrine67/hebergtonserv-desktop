@@ -14,6 +14,12 @@ fn is_blocked_ip(ip: &IpAddr) -> bool {
                 || value.is_multicast()
                 || value.is_link_local()
                 || value.is_private()
+                // Carrier-grade NAT, benchmarking, reserved and zero-net addresses
+                // are not safe public destinations for user-configured panels.
+                || matches!(value.octets(), [100, b, ..] if (b & 0b1100_0000) == 0b0100_0000)
+                || matches!(value.octets(), [198, 18 | 19, ..])
+                || matches!(value.octets(), [0, ..])
+                || matches!(value.octets(), [a, ..] if a >= 240)
         }
         IpAddr::V6(value) => {
             value.is_loopback()
@@ -172,6 +178,29 @@ mod tests {
         assert!(validate_panel_url("https://localhost/", true).is_ok());
         assert!(validate_panel_url("https://127.0.0.1/", true).is_ok());
         assert!(validate_panel_url("https://192.168.1.4/", true).is_err());
+    }
+
+    #[test]
+    fn rejects_cgnat_benchmarking_and_reserved_ipv4() {
+        for ip in [
+            "100.64.0.1",
+            "100.127.255.254",
+            "198.18.0.5",
+            "198.19.1.1",
+            "0.2.3.4",
+            "240.0.0.1",
+        ] {
+            assert!(
+                validate_panel_url(&format!("https://{ip}/"), false).is_err(),
+                "accepted {ip}"
+            );
+            assert!(
+                validate_panel_url(&format!("https://{ip}/"), true).is_err(),
+                "local override accepted {ip}"
+            );
+        }
+        assert!(validate_panel_url("https://8.8.8.8/", false).is_ok());
+        assert!(validate_panel_url("https://[::ffff:100.64.0.1]/", false).is_err());
     }
 
     #[test]

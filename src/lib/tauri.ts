@@ -139,6 +139,8 @@ export const commands = {
   }) => invoke<void>("open_ssh_connection", { input: { host: input.host, port: input.port, username: input.username, auth_method: input.authMethod, key_name: input.keyName ?? null } }),
   scanHostKey: (host: string, port: number) =>
     invoke<HostKeyEntry>("scan_host_key", { host, port }),
+  appendHostKey: (host: string, port: number, entry: HostKeyEntry) =>
+    invoke<void>("append_host_key", { host, port, entry }),
   readSshConfig: () => invoke<SshConfigSnapshot>("read_ssh_config"),
   upsertSshConfig: (entry: SshConfigEntry) =>
     invoke<SshConfigSnapshot>("upsert_ssh_config", { entry }),

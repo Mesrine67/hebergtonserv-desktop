@@ -98,17 +98,19 @@ jobs:
           generateReleaseNotes: true
           tauriScript: pnpm tauri
           args: ${{ matrix.args }}
-          uploadUpdaterJson: true
-          uploadUpdaterSignatures: true
+          includeUpdaterJson: true
 
       - name: Release summary
         if: steps.tauri.outputs.releaseHtmlUrl != ''
-        shell: bash
+        shell: pwsh
+        env:
+          RELEASE_URL: ${{ steps.tauri.outputs.releaseHtmlUrl }}
+          APP_VERSION: ${{ steps.tauri.outputs.appVersion }}
         run: |
-          {
-            echo "## Tauri Release"
-            echo ""
-            echo "- Platform: ${{ matrix.platform }}"
-            echo "- Version: ${{ steps.tauri.outputs.appVersion }}"
-            echo "- Draft release: ${{ steps.tauri.outputs.releaseHtmlUrl }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          @(
+            '## Tauri Release',
+            '',
+            '- Platform: Windows x64',
+            "- Version: $env:APP_VERSION",
+            "- Draft release: $env:RELEASE_URL"
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append

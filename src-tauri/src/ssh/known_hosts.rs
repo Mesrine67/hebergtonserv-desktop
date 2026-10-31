@@ -17,7 +17,24 @@ pub fn trusted_hosts_path() -> Option<PathBuf> {
     crate::ssh::paths::ssh_dir().map(|dir| dir.join("known_hosts"))
 }
 
+fn validate_target(host: &str, port: u16) -> Result<()> {
+    if host.is_empty()
+        || port == 0
+        || host.starts_with('-')
+        || host
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || matches!(c, '/' | '\\' | '@'))
+    {
+        return Err(app_error(
+            "ssh_invalid_host",
+            "Nom d'hôte ou port SSH invalide.",
+        ));
+    }
+    Ok(())
+}
+
 pub async fn scan_host_key(host: &str, port: u16) -> Result<HostKeyEntry> {
+    validate_target(host, port)?;
     let output = tokio::time::timeout(
         Duration::from_secs(15),
         tokio::process::Command::new("ssh-keyscan")
@@ -76,38 +93,71 @@ pub async fn scan_host_key(host: &str, port: u16) -> Result<HostKeyEntry> {
 }
 
 pub fn append_host_key(host: &str, port: u16, entry: &HostKeyEntry) -> Result<()> {
+    validate_target(host, port)?;
+    let bracketed_host = format!("[{host}]:{port}");
+    if entry.port != port || (entry.host != host && entry.host != bracketed_host) {
+        return Err(app_error(
+            "ssh_host_mismatch",
+            "L'identité de l'hôte scanné ne correspond pas à l'hôte sélectionné.",
+        ));
+    }
+
+    let public_key = PublicKey::from_openssh(&format!(
+        "{} {} {}",
+        entry.key_type, entry.key, entry.comment
+    ))
+    .map_err(|_| app_error("ssh_invalid_host_key", "Clé d'hôte SSH invalide."))?;
+    if entry.fingerprint != public_key.fingerprint(HashAlg::Sha256).to_string() {
+        return Err(app_error(
+            "ssh_fingerprint_mismatch",
+            "L'empreinte de la clé d'hôte a changé.",
+        ));
+    }
+
     let path = trusted_hosts_path()
         .ok_or_else(|| app_error("ssh_path_error", "Répertoire SSH introuvable."))?;
-    let content = if path.exists() {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let existing = if path.exists() {
         std::fs::read_to_string(&path)?
     } else {
         String::new()
     };
-    let marker = format!("[{host}]:{port}");
-    let already = content.lines().any(|line| {
-        let trimmed = line.trim();
-        let parts: Vec<&str> = trimmed.split_whitespace().collect();
-        parts.len() >= 3
-            && parts[0] == marker
-            && parts[1] == entry.key_type
-            && parts[2] == entry.key
-    });
-    if already {
-        return Ok(());
+    let marker = if port == 22 {
+        host.to_string()
+    } else {
+        bracketed_host.clone()
+    };
+    for line in existing.lines() {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        if fields.len() < 3 {
+            continue;
+        }
+        if fields[0] != marker && fields[0] != bracketed_host {
+            continue;
+        }
+        if fields[1] == entry.key_type {
+            if fields[2] == entry.key {
+                return Ok(());
+            }
+            return Err(app_error(
+                "ssh_host_key_conflict",
+                "Une clé différente existe déjà pour cet hôte et cet algorithme. Vérifiez le changement hors bande avant toute modification.",
+            ));
+        }
     }
-    let mut new_content = content;
-    if !new_content.is_empty() && !new_content.ends_with('\n') {
-        new_content.push('\n');
+
+    // Preserve the existing file and append only the explicitly approved key.
+    let mut content = existing;
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
     }
-    new_content.push_str(&format!(
-        "{} {} {} {}\n",
-        marker, entry.key_type, entry.key, entry.comment
-    ));
+    content.push_str(&format!("{} {} {}\n", marker, entry.key_type, entry.key));
     if path.exists() {
-        let backup = path.with_file_name("known_hosts.bak");
-        let _ = std::fs::copy(&path, &backup);
+        std::fs::copy(&path, path.with_file_name("known_hosts.bak"))?;
     }
-    std::fs::write(&path, &new_content)?;
+    std::fs::write(&path, content)?;
     Ok(())
 }
 
@@ -123,4 +173,39 @@ pub fn public_key_content_from_scan(
         key_type: parsed.algorithm().as_str().to_string(),
         comment: entry.comment.clone(),
     })
+}
+
+#[cfg(test)]
+mod host_validation_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_invalid_targets() {
+        for host in [
+            "",
+            "-oProxyCommand=evil",
+            "two words",
+            "host\nother",
+            "a/b",
+            "user@host",
+        ] {
+            assert!(validate_target(host, 22).is_err());
+        }
+        assert!(validate_target("example.com", 0).is_err());
+        assert!(validate_target("example.com", 22).is_ok());
+        assert!(validate_target("2001:db8::1", 2202).is_ok());
+    }
+
+    #[test]
+    fn rejects_mismatched_scan_before_touching_known_hosts() {
+        let entry = HostKeyEntry {
+            host: "other.example".to_owned(),
+            port: 22,
+            key_type: "ssh-ed25519".to_owned(),
+            key: "invalid".to_owned(),
+            comment: String::new(),
+            fingerprint: "SHA256:fake".to_owned(),
+        };
+        assert!(append_host_key("example.com", 22, &entry).is_err());
+    }
 }

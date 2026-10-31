@@ -44,6 +44,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Runner CLI tests
+        run: pnpm test:runner
+
       - name: Build Vite
         run: pnpm build
 
