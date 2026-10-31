@@ -14,19 +14,7 @@ pub struct HostKeyEntry {
 }
 
 pub fn trusted_hosts_path() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE")
-        .map(|value| {
-            std::path::PathBuf::from(value)
-                .join("ssh")
-                .join("known_hosts")
-        })
-        .or_else(|| {
-            std::env::var_os("HOME").map(|value| {
-                std::path::PathBuf::from(value)
-                    .join(".ssh")
-                    .join("known_hosts")
-            })
-        })
+    crate::ssh::paths::ssh_dir().map(|dir| dir.join("known_hosts"))
 }
 
 pub async fn scan_host_key(host: &str, port: u16) -> Result<HostKeyEntry> {
