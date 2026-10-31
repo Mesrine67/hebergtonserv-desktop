@@ -4,6 +4,19 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::time::Duration;
 
+const MAX_RESPONSE_BYTES: usize = 1_048_576;
+
+fn append_bounded_response_chunk(out: &mut Vec<u8>, chunk: &[u8]) -> Result<()> {
+    if chunk.len() > MAX_RESPONSE_BYTES.saturating_sub(out.len()) {
+        return Err(app_error(
+            "api_response_too_large",
+            "Réponse du panneau trop volumineuse.",
+        ));
+    }
+    out.extend_from_slice(chunk);
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WispAccountResponse {
     pub user: Option<PanelUser>,
@@ -129,7 +142,7 @@ impl ApiClient {
             .await
             .map_err(|_| app_error("api_network", "Connexion au panneau refusée."))?;
         let status = response.status();
-        const MAX_RESPONSE_BYTES: usize = 1_048_576;
+        // Apply the same bound to declared lengths and streamed chunks.
         if response
             .content_length()
             .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
@@ -145,13 +158,7 @@ impl ApiClient {
             .await
             .map_err(|_| app_error("api_network", "Réponse du panneau illisible."))?
         {
-            if chunk.len() > MAX_RESPONSE_BYTES.saturating_sub(bytes.len()) {
-                return Err(app_error(
-                    "api_response_too_large",
-                    "Réponse du panneau trop volumineuse.",
-                ));
-            }
-            bytes.extend_from_slice(&chunk);
+            append_bounded_response_chunk(&mut bytes, &chunk)?;
         }
         if !status.is_success() {
             let error_value: Option<Value> = serde_json::from_slice(bytes.as_ref())
@@ -239,6 +246,22 @@ impl ApiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn limits_streamed_responses_without_reading_the_entire_body() {
+        let mut payload = vec![0u8; MAX_RESPONSE_BYTES - 1];
+        append_bounded_response_chunk(&mut payload, &[1]).unwrap();
+        let error = append_bounded_response_chunk(&mut payload, &[2]).unwrap_err();
+        assert_eq!(error.code(), "api_response_too_large");
+    }
+
+    #[test]
+    fn rejects_oversized_single_chunk_before_allocation() {
+        let mut payload = Vec::new();
+        let chunk = vec![0u8; MAX_RESPONSE_BYTES + 1];
+        assert!(append_bounded_response_chunk(&mut payload, &chunk).is_err());
+        assert!(payload.is_empty());
+    }
 
     #[test]
     fn rejects_missing_api_token_without_network_access() {

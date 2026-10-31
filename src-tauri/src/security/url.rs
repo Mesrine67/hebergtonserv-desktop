@@ -105,6 +105,28 @@ pub fn validate_panel_url(raw: &str, allow_local: bool) -> Result<Url> {
     Ok(url)
 }
 
+fn filter_resolved_addrs(
+    addresses: impl IntoIterator<Item = std::net::SocketAddr>,
+    allow_local: bool,
+) -> Result<Vec<std::net::SocketAddr>> {
+    let mut collected = Vec::new();
+    for address in addresses {
+        if is_blocked_ip(&address.ip()) && !(allow_local && address.ip().is_loopback()) {
+            return Err(app_error(
+                "invalid_url",
+                "Le panneau renvoie une adresse IP non autorisée.",
+            ));
+        }
+        collected.push(address);
+    }
+    if collected.is_empty() {
+        return Err(unavailable_error(
+            "Aucune adresse IP du panneau n'a été trouvée.",
+        ));
+    }
+    Ok(collected)
+}
+
 /// Resolves a hostname and rejects any loopback/private/link-local IP result.
 /// Called before the HTTP client connects, after DNS resolution.
 pub async fn resolve_allowed_addrs(
@@ -123,23 +145,7 @@ pub async fn resolve_allowed_addrs(
     let resolved = tokio::net::lookup_host(&target)
         .await
         .map_err(|_| unavailable_error("Le panneau est injoignable."))?;
-    let mut allowed = Vec::new();
-    for address in resolved {
-        let ip = address.ip();
-        if is_blocked_ip(&ip) && !(allow_local && ip.is_loopback()) {
-            return Err(app_error(
-                "invalid_url",
-                "Le panneau renvoie une adresse IP non autorisée.",
-            ));
-        }
-        allowed.push(address);
-    }
-    if allowed.is_empty() {
-        return Err(unavailable_error(
-            "Aucune adresse IP du panneau n'a été trouvée.",
-        ));
-    }
-    Ok(allowed)
+    filter_resolved_addrs(resolved, allow_local)
 }
 
 pub async fn verify_resolved_host(url: &Url, allow_local: bool) -> Result<()> {
@@ -149,6 +155,26 @@ pub async fn verify_resolved_host(url: &Url, allow_local: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn refuses_mixed_dns_answers_including_private_or_ipv6() {
+        let public = std::net::SocketAddr::from_str("8.8.8.8:443").unwrap();
+        let private = std::net::SocketAddr::from_str("192.168.1.2:443").unwrap();
+        let private_ipv6 = std::net::SocketAddr::from_str("[fc00::1]:443").unwrap();
+        assert!(filter_resolved_addrs([public], false).is_ok());
+        assert!(filter_resolved_addrs([public, private], false).is_err());
+        assert!(filter_resolved_addrs([public, private_ipv6], false).is_err());
+        assert!(filter_resolved_addrs(Vec::new(), false).is_err());
+    }
+
+    #[test]
+    fn only_local_loopback_override_is_allowed() {
+        let loopback = std::net::SocketAddr::from_str("127.0.0.1:443").unwrap();
+        let private = std::net::SocketAddr::from_str("10.0.0.1:443").unwrap();
+        assert!(filter_resolved_addrs([loopback], false).is_err());
+        assert!(filter_resolved_addrs([loopback], true).is_ok());
+        assert!(filter_resolved_addrs([loopback, private], true).is_err());
+    }
 
     #[test]
     fn rejects_non_https() {
