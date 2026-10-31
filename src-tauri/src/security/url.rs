@@ -15,22 +15,35 @@ fn is_blocked_ip(ip: &IpAddr) -> bool {
                 || value.is_link_local()
                 || value.is_private()
         }
-        IpAddr::V6(value) => value.is_loopback() || value.is_unspecified() || value.is_multicast(),
+        IpAddr::V6(value) => {
+            value.is_loopback()
+                || value.is_unspecified()
+                || value.is_multicast()
+                || value.is_unique_local()
+                || value.is_unicast_link_local()
+                || value
+                    .to_ipv4_mapped()
+                    .is_some_and(|mapped| is_blocked_ip(&IpAddr::V4(mapped)))
+        }
     }
 }
 
 fn host_is_blocked(host: &str, allow_local: bool) -> bool {
-    let value = host.to_string();
+    // url::Url::host_str() may include brackets around IPv6 literals.
+    let value = host
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .unwrap_or(host);
     if value.is_empty() {
         return true;
     }
     if value.eq_ignore_ascii_case("localhost") {
         return !allow_local;
     }
-    let Ok(ip) = IpAddr::from_str(&value) else {
+    let Ok(ip) = IpAddr::from_str(value) else {
         return false;
     };
-    is_blocked_ip(&ip)
+    is_blocked_ip(&ip) && !(allow_local && ip.is_loopback())
 }
 
 /// Validates a panel base URL: HTTPS only, no credentials, no query/fragment,
@@ -88,7 +101,10 @@ pub fn validate_panel_url(raw: &str, allow_local: bool) -> Result<Url> {
 
 /// Resolves a hostname and rejects any loopback/private/link-local IP result.
 /// Called before the HTTP client connects, after DNS resolution.
-pub async fn verify_resolved_host(url: &Url, allow_local: bool) -> Result<()> {
+pub async fn resolve_allowed_addrs(
+    url: &Url,
+    allow_local: bool,
+) -> Result<Vec<std::net::SocketAddr>> {
     if url.host_str().is_none() {
         return Err(app_error(
             "invalid_url",
@@ -101,17 +117,27 @@ pub async fn verify_resolved_host(url: &Url, allow_local: bool) -> Result<()> {
     let resolved = tokio::net::lookup_host(&target)
         .await
         .map_err(|_| unavailable_error("Le panneau est injoignable."))?;
+    let mut allowed = Vec::new();
     for address in resolved {
         let ip = address.ip();
-        let blocked = is_blocked_ip(&ip);
-        if blocked && !(allow_local && ip.is_loopback()) {
+        if is_blocked_ip(&ip) && !(allow_local && ip.is_loopback()) {
             return Err(app_error(
                 "invalid_url",
-                "Le hôte du panneau renvoie une adresse non autorisée.",
+                "Le panneau renvoie une adresse IP non autorisée.",
             ));
         }
+        allowed.push(address);
     }
-    Ok(())
+    if allowed.is_empty() {
+        return Err(unavailable_error(
+            "Aucune adresse IP du panneau n'a été trouvée.",
+        ));
+    }
+    Ok(allowed)
+}
+
+pub async fn verify_resolved_host(url: &Url, allow_local: bool) -> Result<()> {
+    resolve_allowed_addrs(url, allow_local).await.map(|_| ())
 }
 
 #[cfg(test)]
@@ -132,6 +158,20 @@ mod tests {
     #[test]
     fn rejects_credentials() {
         assert!(validate_panel_url("https://user:pass@example.com/", false).is_err());
+    }
+
+    #[test]
+    fn rejects_private_ipv6_and_mapped_ipv4() {
+        assert!(validate_panel_url("https://[fc00::1]/", false).is_err());
+        assert!(validate_panel_url("https://[fe80::1]/", false).is_err());
+        assert!(validate_panel_url("https://[::ffff:127.0.0.1]/", false).is_err());
+    }
+
+    #[test]
+    fn explicit_local_override_only_allows_loopback() {
+        assert!(validate_panel_url("https://localhost/", true).is_ok());
+        assert!(validate_panel_url("https://127.0.0.1/", true).is_ok());
+        assert!(validate_panel_url("https://192.168.1.4/", true).is_err());
     }
 
     #[test]

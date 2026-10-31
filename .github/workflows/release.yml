@@ -31,8 +31,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Rust
-        run: rustc --version && cargo --version
+      - name: Resolve installed Rust toolchain
+        shell: pwsh
+        run: |
+          $bin = Join-Path $env:USERPROFILE '.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin'
+          if (-not (Test-Path (Join-Path $bin 'cargo.exe'))) {
+            throw 'Rust MSVC toolchain not installed on the Windows runner.'
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $bin -Encoding utf8
+          & (Join-Path $bin 'rustc.exe') --version
+          & (Join-Path $bin 'cargo.exe') --version
 
       - name: Rust cache
         uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
@@ -55,6 +63,25 @@ jobs:
         run: |
           if ([string]::IsNullOrWhiteSpace($env:UPDATER_KEY)) {
             throw "Missing TAURI_SIGNING_PRIVATE_KEY; refusing to publish unsigned updater artifacts."
+          }
+      - name: Validate release tag and updater configuration
+        shell: pwsh
+        run: |
+          $config = Get-Content -LiteralPath 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          if ($env:GITHUB_REF_NAME -ne ('v' + $config.version)) {
+            throw 'Tag and Tauri version mismatch; refusing release.'
+          }
+          if ($config.bundle.createUpdaterArtifacts -ne $true -or
+              -not $config.plugins -or
+              -not $config.plugins.updater -or
+              [string]::IsNullOrWhiteSpace($config.plugins.updater.pubkey) -or
+              -not $config.plugins.updater.endpoints) {
+            throw 'Updater public key, HTTPS endpoints and signed artifact generation must be configured before releasing.'
+          }
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Release tag must reference a commit reachable from main.'
           }
       - name: Build and publish signed update artifacts
         id: tauri

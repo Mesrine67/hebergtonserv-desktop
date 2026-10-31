@@ -61,7 +61,7 @@ impl PanelProvider for PterodactylProvider {
     }
 
     async fn account(&self) -> Result<PanelAccount> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         client.get_account_pterodactyl().await.map(|user| {
             let attributes = user.map(|user| user.attributes).unwrap_or_default();
             let display_name = if attributes.first_name.is_some() || attributes.last_name.is_some()
@@ -85,7 +85,7 @@ impl PanelProvider for PterodactylProvider {
     }
 
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let result = client
             .send_json::<ApiKeyListResponse>(
                 reqwest::Method::GET,
@@ -113,7 +113,7 @@ impl PanelProvider for PterodactylProvider {
         description: &str,
         allowed_ips: &[String],
     ) -> Result<Capability<CreatedPanelApiKey>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let mut body = serde_json::json!({ "description": description });
         if !allowed_ips.is_empty() {
             body["allowed_ips"] = serde_json::json!(allowed_ips);
@@ -148,7 +148,7 @@ impl PanelProvider for PterodactylProvider {
     }
 
     async fn revoke_api_key(&self, identifier: &str) -> Result<Capability<()>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let result = client
             .send_json::<serde_json::Value>(
                 reqwest::Method::DELETE,
@@ -172,7 +172,7 @@ impl PanelProvider for PterodactylProvider {
     }
 
     async fn list_ssh_keys(&self) -> Result<Capability<Vec<PanelSshKey>>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let result = client
             .send_json::<SshKeyListResponse>(
                 reqwest::Method::GET,
@@ -200,7 +200,7 @@ impl PanelProvider for PterodactylProvider {
         name: &str,
         public_key: &str,
     ) -> Result<Capability<PanelSshKey>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let body = serde_json::json!({ "name": name, "public_key": public_key });
         let result = client
             .send_json::<PanelSshKey>(
@@ -225,7 +225,7 @@ impl PanelProvider for PterodactylProvider {
     }
 
     async fn delete_ssh_key(&self, fingerprint: &str) -> Result<Capability<()>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let body = serde_json::json!({ "fingerprint": fingerprint });
         let result = client
             .send_json::<serde_json::Value>(

@@ -6,6 +6,7 @@ use crate::providers::{PanelProvider, ProviderKind};
 use crate::security::url;
 use crate::storage::Storage;
 use crate::storage::models::{PanelConfig, PanelsDocument};
+use keyring::Entry;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -18,20 +19,42 @@ pub struct PanelCheckResult {
     pub ssh_keys_supported: bool,
 }
 
-fn provider_for(panel: &PanelConfig) -> Box<dyn PanelProvider> {
+fn credential_entry(panel_id: &str) -> Result<Entry> {
+    Entry::new("hebergtonserv-desktop.panel", panel_id).map_err(|_| {
+        app_error(
+            "panel_keyring",
+            "Le coffre de secrets Windows est indisponible.",
+        )
+    })
+}
+
+fn provider_for(panel: &PanelConfig) -> Result<Box<dyn PanelProvider>> {
     let base_url = panel.base_url.clone();
-    let token = String::new();
+    let token = credential_entry(&panel.id)?.get_password().map_err(|_| {
+        app_error(
+            "api_token",
+            "Configurez le jeton API du panneau dans les paramètres.",
+        )
+    })?;
+    if token.trim().is_empty() {
+        return Err(app_error("api_token", "Le jeton API du panneau est vide."));
+    }
     let allow_local = panel.allow_local;
     let version = panel.pterodactyl_version.clone();
     if panel.provider == ProviderKind::Pterodactyl.as_str() {
-        Box::new(PterodactylProvider::new(
+        Ok(Box::new(PterodactylProvider::new(
             &base_url,
             &token,
             allow_local,
             &version,
-        ))
+        )))
     } else {
-        Box::new(WispProvider::new(&base_url, &token, allow_local, &version))
+        Ok(Box::new(WispProvider::new(
+            &base_url,
+            &token,
+            allow_local,
+            &version,
+        )))
     }
 }
 
@@ -66,6 +89,41 @@ pub async fn save_panel(
 }
 
 #[tauri::command]
+pub async fn set_panel_token(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    token: String,
+) -> Result<()> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    if !document.data.panels.iter().any(|p| p.id == id) {
+        return Err(app_error("panel_not_found", "Panneau introuvable."));
+    }
+    if token.trim().is_empty() || token.len() > 4096 {
+        return Err(app_error("api_token", "Jeton API vide ou trop long."));
+    }
+    credential_entry(&id)?
+        .set_password(token.trim())
+        .map_err(|_| {
+            app_error(
+                "panel_keyring",
+                "Impossible de sauvegarder le jeton dans le coffre Windows.",
+            )
+        })
+}
+
+#[tauri::command]
+pub async fn panel_token_configured(state: tauri::State<'_, AppState>, id: String) -> Result<bool> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    if !document.data.panels.iter().any(|p| p.id == id) {
+        return Err(app_error("panel_not_found", "Panneau introuvable."));
+    }
+    Ok(credential_entry(&id)?
+        .get_password()
+        .map(|s| !s.is_empty())
+        .unwrap_or(false))
+}
+
+#[tauri::command]
 pub async fn delete_panel(
     _app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
@@ -73,6 +131,9 @@ pub async fn delete_panel(
 ) -> Result<()> {
     let mut document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
     document.data.panels.retain(|panel| panel.id != id);
+    if let Ok(entry) = credential_entry(&id) {
+        let _ = entry.delete_credential();
+    }
     Storage::write_json(&state.storage.panels_path, &document, 1)?;
     Ok(())
 }
@@ -93,7 +154,7 @@ pub async fn create_panel_api_key(
         .find(|p| p.id == panel_id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    let provider = provider_for(&panel);
+    let provider = provider_for(&panel)?;
     let result = provider.create_api_key(&description, &allowed_ips).await?;
     if !result.supported {
         return Err(app_error(
@@ -124,7 +185,7 @@ pub async fn create_panel_ssh_key(
         .find(|p| p.id == panel_id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    let provider = provider_for(&panel);
+    let provider = provider_for(&panel)?;
     let result = provider.create_ssh_key(&name, &public_key).await?;
     if !result.supported {
         return Err(app_error(
@@ -154,7 +215,7 @@ pub async fn revoke_panel_api_key(
         .find(|p| p.id == panel_id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    let provider = provider_for(&panel);
+    let provider = provider_for(&panel)?;
     let result = provider.revoke_api_key(&identifier).await?;
     if !result.supported {
         return Err(app_error(
@@ -182,7 +243,7 @@ pub async fn delete_panel_ssh_key(
         .find(|p| p.id == panel_id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    let provider = provider_for(&panel);
+    let provider = provider_for(&panel)?;
     let result = provider.delete_ssh_key(&fingerprint).await?;
     if !result.supported {
         return Err(app_error(
@@ -209,7 +270,7 @@ pub async fn check_panel(
         .find(|panel| panel.id == id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    let provider = provider_for(&panel);
+    let provider = provider_for(&panel)?;
     let url = url::validate_panel_url(&panel.base_url, panel.allow_local)?;
     url::verify_resolved_host(&url, panel.allow_local).await?;
     let account = provider.account().await?;

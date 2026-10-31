@@ -133,6 +133,8 @@ pub fn run() {
             commands::panels::list_panels,
             commands::panels::save_panel,
             commands::panels::delete_panel,
+            commands::panels::set_panel_token,
+            commands::panels::panel_token_configured,
             commands::panels::check_panel,
             commands::panels::create_panel_api_key,
             commands::panels::create_panel_ssh_key,
