@@ -54,7 +54,13 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile --offline --reporter append-only
+          if ($LASTEXITCODE -ne 0) {
+            pnpm install --frozen-lockfile --fetch-retries=1 --fetch-timeout=30000 --reporter append-only
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Ensure updater signing is configured
         shell: pwsh
@@ -99,6 +105,38 @@ jobs:
           tauriScript: pnpm tauri
           args: ${{ matrix.args }}
           includeUpdaterJson: true
+
+      - name: Build standalone runner manager for Windows
+        shell: pwsh
+        run: |
+          & ./scripts/build-runner.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Attach standalone runner manager to draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload $env:GITHUB_REF_NAME "dist-runner/hebergtonserv-runner-manager.exe" --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify draft release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(gh release view $env:GITHUB_REF_NAME --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($required in @('latest.json', 'hebergtonserv-runner-manager.exe')) {
+            if ($assets -notcontains $required) { throw "Missing release asset: $required" }
+          }
+          if (-not ($assets | Where-Object { $_ -like '*setup.exe' }) -or
+              -not ($assets | Where-Object { $_ -like '*setup.exe.sig' }) -or
+              -not ($assets | Where-Object { $_ -like '*.msi' }) -or
+              -not ($assets | Where-Object { $_ -like '*.msi.sig' })) {
+            throw 'Unsigned or incomplete Tauri release; keep draft.'
+          }
+          Write-Output ("Verified " + $assets.Count + " draft release assets.")
 
       - name: Release summary
         if: steps.tauri.outputs.releaseHtmlUrl != ''

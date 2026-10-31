@@ -1,7 +1,7 @@
 {
   "name": "hebergtonserv-desktop",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement",
   "type": "module",
   "packageManager": "pnpm@12.15.0",
@@ -11,7 +11,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:runner": "node --test scripts/__tests__/runner-cli.check.mjs",
+    "test:runner": "node --test scripts/__tests__/runner-cli.check.mjs scripts/__tests__/project-sync.check.mjs scripts/__tests__/project-sync.check.mjs",
     "test:watch": "vitest",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "tauri": "tauri",
@@ -22,7 +22,8 @@
     "runner:status": "node scripts/runner.mjs status",
     "runner:doctor": "node scripts/runner.mjs doctor",
     "runner:jobs": "node scripts/runner.mjs jobs",
-    "runner:tui": "node scripts/runner.mjs tui"
+    "runner:tui": "node scripts/runner.mjs tui",
+    "runner:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-runner.ps1"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

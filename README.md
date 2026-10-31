@@ -68,3 +68,7 @@ Les versions sont publiées automatiquement par le workflow `Release` à chaque 
 ## Licence
 
 Ce projet est distribué sous **LGPL-3.0 ou ultérieure**. Le texte complet se trouve dans `LICENSE` et les attributions dans `NOTICE.md`.
+
+## Gestionnaire de runner Windows
+
+Le gestionnaire CLI/TUI autonome, ses commandes, ses limitations de sécurité et le mode GitHub Projects sans doublons sont documentés dans [docs/runner-manager.md](docs/runner-manager.md). Pour compiler un `.exe` autonome : `pnpm runner:build`. Pour lancer ses tests : `pnpm test:runner`.

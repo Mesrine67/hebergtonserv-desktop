@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { promisify } from 'node:util';
 import readline from 'node:readline';
+import { syncProject } from './project-sync.mjs';
 
 const execAsync = promisify(execFile);
 const args = process.argv.slice(2);
@@ -146,6 +147,7 @@ function printHelp() {
   console.log('Open: open issue 13 | open pr 30 | open run 123456 | open project');
   console.log('TUI: [R]afraîchir, [J]obs, [W]orkflows, [T]ickets/Projects, [P]R, [I]ssues, [L]ogs, [D]octor, [Q]uitter');
   console.log('Mode --offline : diagnostics locaux sans GitHub (pour tests et dépannage).');
+  console.log('Projects : projects sync --dry-run (par défaut) ou projects sync --apply pour ajouter les issues absentes sans doublons.');
   console.log('Les commandes stop/restart brutales sont volontairement désactivées.');
 }
 
@@ -228,6 +230,17 @@ async function main() {
   if (command === 'doctor') return doctor();
   if (command === 'tui') return tui();
   if (command === 'open') return openGithubTarget();
+  if (command === 'projects' && args[1] === 'sync') {
+    const result = await syncProject({
+      repo,
+      projectNumber,
+      apply: args.includes('--apply'),
+      offline: offlineMode
+    });
+    if (jsonMode) console.log(JSON.stringify(result, null, 2));
+    else console.log((result.dryRun ? '[DRY RUN] ' : '[APPLIQUÉ] ') + result.missing.length + ' issues absentes du projet #' + projectNumber);
+    return;
+  }
   if (command === 'workflows' || command === 'projects') {
     const limit = Math.min(100, Math.max(1, Number(flag('--limit', '20')) || 20));
     const data = command === 'workflows' ? await readWorkflows() : await readProjects(limit);
