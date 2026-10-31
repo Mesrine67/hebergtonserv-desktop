@@ -31,3 +31,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Locally compiled runner manager
+dist-runner/
