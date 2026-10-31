@@ -155,6 +155,8 @@ export const commands = {
   savePanel: (panel: PanelConfig) => invoke<void>("save_panel", { panel }),
   deletePanel: (id: string) => invoke<void>("delete_panel", { id }),
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
+  setPanelToken: (id: string, token: string) => invoke<void>("set_panel_token", { id, token }),
+  panelTokenConfigured: (id: string) => invoke<boolean>("panel_token_configured", { id }),
   createPanelApiKey: (panelId: string, description: string, allowedIps: string[]) =>
     invoke<unknown>("create_panel_api_key", { panelId, description, allowedIps }),
   createPanelSshKey: (panelId: string, name: string, publicKey: string) =>

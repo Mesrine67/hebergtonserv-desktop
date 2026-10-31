@@ -37,12 +37,12 @@ impl PanelProvider for WispProvider {
     }
 
     async fn account(&self) -> Result<PanelAccount> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         client.get_account().await
     }
 
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let result = client
             .send_json::<crate::providers::http::PanelListResponse<PanelApiKey>>(
                 reqwest::Method::GET,
@@ -86,7 +86,7 @@ impl PanelProvider for WispProvider {
     }
 
     async fn list_ssh_keys(&self) -> Result<Capability<Vec<PanelSshKey>>> {
-        let client = ApiClient::new(&self.base_url, &self.token, self.accept())?;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let result = client
             .send_json::<crate::providers::http::PanelListResponse<PanelSshKey>>(
                 reqwest::Method::GET,
