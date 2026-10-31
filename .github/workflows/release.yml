@@ -62,9 +62,9 @@ jobs:
       - name: Install frontend dependencies
         shell: pwsh
         run: |
-          pnpm install --frozen-lockfile --offline --reporter append-only
+          pnpm install --frozen-lockfile --offline --force --ignore-scripts --reporter append-only
           if ($LASTEXITCODE -ne 0) {
-            pnpm install --frozen-lockfile --fetch-retries=1 --fetch-timeout=30000 --reporter append-only
+            pnpm install --frozen-lockfile --force --ignore-scripts --fetch-retries=1 --fetch-timeout=30000 --reporter append-only
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
