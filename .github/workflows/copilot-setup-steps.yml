@@ -3,9 +3,11 @@ name: Copilot setup steps
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - .github/workflows/copilot-setup-steps.yml
   pull_request:
+    branches: [main]
     paths:
       - .github/workflows/copilot-setup-steps.yml
 
@@ -14,6 +16,8 @@ permissions:
 
 jobs:
   copilot-setup-steps:
+    # Never execute code from fork PRs or retargeted release tags on a personal Windows runner.
+    if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 59
     permissions:
