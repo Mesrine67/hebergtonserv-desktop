@@ -32,6 +32,15 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(base_url: &str, token: &str, accept: &str) -> Result<Self> {
+        if base_url.trim().is_empty() {
+            return Err(app_error("api_config", "L'URL du panneau est requise."));
+        }
+        if token.trim().is_empty() {
+            return Err(app_error(
+                "api_token",
+                "Le jeton API du panneau est requis.",
+            ));
+        }
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(20))
             .connect_timeout(Duration::from_secs(10))
@@ -71,6 +80,12 @@ impl ApiClient {
             .bytes()
             .await
             .map_err(|_| app_error("api_network", "Réponse du panneau illisible."))?;
+        if bytes.len() > 1_048_576 {
+            return Err(app_error(
+                "api_response_too_large",
+                "Réponse du panneau trop volumineuse.",
+            ));
+        }
         if !status.is_success() {
             let error_value: Option<Value> = serde_json::from_slice(bytes.as_ref())
                 .ok()
