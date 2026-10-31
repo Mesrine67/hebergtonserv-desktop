@@ -91,9 +91,23 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Hide to tray instead of closing
-                let _ = window.hide();
-                api.prevent_close();
+                // Respect the user setting; otherwise allow the application to close.
+                let should_hide = window
+                    .app_handle()
+                    .try_state::<AppState>()
+                    .and_then(|state| {
+                        Storage::read_json(
+                            &state.storage.settings_path,
+                            crate::storage::models::SettingsDocument::default(),
+                        )
+                        .ok()
+                    })
+                    .map(|settings| settings.data.close_to_tray)
+                    .unwrap_or(false);
+                if should_hide {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
