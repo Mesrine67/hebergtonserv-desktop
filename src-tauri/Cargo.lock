@@ -2044,7 +2044,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
-10.1.72
+name = "hebergtonserv-desktop"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
