@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { commands } from "../lib/tauri";
 import { toast } from "sonner";
+import UpdaterSection from "../components/UpdaterSection";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -74,6 +75,7 @@ export default function SettingsPage() {
           </label>
         </div>
       )}
+      <UpdaterSection />
     </div>
   );
 }
