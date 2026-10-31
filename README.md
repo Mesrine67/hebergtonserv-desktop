@@ -34,6 +34,15 @@ pnpm tauri build
 
 L'installateur NSIS et le MSI sont produits dans `src-tauri/target/release/bundle/`.
 
+## Mises à jour
+
+Les versions sont publiées automatiquement par le workflow `Release` à chaque tag `v*` :
+
+- `tauri-plugin-updater` vérifie `https://github.com/Mesrine67/hebergtonserv-desktop/releases/latest/download/latest.json`.
+- Les artefacts (NSIS `.exe`, MSI, signatures `.sig`, `latest.json`) sont signés avec minisign.
+- La clé publique est dans `src-tauri/tauri.conf.json` ; la clé privée reste dans le secret GitHub `TAURI_SIGNING_PRIVATE_KEY`.
+- La vérification manuelle est disponible dans **Paramètres → Mises à jour**.
+
 ## Fonctionnalités
 
 | Fonctionnalité | État |
@@ -55,3 +64,7 @@ L'installateur NSIS et le MSI sont produits dans `src-tauri/target/release/bundl
 - L'authentification par mot de passe n'est pas testée automatiquement (BatchMode).
 - L'import depuis `~/.ssh/config` est disponible mais ne crée pas automatiquement les profils persistés (à importer manuellement).
 - Le tray icon et l'autostart sont déclarés mais peuvent nécessiter des ajustements selon l'environnement Windows.
+
+## Licence
+
+Ce projet est distribué sous **LGPL-3.0 ou ultérieure**. Le texte complet se trouve dans `LICENSE` et les attributions dans `NOTICE.md`.
