@@ -14,6 +14,20 @@ use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
+#[derive(serde::Serialize)]
+struct LocalIdentity {
+    username: String,
+    hostname: String,
+}
+
+#[tauri::command]
+fn get_local_identity() -> LocalIdentity {
+    LocalIdentity {
+        username: std::env::var("USERNAME").unwrap_or_else(|_| "Session locale".into()),
+        hostname: std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Appareil Windows".into()),
+    }
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -130,6 +144,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            get_local_identity,
             commands::ssh::list_ssh_keys,
             commands::ssh::generate_ssh_key,
             commands::ssh::import_public_key,

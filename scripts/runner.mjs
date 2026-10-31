@@ -17,7 +17,10 @@ const flag = (key, fallback) => {
 const runnerDir = resolve(flag('--runner-dir', process.env.HTS_RUNNER_DIR || 'C:/actions-runner'));
 const repo = flag('--repo', process.env.HTS_GITHUB_REPO || 'Mesrine67/hebergtonserv-desktop');
 const projectNumber = Number(flag('--project-number', process.env.HTS_PROJECT_NUMBER || '3'));
-const command = args[0] || 'status';
+// The packaged executable opens the TUI on double click; the Node CLI remains scriptable.
+const isStandalone = /hebergtonserv-runner-manager(?:\.exe)?$/i.test(process.execPath);
+const explorerLaunch = isStandalone && args.length === 0;
+const command = args[0] || (explorerLaunch ? 'tui' : 'status');
 const jsonMode = args.includes('--json');
 const offlineMode = args.includes('--offline');
 const runCmd = join(runnerDir, 'run.cmd');
@@ -151,8 +154,32 @@ function printHelp() {
   console.log('Les commandes stop/restart brutales sont volontairement désactivées.');
 }
 
+async function basicMenu() {
+  console.log('\nHébergTonServ Runner Manager — mode console');
+  console.log('Ouvrez Windows Terminal pour le TUI complet.');
+  console.log('Commandes : [S] Statut  [J] Jobs  [D] Diagnostic  [H] Aide  [Q] Quitter');
+  const rl = readline.createInterface({input: process.stdin, output: process.stdout});
+  try {
+    for await (const line of rl) {
+      const key = line.trim().toLowerCase();
+      if (key === 'q' || key === 'quit') break;
+      if (key === 's') {
+        const state = await readStatus();
+        console.log('Runner local :', state.local ? 'actif' : 'inactif');
+        console.log('GitHub :', state.github?.status || state.githubError || 'inconnu');
+      } else if (key === 'j') {
+        for (const job of await readRuns()) console.log((job.conclusion || job.status) + ' ' + job.name);
+      } else if (key === 'd') { await doctor(); }
+      else if (key === 'h' || key === 'help') { printHelp(); }
+      else console.log('S, J, D, H ou Q');
+      console.log('\n[S] Statut  [J] Jobs  [D] Diagnostic  [H] Aide  [Q] Quitter');
+    }
+  } finally { rl.close(); }
+}
+
 async function tui() {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || typeof process.stdin.setRawMode !== 'function') {
+    if (explorerLaunch) return basicMenu();
     throw new Error('Le TUI requiert un terminal interactif (Windows Terminal).');
   }
   let page = 'jobs';
@@ -274,4 +301,11 @@ async function main() {
   printHelp();
   process.exitCode = 2;
 }
-main().catch((error) => { console.error(redact(error.message || error)); process.exitCode = 1; });
+main().catch((error) => {
+  console.error(redact(error.message || error));
+  process.exitCode = 1;
+  if (explorerLaunch && process.platform === 'win32') {
+    // Keep a visible error when Explorer launches the executable.
+    try { execFileSync('cmd.exe', ['/c', 'pause'], {stdio: 'inherit'}); } catch {}
+  }
+});
