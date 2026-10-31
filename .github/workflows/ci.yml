@@ -56,6 +56,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Resolve Rust toolchain on Windows runner
+        shell: pwsh
+        run: |
+          $toolchainBin = Join-Path $env:USERPROFILE '.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin'
+          if (-not (Test-Path (Join-Path $toolchainBin 'cargo.exe'))) {
+            throw 'Stable Windows MSVC Rust toolchain not found. Install Rust with rustup.'
+          }
+          # The installed rustup proxy executables may be empty/corrupt on this runner.
+          # Prioritize the complete toolchain without modifying files in ~/.cargo/bin.
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $toolchainBin -Encoding utf8
+          & (Join-Path $toolchainBin 'cargo.exe') --version
+          & (Join-Path $toolchainBin 'rustc.exe') --version
+
       - name: Cache Rust
         uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         with:
