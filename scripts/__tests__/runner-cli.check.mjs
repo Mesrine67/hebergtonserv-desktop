@@ -57,3 +57,35 @@ test("open rejects invalid IDs without starting a browser", () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Usage: open/);
 });
+
+
+test("offline status is scriptable without GitHub access", () => {
+  const result = run("status", "--json", "--offline");
+  assert.equal(result.status, 0, result.stderr);
+  const status = JSON.parse(result.stdout);
+  assert.equal(status.offline, true);
+  assert.equal(status.github, null);
+  assert.match(status.githubError, /hors ligne/);
+  assert.equal(status.executableFound, false);
+});
+
+test("offline doctor returns diagnostics without attempting an API request", () => {
+  const result = run("doctor", "--json", "--offline");
+  assert.equal(result.status, 0, result.stderr);
+  const data = JSON.parse(result.stdout);
+  assert.equal(data.offline, true);
+  assert.equal(data.github, null);
+  assert.equal(typeof data.rustToolchainPresent, "boolean");
+});
+
+test("offline GitHub job listing is empty but valid JSON", () => {
+  const result = run("jobs", "--json", "--offline");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), []);
+});
+
+test("TUI gracefully refuses a non-interactive terminal", () => {
+  const result = run("tui", "--offline");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /terminal interactif/);
+});

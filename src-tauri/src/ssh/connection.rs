@@ -144,3 +144,24 @@ pub async fn open_ssh_connection(input: &TestConnectionInput<'_>) -> Result<()> 
         .map_err(|_| app_error("ssh_error", "Lancement du client SSH impossible."))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn ssh_test_and_interactive_session_share_known_hosts_path() {
+        let trusted = trusted_hosts_path().expect("SSH path");
+        assert_eq!(known_hosts_argument(), trusted.to_string_lossy());
+        let automated = base_args(None, true);
+        let interactive = base_args(None, false);
+        let expected = format!("UserKnownHostsFile={}", trusted.display());
+        assert!(automated.contains(&expected));
+        assert!(interactive.contains(&expected));
+        assert!(
+            automated
+                .iter()
+                .any(|arg| arg == "StrictHostKeyChecking=yes")
+        );
+    }
+}

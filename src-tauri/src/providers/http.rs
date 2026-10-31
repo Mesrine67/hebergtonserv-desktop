@@ -4,6 +4,19 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::time::Duration;
 
+const MAX_RESPONSE_BYTES: usize = 1_048_576;
+
+fn append_bounded_response_chunk(out: &mut Vec<u8>, chunk: &[u8]) -> Result<()> {
+    if chunk.len() > MAX_RESPONSE_BYTES.saturating_sub(out.len()) {
+        return Err(app_error(
+            "api_response_too_large",
+            "Réponse du panneau trop volumineuse.",
+        ));
+    }
+    out.extend_from_slice(chunk);
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WispAccountResponse {
     pub user: Option<PanelUser>,
@@ -62,6 +75,24 @@ fn deserialize_success<T: DeserializeOwned>(
             "Réponse de l'API du panneau illisible.",
         )
     })
+}
+
+/// Preserve structured panel API errors. A JSON object cannot be
+/// deserialized as a borrowed byte slice and then parsed a second time.
+fn parse_panel_error_detail(status: reqwest::StatusCode, bytes: &[u8]) -> String {
+    let error_value: Option<Value> = serde_json::from_slice(bytes).ok();
+    error_value
+        .as_ref()
+        .and_then(|value| value.get("message").and_then(Value::as_str))
+        .or_else(|| {
+            error_value
+                .as_ref()
+                .and_then(|value| value.get("errors").and_then(Value::as_array))
+                .and_then(|errors| errors.first())
+                .and_then(|error| error.get("detail").and_then(Value::as_str))
+        })
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("Réponse HTTP {status}"))
 }
 
 impl ApiClient {
@@ -129,7 +160,7 @@ impl ApiClient {
             .await
             .map_err(|_| app_error("api_network", "Connexion au panneau refusée."))?;
         let status = response.status();
-        const MAX_RESPONSE_BYTES: usize = 1_048_576;
+        // Apply the same bound to declared lengths and streamed chunks.
         if response
             .content_length()
             .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
@@ -145,35 +176,10 @@ impl ApiClient {
             .await
             .map_err(|_| app_error("api_network", "Réponse du panneau illisible."))?
         {
-            if chunk.len() > MAX_RESPONSE_BYTES.saturating_sub(bytes.len()) {
-                return Err(app_error(
-                    "api_response_too_large",
-                    "Réponse du panneau trop volumineuse.",
-                ));
-            }
-            bytes.extend_from_slice(&chunk);
+            append_bounded_response_chunk(&mut bytes, &chunk)?;
         }
         if !status.is_success() {
-            let error_value: Option<Value> = serde_json::from_slice(bytes.as_ref())
-                .ok()
-                .and_then(|slice| serde_json::from_slice::<Value>(slice).ok());
-            let detail = error_value
-                .as_ref()
-                .and_then(|value| value.get("message").and_then(|message| message.as_str()))
-                .map(|value| value.to_string())
-                .or_else(|| {
-                    error_value.as_ref().and_then(|value| {
-                        value
-                            .get("errors")
-                            .and_then(|errors| errors.as_array())
-                            .and_then(|errors| errors.first())
-                            .and_then(|error| {
-                                error.get("detail").and_then(|detail| detail.as_str())
-                            })
-                            .map(|detail| detail.to_string())
-                    })
-                })
-                .unwrap_or_else(|| format!("Réponse HTTP {}", status));
+            let detail = parse_panel_error_detail(status, bytes.as_ref());
             return Err(http_error(http_error_code(status), detail));
         }
         deserialize_success(status, bytes.as_ref())
@@ -239,6 +245,47 @@ impl ApiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+
+    fn limits_streamed_responses_without_reading_the_entire_body() {
+        let mut payload = vec![0u8; MAX_RESPONSE_BYTES - 1];
+        append_bounded_response_chunk(&mut payload, &[1]).unwrap();
+        let error = append_bounded_response_chunk(&mut payload, &[2]).unwrap_err();
+        assert_eq!(error.code(), "api_response_too_large");
+    }
+
+    #[test]
+    fn rejects_oversized_single_chunk_before_allocation() {
+        let mut payload = Vec::new();
+        let chunk = vec![0u8; MAX_RESPONSE_BYTES + 1];
+        assert!(append_bounded_response_chunk(&mut payload, &chunk).is_err());
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn preserves_panel_error_messages_for_authentication_failures() {
+        let error = parse_panel_error_detail(
+            reqwest::StatusCode::UNAUTHORIZED,
+            br#"{"message":"API token invalid"}"#,
+        );
+        assert_eq!(error, "API token invalid");
+        assert_eq!(
+            http_error_code(reqwest::StatusCode::UNAUTHORIZED),
+            "api_auth_failed"
+        );
+    }
+
+    #[test]
+    fn preserves_pterodactyl_error_details_and_falls_back_on_invalid_json() {
+        let detail = parse_panel_error_detail(
+            reqwest::StatusCode::FORBIDDEN,
+            br#"{"errors":[{"detail":"Permission denied"}]}"#,
+        );
+        assert_eq!(detail, "Permission denied");
+        let fallback = parse_panel_error_detail(reqwest::StatusCode::FORBIDDEN, b"{broken");
+        assert!(fallback.starts_with("Réponse HTTP 403"));
+    }
 
     #[test]
     fn rejects_missing_api_token_without_network_access() {

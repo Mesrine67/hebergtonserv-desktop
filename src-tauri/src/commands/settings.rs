@@ -6,10 +6,19 @@ use tauri_plugin_autostart::ManagerExt;
 
 #[tauri::command]
 pub async fn get_settings(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<SettingsDocument> {
-    Storage::read_json(&state.storage.settings_path, SettingsDocument::default())
+    let mut settings =
+        Storage::read_json(&state.storage.settings_path, SettingsDocument::default())?;
+    // Read Windows autostart registration, not the potentially stale JSON cache.
+    settings.data.start_with_windows = app.autolaunch().is_enabled().map_err(|_| {
+        crate::errors::app_error(
+            "autostart_state_error",
+            "Impossible de lire l'état du démarrage automatique Windows.",
+        )
+    })?;
+    Ok(settings)
 }
 
 #[tauri::command]
