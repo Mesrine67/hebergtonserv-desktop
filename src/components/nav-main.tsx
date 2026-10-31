@@ -12,6 +12,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 export type NavSection = {
@@ -22,17 +23,17 @@ export type NavSection = {
 
 export function NavMain({ items }: { items: NavSection[] }) {
   const location = useLocation();
+  const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Navigation</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((section) => {
-          const selected = section.items.some((entry) => entry.url === location.pathname);
           return (
             <Collapsible key={section.title} asChild defaultOpen className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={section.title} isActive={selected}>
+                  <SidebarMenuButton tooltip={section.title} aria-label={"Afficher ou masquer " + section.title} onClick={() => { if (state === "collapsed") setOpen(true); }}>
                     <section.icon className="size-4 shrink-0" aria-hidden="true" />
                     <span>{section.title}</span>
                     <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" aria-hidden="true" />
@@ -42,8 +43,8 @@ export function NavMain({ items }: { items: NavSection[] }) {
                   <SidebarMenuSub>
                     {section.items.map((entry) => (
                       <SidebarMenuSubItem key={entry.url}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === entry.url}>
-                          <NavLink to={entry.url}>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === entry.url} aria-current={location.pathname === entry.url ? "page" : undefined}>
+                          <NavLink to={entry.url} onClick={() => { if (isMobile) setOpenMobile(false); }}>
                             <span>{entry.title}</span>
                           </NavLink>
                         </SidebarMenuSubButton>
