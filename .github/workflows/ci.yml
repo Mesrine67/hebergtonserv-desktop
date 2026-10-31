@@ -33,7 +33,16 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: pwsh
+        run: |
+          # The Windows self-hosted runner has a populated pnpm content store.
+          # Prefer it to avoid long registry stalls; fall back only when incomplete.
+          pnpm install --frozen-lockfile --offline --reporter append-only
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning 'Offline pnpm store incomplete; retrying with bounded registry requests.'
+            pnpm install --frozen-lockfile --fetch-retries=1 --fetch-timeout=30000 --reporter append-only
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Typecheck
         run: pnpm typecheck

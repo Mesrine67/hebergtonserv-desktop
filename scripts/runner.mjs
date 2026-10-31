@@ -18,6 +18,7 @@ const repo = flag('--repo', process.env.HTS_GITHUB_REPO || 'Mesrine67/hebergtons
 const projectNumber = Number(flag('--project-number', process.env.HTS_PROJECT_NUMBER || '3'));
 const command = args[0] || 'status';
 const jsonMode = args.includes('--json');
+const offlineMode = args.includes('--offline');
 const runCmd = join(runnerDir, 'run.cmd');
 const color = (code, text) => process.stdout.isTTY ? '\x1b[' + code + 'm' + text + '\x1b[0m' : text;
 const redact = (line) => String(line)
@@ -34,6 +35,7 @@ function isActive() {
 }
 
 async function ghJson(argv) {
+  if (offlineMode) return { data: null, error: 'Mode hors ligne : GitHub non interrogé.' };
   try {
     const { stdout } = await execAsync('gh', argv, { encoding: 'utf8', timeout: 12000, windowsHide: true, maxBuffer: 1024 * 1024 });
     return { data: JSON.parse(stdout), error: null };
@@ -47,7 +49,7 @@ async function readStatus() {
   const api = await ghJson(['api', 'repos/' + repo + '/actions/runners']);
   const runners = api.data?.runners || [];
   const github = runners.find((r) => r.name === 'hebergtonserv-runner') || runners.find((r) => r.labels?.some((label) => label.name === 'Windows')) || null;
-  return { local, runnerDir, executableFound: existsSync(runCmd), github: github ? { name: github.name, status: github.status, busy: github.busy, labels: github.labels?.map((x) => x.name) || [] } : null, githubError: api.error };
+  return { local, offline: offlineMode, runnerDir, executableFound: existsSync(runCmd), github: github ? { name: github.name, status: github.status, busy: github.busy, labels: github.labels?.map((x) => x.name) || [] } : null, githubError: api.error };
 }
 
 async function readRuns(limit = 8) {
@@ -140,9 +142,10 @@ async function doctor() {
 function printHelp() {
   console.log('HébergTonServ Runner Manager');
   console.log('Usage: node scripts/runner.mjs <status|doctor|jobs|workflows|projects|prs|issues|logs|open|start|stop|tui> [options]');
-  console.log('Options: --json, --repo OWNER/REPO, --runner-dir PATH, --project-number N, --limit N, --lines N');
+  console.log('Options: --json, --offline, --repo OWNER/REPO, --runner-dir PATH, --project-number N, --limit N, --lines N');
   console.log('Open: open issue 13 | open pr 30 | open run 123456 | open project');
   console.log('TUI: [R]afraîchir, [J]obs, [W]orkflows, [T]ickets/Projects, [P]R, [I]ssues, [L]ogs, [D]octor, [Q]uitter');
+  console.log('Mode --offline : diagnostics locaux sans GitHub (pour tests et dépannage).');
   console.log('Les commandes stop/restart brutales sont volontairement désactivées.');
 }
 
