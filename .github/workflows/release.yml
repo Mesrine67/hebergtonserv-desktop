@@ -17,6 +17,9 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     strategy:
       fail-fast: false
       matrix:
@@ -126,6 +129,19 @@ jobs:
           gh release upload $env:GITHUB_REF_NAME "dist-runner/hebergtonserv-runner-manager.exe" --clobber
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Upload experimental app and checksums
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & ./scripts/release-assets.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Attest release files on GitHub
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: 'dist-release/*'
+
       - name: Verify draft release assets
         shell: pwsh
         env:
@@ -142,7 +158,19 @@ jobs:
               -not ($assets | Where-Object { $_ -like '*.msi.sig' })) {
             throw 'Unsigned or incomplete Tauri release; keep draft.'
           }
-          Write-Output ("Verified " + $assets.Count + " draft release assets.")
+          if ($assets.Count -ne 8 -or -not ($assets | Where-Object { $_ -like '*standalone-experimental.exe' })) {
+            throw 'Expected eight release assets including standalone app and checksums.'
+          }
+          $manifest = Get-Content 'dist-release/latest.json' -Raw | ConvertFrom-Json
+          $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          if ($manifest.version -ne $config.version) { throw 'Updater JSON version mismatch.' }
+          foreach ($platform in @('windows-x86_64','windows-x86_64-msi','windows-x86_64-nsis')) {
+            $item = $manifest.platforms.$platform
+            if (-not $item -or -not $item.signature -or -not $item.url) {
+              throw "Missing signed updater entry for $platform"
+            }
+          }
+          Write-Output ("Verified " + $assets.Count + " release assets.")
 
       - name: Release summary
         if: steps.tauri.outputs.releaseHtmlUrl != ''
