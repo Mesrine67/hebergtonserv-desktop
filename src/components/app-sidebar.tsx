@@ -2,6 +2,10 @@ import {
   AppWindow, KeyRound, LockKeyhole, ServerCog, Settings2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
+import { isTauri } from "@tauri-apps/api/core";
+import { version as buildVersion } from "../../package.json";
 import { NavMain } from "@/components/nav-main";
 import {
   Sidebar,
@@ -40,6 +44,12 @@ const sections = [
 ];
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const [version, setVersion] = useState(buildVersion);
+  useEffect(() => {
+    if (isTauri()) {
+      getVersion().then(setVersion, () => setVersion(buildVersion));
+    }
+  }, []);
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
@@ -76,7 +86,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
         <p className="px-3 pb-1 text-[10px] text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-          HébergTonServ Desktop · v0.1.4
+          HébergTonServ Desktop · v{version}
         </p>
       </SidebarFooter>
     </Sidebar>
