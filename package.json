@@ -18,7 +18,10 @@
     "tauri:build": "tauri build",
     "runner:start": "node scripts/runner.mjs start",
     "runner:stop": "node scripts/runner.mjs stop",
-    "runner:status": "node scripts/runner.mjs status"
+    "runner:status": "node scripts/runner.mjs status",
+    "runner:doctor": "node scripts/runner.mjs doctor",
+    "runner:jobs": "node scripts/runner.mjs jobs",
+    "runner:tui": "node scripts/runner.mjs tui"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.2.1",
