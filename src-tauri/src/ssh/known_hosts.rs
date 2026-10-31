@@ -180,6 +180,14 @@ mod host_validation_tests {
     use super::*;
 
     #[test]
+    fn uses_standard_windows_openssh_known_hosts_directory() {
+        let ssh_dir = crate::ssh::paths::ssh_dir().expect("home dir");
+        let path = trusted_hosts_path().expect("known_hosts path");
+        assert_eq!(path, ssh_dir.join("known_hosts"));
+        assert_eq!(ssh_dir.file_name().unwrap(), ".ssh");
+    }
+
+    #[test]
     fn rejects_invalid_targets() {
         for host in [
             "",
