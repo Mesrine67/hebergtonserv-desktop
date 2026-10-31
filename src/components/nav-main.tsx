@@ -33,7 +33,7 @@ export function NavMain({ items }: { items: NavSection[] }) {
             <Collapsible key={section.title} asChild defaultOpen className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={section.title} aria-label={"Afficher ou masquer " + section.title} onClick={() => { if (state === "collapsed") setOpen(true); }}>
+                  <SidebarMenuButton tooltip={section.title} aria-label={"Afficher ou masquer " + section.title} onClick={() => { if (!isMobile && state === "collapsed") setOpen(true); }}>
                     <section.icon className="size-4 shrink-0" aria-hidden="true" />
                     <span>{section.title}</span>
                     <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" aria-hidden="true" />

@@ -55,10 +55,10 @@ function Workspace() {
   const location = useLocation();
   const current = routeLabels[location.pathname] ?? "Clés SSH";
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen className="h-dvh min-h-0 overflow-hidden bg-sidebar p-2 gap-2">
       <AppSidebar />
-      <SidebarInset className="min-w-0 bg-background">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 bg-background/95 px-4">
+      <SidebarInset className="min-h-0 min-w-0 h-full overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm md:!m-0 md:!ml-0 md:!rounded-2xl">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/70 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85">
           <SidebarTrigger className="-ml-1" aria-label="Afficher ou masquer la navigation" />
           <Separator orientation="vertical" className="mr-1 h-4" />
           <Breadcrumb>
@@ -75,7 +75,7 @@ function Workspace() {
             <ThemeToggle />
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+        <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
           <div className="mx-auto w-full max-w-6xl">
             <Routes>
               <Route path="/" element={<Navigate to="/ssh-keys" replace />} />

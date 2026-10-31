@@ -37,7 +37,7 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
-  --radius: 0.45rem;
+  --radius: 0.75rem;
 }
 
 .dark {
@@ -122,6 +122,21 @@
   html { font-family: "Segoe UI Variable", "Segoe UI", Inter, system-ui, sans-serif;
     @apply font-sans; }
   body { @apply antialiased bg-background text-foreground; }
-  #root { min-height: 100vh; }
+  #root { height: 100dvh; min-height: 0; overflow: hidden; }
   button:not(:disabled) { cursor: pointer; }
 }
+/* One contained desktop surface: the sidebar remains attached to the shell,
+   while only the workspace content scrolls under its sticky header. */
+@media (min-width: 768px) {
+  [data-slot="sidebar-wrapper"] { min-height: 0; }
+
+  .hts-sidebar [data-sidebar="sidebar"] {
+    border: 1px solid var(--sidebar-border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+  .hts-sidebar[data-collapsible="icon"] [data-sidebar="sidebar"] {
+    border-radius: var(--radius-xl);
+  }
+}
+#workspace-scroll { scrollbar-gutter: stable; }

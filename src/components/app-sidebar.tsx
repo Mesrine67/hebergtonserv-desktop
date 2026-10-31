@@ -54,9 +54,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     }
   }, []);
   return (
-    <Sidebar variant="inset" collapsible="icon" {...props}>
+    <Sidebar variant="floating" collapsible="icon" className="hts-sidebar" {...props}>
       <SidebarHeader>
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <SidebarMenu className="min-w-0 flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="HébergTonServ Desktop">
@@ -70,7 +70,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           </SidebarMenu>
-          <SidebarUpdaterAction />
+          <div className="shrink-0 group-data-[collapsible=icon]:hidden"><SidebarUpdaterAction /></div>
         </div>
       </SidebarHeader>
       <SidebarSeparator />
