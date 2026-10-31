@@ -1,5 +1,5 @@
 use crate::errors::{Result, app_error, http_error};
-use crate::providers::models::{PanelAccount, PanelUser, PanelUserAttributes};
+use crate::providers::models::{PanelAccount, PanelUser};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::time::Duration;
@@ -26,6 +26,42 @@ pub struct ApiClient {
     pub token: String,
     pub accept: String,
     pub allow_local: bool,
+}
+
+// Keep authorization failures distinct from missing provider endpoints. A 401
+// must never be interpreted as permission to retry with another API route.
+fn http_error_code(status: reqwest::StatusCode) -> &'static str {
+    match status.as_u16() {
+        401 => "api_auth_failed",
+        403 => "api_forbidden",
+        404 => "api_not_found",
+        400 | 422 => "api_validation_error",
+        429 => "api_rate_limited",
+        _ => "api_error",
+    }
+}
+
+fn fallback_to_pterodactyl(error_code: &str) -> bool {
+    error_code == "api_not_found"
+}
+
+fn deserialize_success<T: DeserializeOwned>(
+    status: reqwest::StatusCode,
+    bytes: &[u8],
+) -> Result<T> {
+    // Several panel delete/revoke endpoints correctly return HTTP 204 with no
+    // JSON body. serde_json::Value accepts null, but strict structures do not.
+    let body = if status == reqwest::StatusCode::NO_CONTENT && bytes.is_empty() {
+        b"null".as_slice()
+    } else {
+        bytes
+    };
+    serde_json::from_slice(body).map_err(|_| {
+        app_error(
+            "api_invalid_response",
+            "Réponse de l'API du panneau illisible.",
+        )
+    })
 }
 
 impl ApiClient {
@@ -138,27 +174,9 @@ impl ApiClient {
                     })
                 })
                 .unwrap_or_else(|| format!("Réponse HTTP {}", status));
-            let code = if status.as_u16() == 401 {
-                "api_auth_failed"
-            } else if status.as_u16() == 403 {
-                "api_forbidden"
-            } else if status.as_u16() == 404 {
-                "api_not_found"
-            } else if status.as_u16() == 400 || status.as_u16() == 422 {
-                "api_validation_error"
-            } else if status.as_u16() == 429 {
-                "api_rate_limited"
-            } else {
-                "api_error"
-            };
-            return Err(http_error(code, detail));
+            return Err(http_error(http_error_code(status), detail));
         }
-        serde_json::from_slice::<T>(bytes.as_ref()).map_err(|_| {
-            app_error(
-                "api_invalid_response",
-                "Réponse de l'API du panneau illisible.",
-            )
-        })
+        deserialize_success(status, bytes.as_ref())
     }
 
     pub async fn get_account_wisp(&self) -> Result<Option<PanelUser>> {
@@ -180,15 +198,24 @@ impl ApiClient {
     }
 
     pub async fn get_account(&self) -> Result<PanelAccount> {
-        let user = if let Ok(user) = self.get_account_wisp().await {
-            user
-        } else {
-            self.get_account_pterodactyl().await?
+        let user = match self.get_account_wisp().await {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                return Err(app_error(
+                    "api_invalid_response",
+                    "Le panneau n'a pas renvoyé de compte utilisateur.",
+                ));
+            }
+            Err(error) if fallback_to_pterodactyl(error.code()) => {
+                self.get_account_pterodactyl().await?.ok_or_else(|| {
+                    app_error(
+                        "api_invalid_response",
+                        "Le panneau n'a pas renvoyé de compte utilisateur.",
+                    )
+                })?
+            }
+            Err(error) => return Err(error),
         };
-        let user = user.unwrap_or_else(|| PanelUser {
-            attributes: PanelUserAttributes::default(),
-            meta: None,
-        });
         let attributes = user.attributes;
         let display_name = if attributes.first_name.is_some() || attributes.last_name.is_some() {
             format!(
@@ -206,5 +233,66 @@ impl ApiClient {
             display_name,
             admin: attributes.root_admin.unwrap_or(false) || attributes.admin.unwrap_or(false),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_missing_api_token_without_network_access() {
+        let error = ApiClient::new("https://example.com", "   ", "application/json", false)
+            .err()
+            .expect("empty token must be rejected");
+        assert_eq!(error.code(), "api_token");
+    }
+
+    #[test]
+    fn rejects_insecure_panel_url_before_authentication() {
+        let error = ApiClient::new(
+            "http://example.com",
+            "test-token",
+            "application/json",
+            false,
+        )
+        .err()
+        .expect("HTTP URL must be rejected");
+        assert_eq!(error.code(), "invalid_url");
+    }
+
+    #[test]
+    fn never_retries_wisp_auth_failures_on_pterodactyl_api() {
+        for status in [
+            reqwest::StatusCode::UNAUTHORIZED,
+            reqwest::StatusCode::FORBIDDEN,
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+        ] {
+            assert!(!fallback_to_pterodactyl(http_error_code(status)));
+        }
+        assert_eq!(
+            http_error_code(reqwest::StatusCode::UNAUTHORIZED),
+            "api_auth_failed"
+        );
+        assert!(fallback_to_pterodactyl(http_error_code(
+            reqwest::StatusCode::NOT_FOUND
+        )));
+    }
+
+    #[test]
+    fn accepts_empty_204_body_for_delete_responses() {
+        let response: serde_json::Value = deserialize_success(reqwest::StatusCode::NO_CONTENT, b"")
+            .expect("HTTP 204 is valid for successful deletion");
+        assert!(response.is_null());
+    }
+
+    #[test]
+    fn does_not_hide_invalid_json_in_successful_struct_responses() {
+        let parsed = deserialize_success::<PanelListResponse<serde_json::Value>>(
+            reqwest::StatusCode::OK,
+            b"{not-valid-json",
+        );
+        assert!(parsed.is_err());
+        assert_eq!(parsed.err().unwrap().code(), "api_invalid_response");
     }
 }
