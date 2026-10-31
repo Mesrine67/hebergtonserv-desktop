@@ -285,7 +285,6 @@ mod tests {
         assert_eq!(detail, "Permission denied");
         let fallback = parse_panel_error_detail(reqwest::StatusCode::FORBIDDEN, b"{broken");
         assert!(fallback.starts_with("Réponse HTTP 403"));
-
     }
 
     #[test]
