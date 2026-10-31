@@ -1,8 +1,8 @@
 {
   "name": "hebergtonserv-desktop",
   "private": true,
-  "version": "0.1.3",
-  "description": "H\u00e9bergTonServ Desktop \u2014 gestion des cl\u00e9s SSH, connexions et panels d'h\u00e9bergement",
+  "version": "0.1.4",
+  "description": "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement",
   "type": "module",
   "packageManager": "pnpm@12.15.0",
   "scripts": {
@@ -25,6 +25,7 @@
     "runner:tui": "node scripts/runner.mjs tui"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
     "@radix-ui/react-alert-dialog": "1.2.1",
     "@radix-ui/react-checkbox": "1.4.1",
     "@radix-ui/react-dialog": "1.3.1",
@@ -50,11 +51,14 @@
     "@tauri-apps/plugin-window-state": "2.5.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "cn": "^0.5.0",
     "lucide-react": "1.65.0",
     "next-themes": "0.4.6",
+    "radix-ui": "^1.8.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router-dom": "7.18.5",
+    "shadcn": "^4.23.0",
     "sonner": "2.0.8",
     "tailwind-merge": "3.7.0",
     "zod": "4.6.7"
