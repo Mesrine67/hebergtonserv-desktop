@@ -22,39 +22,58 @@ describe("Startup Hello Effect", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
-  it("shows the hello handwriting and can be skipped", async () => {
+  it("shows handwriting, and skipping reveals Démarrer without entering the dashboard", async () => {
     const dismiss = vi.fn();
     await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
     expect(container.querySelector('[data-testid="hello-writing"]')).not.toBeNull();
     expect(container.querySelectorAll("svg path")).toHaveLength(5);
-    const button = container.querySelector("button");
-    expect(button?.textContent).toContain("Passer");
-    await act(async () => button?.click());
+    const skip = container.querySelector<HTMLButtonElement>(".hts-welcome-skip");
+    expect(skip?.textContent).toContain("Passer");
+    await act(async () => skip?.click());
+    expect(dismiss).not.toHaveBeenCalled();
+    const start = container.querySelector<HTMLButtonElement>(".hts-welcome-start");
+    expect(start?.textContent).toContain("Démarrer");
+    expect(document.activeElement).toBe(start);
+    await act(async () => start?.click());
     expect(dismiss).toHaveBeenCalledTimes(1);
   });
 
-  it("uses a timeout fallback if CSS animation events are unavailable", async () => {
+  it("reveals Démarrer rather than automatically dismissing when animation ends", async () => {
     vi.useFakeTimers();
-    try {
-      const dismiss = vi.fn();
-      await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
-      expect(dismiss).not.toHaveBeenCalled();
-      await act(async () => { vi.advanceTimersByTime(4000); });
-      expect(dismiss).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
+    const dismiss = vi.fn();
+    await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
+    expect(container.querySelector(".hts-welcome-start")).toBeNull();
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    expect(container.querySelector(".hts-welcome-start")).not.toBeNull();
+    expect(dismiss).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    expect(dismiss).not.toHaveBeenCalled();
+    const start = container.querySelector<HTMLButtonElement>(".hts-welcome-start");
+    await act(async () => start?.click());
+    expect(dismiss).toHaveBeenCalledTimes(1);
   });
 
-  it("completes immediately when reduced motion is requested", async () => {
+  it("offers the start button immediately with reduced-motion preference", async () => {
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn(() => ({ matches: true })),
     });
     const dismiss = vi.fn();
     await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
-    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(container.querySelector(".hts-welcome-start")).not.toBeNull();
+    expect(dismiss).not.toHaveBeenCalled();
+  });
+
+  it("Escape skips the drawing but never opens the dashboard", async () => {
+    const dismiss = vi.fn();
+    await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(container.querySelector(".hts-welcome-start")).not.toBeNull();
+    expect(dismiss).not.toHaveBeenCalled();
   });
 });
