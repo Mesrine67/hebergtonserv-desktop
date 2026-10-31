@@ -15,3 +15,7 @@
 ## VÃ©rifications
 - Tests React pour absence de navigation automatique, saut dâ€™animation, touche Ã‰chap et animations rÃ©duites.
 - TypeScript, lint, tests, build Vite, tests runner et vÃ©rifications Rust/GitHub avant publication.
+## Integrite et provenance
+- Standalone Windows experimental : executable non installe, avec runtime Microsoft WebView2 requis.
+- SHA256SUMS.txt verifie les sept fichiers primaires.
+- Attestation GitHub des fichiers binaires, en plus des signatures Tauri updater.
