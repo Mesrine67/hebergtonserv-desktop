@@ -15,6 +15,7 @@ const flag = (key, fallback) => {
 };
 const runnerDir = resolve(flag('--runner-dir', process.env.HTS_RUNNER_DIR || 'C:/actions-runner'));
 const repo = flag('--repo', process.env.HTS_GITHUB_REPO || 'Mesrine67/hebergtonserv-desktop');
+const projectNumber = Number(flag('--project-number', process.env.HTS_PROJECT_NUMBER || '3'));
 const command = args[0] || 'status';
 const jsonMode = args.includes('--json');
 const runCmd = join(runnerDir, 'run.cmd');
@@ -57,6 +58,34 @@ async function readRuns(limit = 8) {
 async function readIssues(kind, limit = 8) {
   const result = await ghJson([kind, 'list', '--repo', repo, '--state', 'open', '--limit', String(limit), '--json', 'number,title,url']);
   return result.data || [];
+}
+
+async function readWorkflows() {
+  const result = await ghJson(['workflow', 'list', '--repo', repo, '--json', 'id,name,state,path']);
+  return result.data || [];
+}
+
+async function readProjects(limit = 20) {
+  const owner = repo.split('/')[0];
+  if (!Number.isInteger(projectNumber) || projectNumber < 1) return [];
+  const result = await ghJson(['project', 'item-list', String(projectNumber), '--owner', owner, '--limit', String(limit), '--format', 'json']);
+  return result.data?.items || [];
+}
+
+async function openGithubTarget() {
+  const kind = args[1];
+  const number = args[2];
+  if (!['issue', 'pr', 'run', 'project'].includes(kind) || (kind !== 'project' && !/^[1-9][0-9]*$/.test(number || '')) || !/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo)) {
+    throw new Error('Usage: open <issue|pr|run> ID ou open project');
+  }
+  const [owner, name] = repo.split('/');
+  const url = kind === 'project'
+    ? 'https://github.com/users/' + owner + '/projects/' + projectNumber
+    : 'https://github.com/' + owner + '/' + name + '/' + ({ issue: 'issues', pr: 'pull', run: 'actions/runs' })[kind] + '/' + number;
+  if (jsonMode) { console.log(JSON.stringify({ url })); return; }
+  if (process.platform !== 'win32') { console.log(url); return; }
+  await execAsync('rundll32.exe', ['url.dll,FileProtocolHandler', url], { timeout: 8000, windowsHide: true });
+  console.log('Ouvert : ' + url);
 }
 
 function latestRunnerLog() {
@@ -110,9 +139,10 @@ async function doctor() {
 
 function printHelp() {
   console.log('HébergTonServ Runner Manager');
-  console.log('Usage: node scripts/runner.mjs <status|doctor|jobs|prs|issues|logs|start|stop|tui> [options]');
-  console.log('Options: --json, --repo OWNER/REPO, --runner-dir PATH, --limit N, --lines N');
-  console.log('TUI: [R]afraîchir, [J]obs, [P]ull requests, [I]ssues, [L]ogs, [D]iagnostic, [Q]uitter');
+  console.log('Usage: node scripts/runner.mjs <status|doctor|jobs|workflows|projects|prs|issues|logs|open|start|stop|tui> [options]');
+  console.log('Options: --json, --repo OWNER/REPO, --runner-dir PATH, --project-number N, --limit N, --lines N');
+  console.log('Open: open issue 13 | open pr 30 | open run 123456 | open project');
+  console.log('TUI: [R]afraîchir, [J]obs, [W]orkflows, [T]ickets/Projects, [P]R, [I]ssues, [L]ogs, [D]octor, [Q]uitter');
   console.log('Les commandes stop/restart brutales sont volontairement désactivées.');
 }
 
@@ -133,6 +163,9 @@ async function tui() {
       if (page === 'jobs') list = (await readRuns(8)).map((r) => (r.conclusion || r.status).padEnd(10) + ' ' + r.name + ' — ' + r.headBranch);
       if (page === 'prs') list = (await readIssues('pr', 12)).map((r) => '#' + r.number + ' ' + r.title);
       if (page === 'issues') list = (await readIssues('issue', 12)).map((r) => '#' + r.number + ' ' + r.title);
+      if (page === 'workflows') list = (await readWorkflows()).map((w) => w.name + ' — ' + w.state);
+      if (page === 'projects') list = (await readProjects(20)).map((item) =>
+        (item.status || 'Backlog') + '  ' + (item.content?.title || item.title || 'Sans titre'));
       if (page === 'logs') {
         const file = latestRunnerLog();
         list = file ? readFileSync(file, 'utf8').split(/\r?\n/).slice(-12).map(redact) : ['Aucun journal'];
@@ -145,7 +178,7 @@ async function tui() {
       const cut = (s) => String(s).slice(0, width - 3);
       const heading = color('1;36', ' HÉBERGTONSERV  /  RUNNER MANAGER ');
       const meta = (state.local ? color('32', 'LOCAL ACTIF') : color('31', 'LOCAL INACTIF')) + '   GITHUB: ' + (state.github?.status || 'indisponible') + (state.github?.busy ? ' (busy)' : '');
-      const lines = [heading, '═'.repeat(Math.min(width - 1, 72)), cut(meta), cut(repo), '', color('1', page.toUpperCase()), ...list.slice(0, Math.max(3, (process.stdout.rows || 24) - 11)).map(cut), '', ' [R] Refresh  [J] Jobs  [P] PR  [I] Issues  [L] Logs  [D] Doctor  [Q] Quit', ' Rafraîchissement toutes les 10 secondes — lecture seule'];
+      const lines = [heading, '═'.repeat(Math.min(width - 1, 72)), cut(meta), cut(repo), '', color('1', page.toUpperCase()), ...list.slice(0, Math.max(3, (process.stdout.rows || 24) - 11)).map(cut), '', ' [R] Refresh [J] Jobs [W] Workflows [T] Projects [P] PR [I] Issues [L] Logs [D] Doctor [Q] Quit', ' Rafraîchissement toutes les 10 secondes — lecture seule'];
       process.stdout.write('\x1b[H\x1b[2J' + lines.join('\n') + '\n');
     } finally { drawing = false; }
   };
@@ -163,6 +196,8 @@ async function tui() {
     const pressed = key?.name;
     if (pressed === 'q' || pressed === 'escape') return finish();
     if (pressed === 'j') page = 'jobs';
+    else if (pressed === 'w') page = 'workflows';
+    else if (pressed === 't') page = 'projects';
     else if (pressed === 'p') page = 'prs';
     else if (pressed === 'i') page = 'issues';
     else if (pressed === 'l') page = 'logs';
@@ -189,6 +224,16 @@ async function main() {
   }
   if (command === 'doctor') return doctor();
   if (command === 'tui') return tui();
+  if (command === 'open') return openGithubTarget();
+  if (command === 'workflows' || command === 'projects') {
+    const limit = Math.min(100, Math.max(1, Number(flag('--limit', '20')) || 20));
+    const data = command === 'workflows' ? await readWorkflows() : await readProjects(limit);
+    if (jsonMode) console.log(JSON.stringify(data, null, 2));
+    else data.forEach((item) => console.log(command === 'workflows'
+      ? (item.name + ' — ' + item.state)
+      : ((item.status || 'Backlog') + ' — ' + (item.content?.title || item.title || 'Sans titre'))));
+    return;
+  }
   if (command === 'jobs' || command === 'prs' || command === 'issues') {
     const limit = Math.min(50, Math.max(1, Number(flag('--limit', '10')) || 10));
     const data = command === 'jobs' ? await readRuns(limit) : await readIssues(command === 'prs' ? 'pr' : 'issue', limit);

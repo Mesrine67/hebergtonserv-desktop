@@ -35,3 +35,25 @@ test("restart also refuses forceful termination", () => {
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Ctrl\+C/);
 });
+
+test("help documents workflows and GitHub Projects", () => {
+  const result = run("--help");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /workflows/);
+  assert.match(result.stdout, /projects/);
+  assert.match(result.stdout, /--project-number/);
+});
+
+test("open emits a safe canonical GitHub URL in JSON mode", () => {
+  const result = run("open", "issue", "14", "--json");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    url: "https://github.com/Mesrine67/hebergtonserv-desktop/issues/14"
+  });
+});
+
+test("open rejects invalid IDs without starting a browser", () => {
+  const result = run("open", "issue", "../14", "--json");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Usage: open/);
+});
