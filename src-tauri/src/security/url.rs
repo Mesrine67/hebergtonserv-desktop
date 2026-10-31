@@ -182,9 +182,22 @@ mod tests {
 
     #[test]
     fn rejects_cgnat_benchmarking_and_reserved_ipv4() {
-        for ip in ["100.64.0.1", "100.127.255.254", "198.18.0.5", "198.19.1.1", "0.2.3.4", "240.0.0.1"] {
-            assert!(validate_panel_url(&format!("https://{ip}/"), false).is_err(), "accepted {ip}");
-            assert!(validate_panel_url(&format!("https://{ip}/"), true).is_err(), "local override accepted {ip}");
+        for ip in [
+            "100.64.0.1",
+            "100.127.255.254",
+            "198.18.0.5",
+            "198.19.1.1",
+            "0.2.3.4",
+            "240.0.0.1",
+        ] {
+            assert!(
+                validate_panel_url(&format!("https://{ip}/"), false).is_err(),
+                "accepted {ip}"
+            );
+            assert!(
+                validate_panel_url(&format!("https://{ip}/"), true).is_err(),
+                "local override accepted {ip}"
+            );
         }
         assert!(validate_panel_url("https://8.8.8.8/", false).is_ok());
         assert!(validate_panel_url("https://[::ffff:100.64.0.1]/", false).is_err());
