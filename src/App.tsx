@@ -1,6 +1,20 @@
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Moon, Sun } from "lucide-react";
+import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
+import { AppSidebar } from "@/components/app-sidebar";
+import StartupWelcome from "@/components/startup-welcome";
+import { Button } from "@/components/ui/button";
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset, SidebarProvider, SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import SshKeysPage from "./pages/SshKeysPage";
 import SshConfigPage from "./pages/SshConfigPage";
 import PanelsPage from "./pages/PanelsPage";
@@ -11,56 +25,89 @@ import "./App.css";
 
 const queryClient = new QueryClient();
 
-const nav = [
-  { to: "/ssh-keys", label: "Clés SSH" },
-  { to: "/ssh-config", label: "Config SSH" },
-  { to: "/profiles", label: "Profils SSH" },
-  { to: "/panels", label: "Panels" },
-  { to: "/settings", label: "Paramètres" },
-  { to: "/security", label: "Sécurité" },
-];
+const routeLabels: Record<string, string> = {
+  "/ssh-keys": "Clés SSH",
+  "/ssh-config": "Configuration SSH",
+  "/profiles": "Profils SSH",
+  "/panels": "Panels",
+  "/settings": "Paramètres",
+  "/security": "Sécurité",
+};
 
-function Layout() {
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
   return (
-    <div className="min-h-screen flex bg-slate-950 text-slate-100">
-      <aside className="w-64 border-r border-slate-800 p-4 flex flex-col gap-2">
-        <h1 className="text-lg font-bold mb-4">HébergTonServ Desktop</h1>
-        {nav.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-800"
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </aside>
-      <main className="flex-1 p-6 overflow-auto">
-        <Routes>
-          <Route path="/" element={<SshKeysPage />} />
-          <Route path="/ssh-keys" element={<SshKeysPage />} />
-          <Route path="/ssh-config" element={<SshConfigPage />} />
-          <Route path="/profiles" element={<ProfilesPage />} />
-          <Route path="/panels" element={<PanelsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/security" element={<SecurityPage />} />
-        </Routes>
-      </main>
-    </div>
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      type="button"
+      aria-label={isDark ? "Activer le thème clair" : "Activer le thème sombre"}
+      title={isDark ? "Thème clair" : "Thème sombre"}
+    >
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
+  );
+}
+
+function Workspace() {
+  const location = useLocation();
+  const current = routeLabels[location.pathname] ?? "Clés SSH";
+  return (
+    <SidebarProvider defaultOpen>
+      <AppSidebar />
+      <SidebarInset className="min-w-0 bg-background">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 bg-background/95 px-4">
+          <SidebarTrigger className="-ml-1" aria-label="Afficher ou masquer la navigation" />
+          <Separator orientation="vertical" className="mr-1 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-medium">{current}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground sm:inline">
+              HébergTonServ Desktop
+            </span>
+            <ThemeToggle />
+          </div>
+        </header>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto w-full max-w-6xl">
+            <Routes>
+              <Route path="/" element={<Navigate to="/ssh-keys" replace />} />
+              <Route path="/ssh-keys" element={<SshKeysPage />} />
+              <Route path="/ssh-config" element={<SshConfigPage />} />
+              <Route path="/profiles" element={<ProfilesPage />} />
+              <Route path="/panels" element={<PanelsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/security" element={<SecurityPage />} />
+              <Route path="*" element={<Navigate to="/ssh-keys" replace />} />
+            </Routes>
+          </div>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
 export default function App() {
+  const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Layout />
-      </BrowserRouter>
-      <Toaster richColors position="top-right" />
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="hts-ui-theme">
+        <TooltipProvider delayDuration={150}>
+          <BrowserRouter>
+            {welcomeVisible ? <StartupWelcome onDismiss={dismissWelcome} /> : <Workspace />}
+          </BrowserRouter>
+          <Toaster richColors position="top-right" />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
