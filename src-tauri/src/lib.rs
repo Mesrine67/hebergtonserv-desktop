@@ -21,9 +21,19 @@ fn greet(name: &str) -> String {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_single_instance::Builder::default()
+                .callback(|app, _args, _cwd| {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.unminimize();
+                        let _ = window.set_focus();
+                    }
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_log::Builder::default().build())
-        .plugin(tauri_plugin_single_instance::Builder::default().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -32,7 +42,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--minimized"]),
         ))
         .setup(|app| {
             let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
@@ -48,6 +58,14 @@ pub fn run() {
             );
             storage.ensure_dirs().ok();
             app.manage(AppState::new(storage));
+
+            // Startup via Windows autostart can request a hidden launch.
+            // Explicit normal launches must remain visible even if autostart is enabled.
+            if std::env::args_os().any(|arg| arg == "--minimized")
+                && let Some(window) = app.get_webview_window("main")
+            {
+                let _ = window.hide();
+            }
 
             // Tray icon
             let show_item = MenuItem::with_id(app, "show", "Afficher", true, None::<&str>)?;
