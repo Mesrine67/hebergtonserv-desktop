@@ -99,8 +99,22 @@ fn server_connect_address(attrs: &Value) -> Option<String> {
     Some(format!("{host}:{port}"))
 }
 
-fn parse_server_resources(value: Value) -> PanelServerResources {
+fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
     let attrs = value.get("attributes").unwrap_or(&value);
+    // Wisp uses status/proc/query; Pterodactyl uses attributes.current_state/resources.
+    // An unknown successful payload must not silently become an all-empty "unknown" card.
+    let is_wisp = ["proc", "status", "query"]
+        .iter()
+        .any(|key| attrs.get(key).is_some());
+    let is_pterodactyl = ["current_state", "resources", "is_suspended"]
+        .iter()
+        .any(|key| attrs.get(key).is_some());
+    if !is_wisp && !is_pterodactyl {
+        return Err(app_error(
+            "api_invalid_response",
+            "Le panel a renvoyé un format de ressources non reconnu.",
+        ));
+    }
     let proc = attrs.get("proc").unwrap_or(&Value::Null);
     let memory = proc.get("memory").unwrap_or(&Value::Null);
     let cpu = proc.get("cpu").unwrap_or(&Value::Null);
@@ -108,22 +122,62 @@ fn parse_server_resources(value: Value) -> PanelServerResources {
     let resources = attrs.get("resources").unwrap_or(&Value::Null);
     let query = attrs.get("query").unwrap_or(&Value::Null);
     let state = server_string(attrs, &["current_state", "state"]).or_else(|| {
-        value_u64(attrs, &["status"])
-            .map(|status| if status == 1 { "running" } else { "offline" }.to_string())
+        value_u64(attrs, &["status"]).and_then(|status| match status {
+            1 => Some("running".to_string()),
+            0 => Some("offline".to_string()),
+            _ => None,
+        })
     });
+    let query_raw = query.get("raw").unwrap_or(&Value::Null);
+    let gamespy = query_raw.get("gamespy").unwrap_or(&Value::Null);
+    let vanilla = query_raw.get("vanilla").unwrap_or(&Value::Null);
     let players = query
         .get("players")
         .and_then(Value::as_array)
         .map(|players| players.len() as u64)
-        .or_else(|| value_u64(query, &["numplayers", "players"]));
-    let max_players = value_u64(query, &["maxplayers", "max_players"]);
+        .or_else(|| value_u64(query, &["numplayers", "players"]))
+        .or_else(|| value_u64(gamespy.get("raw").unwrap_or(gamespy), &["numplayers"]))
+        .or_else(|| {
+            value_u64(
+                vanilla
+                    .get("raw")
+                    .and_then(|v| v.get("players"))
+                    .unwrap_or(&Value::Null),
+                &["online"],
+            )
+        });
+    let max_players = value_u64(query, &["maxplayers", "max_players"])
+        .or_else(|| value_u64(gamespy, &["maxplayers"]))
+        .or_else(|| value_u64(vanilla, &["maxplayers"]))
+        .or_else(|| {
+            value_u64(
+                vanilla
+                    .get("raw")
+                    .and_then(|v| v.get("players"))
+                    .unwrap_or(&Value::Null),
+                &["max"],
+            )
+        });
+    let interfaces = proc.get("network").and_then(Value::as_object);
+    let network_rx = interfaces.and_then(|interfaces| {
+        interfaces
+            .values()
+            .filter_map(|iface| value_u64(iface, &["rx_bytes"]))
+            .reduce(u64::saturating_add)
+    });
+    let network_tx = interfaces.and_then(|interfaces| {
+        interfaces
+            .values()
+            .filter_map(|iface| value_u64(iface, &["tx_bytes"]))
+            .reduce(u64::saturating_add)
+    });
     let connect_address = server_string(query, &["connect"]).or_else(|| {
         let host = server_string(query, &["hostip", "ip"])?;
         let port = server_string(query, &["hostport", "port"])?;
         Some(format!("{host}:{port}"))
     });
 
-    PanelServerResources {
+    Ok(PanelServerResources {
         state,
         suspended: attrs
             .get("is_suspended")
@@ -141,13 +195,13 @@ fn parse_server_resources(value: Value) -> PanelServerResources {
         disk_limit_bytes: value_u64(resources, &["disk_limit_bytes"]).or_else(|| {
             value_u64(disk, &["limit"]).map(|limit_mib| limit_mib.saturating_mul(1024 * 1024))
         }),
-        network_rx_bytes: value_u64(resources, &["network_rx_bytes"]),
-        network_tx_bytes: value_u64(resources, &["network_tx_bytes"]),
+        network_rx_bytes: value_u64(resources, &["network_rx_bytes"]).or(network_rx),
+        network_tx_bytes: value_u64(resources, &["network_tx_bytes"]).or(network_tx),
         uptime_ms: value_u64(resources, &["uptime"]),
         players,
         max_players,
         connect_address,
-    }
+    })
 }
 
 fn parse_server(value: Value) -> Result<PanelServer> {
@@ -193,10 +247,7 @@ fn parse_server(value: Value) -> Result<PanelServer> {
             .get("description")
             .and_then(Value::as_str)
             .map(str::to_owned),
-        status: attrs
-            .get("status")
-            .and_then(Value::as_str)
-            .map(str::to_owned),
+        status: server_string(attrs, &["status", "current_state", "state"]),
         node,
         connect_address: server_connect_address(attrs),
         suspended: attrs
@@ -475,15 +526,21 @@ impl ApiClient {
         parse_account_user(response)
     }
 
-    pub async fn list_servers(&self, accept: &str) -> Result<Vec<PanelServer>> {
+    pub async fn list_servers(&self, accept: &str, provider: &str) -> Result<Vec<PanelServer>> {
         const PAGE_SIZE: u64 = 25;
         const MAX_PAGES: u64 = 500;
         let client = ApiClient::new(&self.base_url, &self.token, accept, self.allow_local)?;
         let mut servers = Vec::new();
         for page in 1..=MAX_PAGES {
-            let path = format!(
-                "/api/client/servers?per_page={PAGE_SIZE}&page={page}&include=node,egg,allocations"
-            );
+            let path = match provider {
+                "wisp" => format!(
+                    "/api/client/servers?per_page={PAGE_SIZE}&page={page}&include=node,egg,allocations"
+                ),
+                "pterodactyl" => {
+                    format!("/api/client?per_page={PAGE_SIZE}&page={page}&include=egg")
+                }
+                _ => return Err(app_error("api_config", "Fournisseur de panel inconnu.")),
+            };
             let response = client
                 .send_json::<Value>(reqwest::Method::GET, &path, None)
                 .await?;
@@ -554,7 +611,7 @@ impl ApiClient {
                 None,
             )
             .await?;
-        Ok(parse_server_resources(response))
+        parse_server_resources(response)
     }
 
     pub async fn get_account(&self) -> Result<PanelAccount> {
@@ -782,5 +839,95 @@ mod tests {
         );
         assert!(parsed.is_err());
         assert_eq!(parsed.err().unwrap().code(), "api_invalid_response");
+    }
+
+    #[test]
+    fn parses_wisp_documented_status_proc_limits_network_and_query() {
+        let payload = serde_json::json!({
+            "status": 1,
+            "proc": {
+                "memory": {"total": 1_821_257_728u64, "limit": 2_048_000_000u64},
+                "cpu": {"total": 53.81, "limit": 200},
+                "disk": {"used": 102_577_308u64, "limit": 5000},
+                "network": {"eth0": {"rx_bytes": 6517, "tx_bytes": 6703}}
+            },
+            "query": {"players": [{}, {}], "maxplayers": 20, "connect": "game.example.test:25565"}
+        });
+        let resources = parse_server_resources(payload).unwrap();
+        assert_eq!(resources.state.as_deref(), Some("running"));
+        assert_eq!(resources.memory_used_bytes, Some(1_821_257_728));
+        assert_eq!(resources.memory_limit_bytes, Some(2_048_000_000));
+        assert_eq!(resources.cpu_percent, Some(53.81));
+        assert_eq!(resources.cpu_limit_percent, Some(200.0));
+        assert_eq!(resources.disk_used_bytes, Some(102_577_308));
+        assert_eq!(resources.disk_limit_bytes, Some(5000 * 1024 * 1024));
+        assert_eq!(resources.network_rx_bytes, Some(6517));
+        assert_eq!(resources.network_tx_bytes, Some(6703));
+        assert_eq!(resources.players, Some(2));
+        assert_eq!(resources.max_players, Some(20));
+        assert_eq!(
+            resources.connect_address.as_deref(),
+            Some("game.example.test:25565")
+        );
+    }
+
+    #[test]
+    fn parses_wisp_offline_and_nested_query_player_counts() {
+        let offline = parse_server_resources(serde_json::json!({"status": 0})).unwrap();
+        assert_eq!(offline.state.as_deref(), Some("offline"));
+        let online = parse_server_resources(serde_json::json!({
+            "status": "1",
+            "query": {"raw": {"gamespy": {
+                "raw": {"numplayers": "4"}, "maxplayers": 64
+            }}}
+        }))
+        .unwrap();
+        assert_eq!(online.state.as_deref(), Some("running"));
+        assert_eq!(online.players, Some(4));
+        assert_eq!(online.max_players, Some(64));
+    }
+
+    #[test]
+    fn parses_pterodactyl_documented_stats_envelope() {
+        let resources = parse_server_resources(serde_json::json!({
+            "object": "stats",
+            "attributes": {
+                "current_state": "running",
+                "is_suspended": false,
+                "resources": {
+                    "memory_bytes": 588_701_696,
+                    "cpu_absolute": 12.5,
+                    "disk_bytes": 130_156_361,
+                    "network_rx_bytes": 694_220,
+                    "network_tx_bytes": 337_090
+                }
+            }
+        }))
+        .unwrap();
+        assert_eq!(resources.state.as_deref(), Some("running"));
+        assert_eq!(resources.memory_used_bytes, Some(588_701_696));
+        assert_eq!(resources.cpu_percent, Some(12.5));
+        assert_eq!(resources.disk_used_bytes, Some(130_156_361));
+        assert_eq!(resources.network_rx_bytes, Some(694_220));
+        assert_eq!(resources.network_tx_bytes, Some(337_090));
+        assert_eq!(resources.players, None);
+    }
+
+    #[test]
+    fn rejects_successful_unrecognized_resource_shapes_instead_of_faking_offline() {
+        let error = parse_server_resources(serde_json::json!({"data": []})).unwrap_err();
+        assert_eq!(error.code(), "api_invalid_response");
+        let error = parse_server_resources(serde_json::json!({})).unwrap_err();
+        assert_eq!(error.code(), "api_invalid_response");
+    }
+
+    #[test]
+    fn parses_numeric_server_status_to_support_wisp_list_status() {
+        let s = parse_server(serde_json::json!({
+            "attributes": {"uuid": "abcd-1234", "uuid_short": "abcd1234",
+                "name": "Local test", "status": 1}
+        }))
+        .unwrap();
+        assert_eq!(s.status.as_deref(), Some("1"));
     }
 }
