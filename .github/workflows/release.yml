@@ -43,11 +43,12 @@ jobs:
           if (-not (Test-Path (Join-Path $toolchainBin 'rustc.exe'))) {
             throw "Pinned Rust toolchain is missing: $toolchainBin"
           }
+          $env:PATH = "$toolchainBin;$env:PATH"
           $toolchainBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & (Join-Path $toolchainBin 'rustc.exe') --version
           & (Join-Path $toolchainBin 'cargo.exe') --version
-          rustc --version
-          cargo --version
+          (Get-Command rustc).Source
+          (Get-Command cargo).Source
 
       - name: Rust cache
         uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
