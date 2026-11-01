@@ -158,8 +158,10 @@
 .hts-workspace-panel { position: relative; isolation: isolate; background: var(--background); }
 .hts-titlebar { -webkit-app-region: drag; user-select: none; }
 .hts-titlebar button { -webkit-app-region: no-drag; }
+#snap-btn.is-hovered { background-color: var(--accent); color: var(--accent-foreground); }
 .hts-titlebar-rail { -webkit-app-region: no-drag; }
 .hts-titlebar-rail [data-sidebar="trigger"] { -webkit-app-region: no-drag; }
+.hts-sidebar[data-slot="sidebar-container"] { top: 2.75rem !important; height: calc(100dvh - 2.75rem) !important; }
 .hts-sidebar [data-sidebar="sidebar"] { border-radius: 0 !important; }
 .hts-sidebar [data-sidebar="sidebar"] { border-top: 0 !important; }
 .hts-sidebar [data-sidebar="header"] { padding: 0.75rem; }

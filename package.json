@@ -47,6 +47,7 @@
     "@tauri-apps/plugin-log": "2.10.1",
     "@tauri-apps/plugin-opener": "2.7.2",
     "@tauri-apps/plugin-process": "2.4.0",
+    "tauri-plugin-snap-layout": "~1.0.9",
     "@tauri-apps/plugin-store": "2.5.0",
     "@tauri-apps/plugin-updater": "2.14.1",
     "@tauri-apps/plugin-window-state": "2.5.0",

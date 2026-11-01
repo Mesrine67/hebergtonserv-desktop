@@ -15,6 +15,26 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_window_state::StateFlags;
 
+#[tauri::command]
+fn toggle_app_window_maximize(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "Fenêtre principale introuvable".to_string())?;
+
+    if window
+        .is_maximized()
+        .map_err(|error| format!("Lecture de l’état de la fenêtre impossible : {error}"))?
+    {
+        window
+            .unmaximize()
+            .map_err(|error| format!("Restauration de la fenêtre impossible : {error}"))
+    } else {
+        window
+            .maximize()
+            .map_err(|error| format!("Agrandissement de la fenêtre impossible : {error}"))
+    }
+}
+
 #[derive(serde::Serialize)]
 struct LocalIdentity {
     username: String,
@@ -69,6 +89,12 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
+        .plugin(
+            tauri_plugin_snap_layout::init()
+                .button_id("snap-btn")
+                .padding_all(0)
+                .build(),
+        )
         .setup(|app| {
             let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
             let storage = Storage::new(
@@ -156,6 +182,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             get_local_identity,
+            toggle_app_window_maximize,
             commands::ssh::list_ssh_keys,
             commands::ssh::generate_ssh_key,
             commands::ssh::import_public_key,
