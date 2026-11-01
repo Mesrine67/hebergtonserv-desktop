@@ -58,7 +58,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     }
   }, []);
   return (
-    <Sidebar variant="sidebar" collapsible="icon" className="hts-sidebar" {...props}>
+    <Sidebar variant="sidebar" collapsible="icon" embedded className="hts-sidebar" {...props}>
       <SidebarHeader>
         <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <SidebarMenu className="min-w-0 flex-1">

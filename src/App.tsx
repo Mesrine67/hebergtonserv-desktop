@@ -39,9 +39,9 @@ function Workspace() {
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <DesktopTitlebar navigation title={current} />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
-      <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 h-full overflow-hidden bg-background">
+      <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 overflow-hidden bg-background">
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
           <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <Routes>
