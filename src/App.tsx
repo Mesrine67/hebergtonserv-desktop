@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Moon, Sun } from "lucide-react";
@@ -6,6 +6,8 @@ import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import StartupWelcome from "@/components/startup-welcome";
+import WispLoginPage from "@/pages/WispLoginPage";
+import { commands } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
@@ -96,14 +98,22 @@ function Workspace() {
 
 export default function App() {
   const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
   const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
+  const onAuthenticated = useCallback(() => setAuthenticated(true), []);
+  useEffect(() => {
+    void commands.listPanels().then(async (panels) => {
+      const saved = panels.find((panel) => panel.provider === "wisp" && panel.status === "ok");
+      if (saved && await commands.panelTokenConfigured(saved.id)) setAuthenticated(true);
+    }).catch(() => undefined);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="hts-ui-theme">
         <TooltipProvider delayDuration={150}>
           <BrowserRouter>
-            {welcomeVisible ? <StartupWelcome onDismiss={dismissWelcome} /> : <Workspace />}
+              {welcomeVisible ? <StartupWelcome onDismiss={dismissWelcome} /> : authenticated ? <Workspace /> : <WispLoginPage onAuthenticated={onAuthenticated} />}
           </BrowserRouter>
           <Toaster richColors position="top-right" />
         </TooltipProvider>

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { CheckCircle2, ExternalLink, LockKeyhole, Plus, ServerCog, Trash2 } from "lucide-react";
+import { CheckCircle2, ExternalLink, LockKeyhole, Plus, ServerCog, Trash2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,7 @@ export default function PanelsPage() {
       <PageHeader eyebrow="Infrastructure" title="Panels d'hébergement" description="Connectez vos espaces Wisp et Pterodactyl sans enregistrer les jetons en clair. Les informations sensibles restent protégées par Windows." />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <SectionCard title="Ajouter un panel" description="Renseignez l'adresse de l'API Client et sa clé d'accès.">
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>La clé est conservée dans Windows Credential Manager. Seule l’API Client HTTPS est appelée; aucun cookie de navigateur n’est lu.</span></div>
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
             <Field htmlFor="panel-name" label="Nom du panel"><Input id="panel-name" value={name} onChange={(e) => setName(e.target.value)} required /></Field>
             <Field htmlFor="panel-provider" label="Plateforme"><select id="panel-provider" className={selectStyles} value={provider} onChange={(e) => setProvider(e.target.value)}><option value="wisp">Wisp</option><option value="pterodactyl">Pterodactyl</option></select></Field>

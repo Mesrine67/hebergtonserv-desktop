@@ -164,6 +164,7 @@ pub fn run() {
             commands::ssh::agent_add_identity,
             commands::ssh::agent_remove_identity,
             commands::panels::list_panels,
+            commands::panels::login_wisp,
             commands::panels::save_panel,
             commands::panels::delete_panel,
             commands::panels::set_panel_token,
