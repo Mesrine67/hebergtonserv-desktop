@@ -9,7 +9,6 @@ import { version as buildVersion } from "../../package.json";
 import { NavMain } from "@/components/nav-main";
 import appIcon from "../../src-tauri/icons/128x128.png";
 import { NavUser } from "@/components/nav-user";
-import { SidebarUpdaterAction } from "@/components/sidebar-updater-action";
 import {
   Sidebar,
   SidebarContent,
@@ -18,7 +17,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 const sections = [
@@ -74,14 +72,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           </SidebarMenu>
-          <div className="flex shrink-0 items-center justify-center group-data-[collapsible=icon]:w-full"><SidebarUpdaterAction /></div>
         </div>
       </SidebarHeader>
-      <SidebarSeparator />
       <SidebarContent>
         <NavMain items={sections} />
       </SidebarContent>
-      <SidebarSeparator />
       <SidebarFooter>
         <NavUser />
         <p className="px-3 pb-1 text-[10px] text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">

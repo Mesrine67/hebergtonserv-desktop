@@ -12,7 +12,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { version as buildVersion } from "../../package.json";
 
-export function SidebarUpdaterAction() {
+export function AppUpdaterAction() {
   const [current, setCurrent] = useState(buildVersion);
   const [available, setAvailable] = useState<Update | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,15 +60,15 @@ export function SidebarUpdaterAction() {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button type="button" size="icon-sm" variant="outline"
-              className="relative size-8 shrink-0 border-sidebar-border"
+            <Button type="button" size="icon-sm" variant="ghost"
+              className="relative size-8 shrink-0"
               aria-label={available ? `Mise à jour ${available.version} disponible` : "Mises à jour HébergTonServ"}>
               {busy ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowDownToLine className="size-4" />}
               {available && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-sidebar" />}
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="right">Mises à jour HébergTonServ</TooltipContent>
+        <TooltipContent side="bottom">Mises à jour HébergTonServ</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-72 border bg-popover p-2 shadow-xl">
         <DropdownMenuLabel className="text-xs font-semibold">Mises à jour de l'application</DropdownMenuLabel>
