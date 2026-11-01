@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root "dist-runner" }
-$bun = Get-Command bun.exe -ErrorAction SilentlyContinue
+$bun = Get-Command bun -ErrorAction SilentlyContinue
 if (-not $bun) {
   $candidate = Join-Path $env:USERPROFILE ".bun\bin\bun.exe"
   if (-not (Test-Path -LiteralPath $candidate)) {
