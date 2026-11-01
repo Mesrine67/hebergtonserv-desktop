@@ -1,5 +1,6 @@
 use crate::AppState;
 use crate::errors::{Result, app_error};
+use crate::providers::http::{AccountApi, ApiClient};
 use crate::providers::pterodactyl::PterodactylProvider;
 use crate::providers::wisp::WispProvider;
 use crate::providers::{PanelProvider, ProviderKind};
@@ -33,6 +34,7 @@ pub struct WispLoginResult {
     pub panel_id: String,
     pub display_name: String,
     pub email: String,
+    pub provider: String,
 }
 
 #[tauri::command]
@@ -46,19 +48,25 @@ pub async fn login_wisp(
     }
     let base = url::validate_panel_url(&base_url, false)?;
     url::verify_resolved_host(&base, false).await?;
-    let provider = WispProvider::new(base.as_str(), token.trim(), false, "auto");
-    let account = provider.account().await?;
+    let client = ApiClient::new(
+        base.as_str(),
+        token.trim(),
+        "application/vnd.wisp.v1+json",
+        false,
+    )?;
+    let (account, detected_api) = client.get_account_with_api().await?;
+    let provider_name = match detected_api {
+        AccountApi::Wisp => "wisp",
+        AccountApi::Pterodactyl => "pterodactyl",
+    };
     let mut document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
     let panel_id = document
         .data
         .panels
         .iter()
-        .find(|panel| {
-            panel.provider == "wisp"
-                && panel.base_url.trim_end_matches('/') == base.as_str().trim_end_matches('/')
-        })
+        .find(|panel| panel.base_url.trim_end_matches('/') == base.as_str().trim_end_matches('/'))
         .map(|panel| panel.id.clone())
-        .unwrap_or_else(|| format!("wisp-{}", uuid::Uuid::new_v4()));
+        .unwrap_or_else(|| format!("{provider_name}-{}", uuid::Uuid::new_v4()));
     let name = if base
         .host_str()
         .is_some_and(|host| host.eq_ignore_ascii_case("manage.hebergtonserv.com"))
@@ -70,7 +78,7 @@ pub async fn login_wisp(
     let panel = PanelConfig {
         id: panel_id.clone(),
         name,
-        provider: "wisp".to_string(),
+        provider: provider_name.to_string(),
         base_url: base.as_str().trim_end_matches('/').to_string(),
         pterodactyl_version: "auto".to_string(),
         allow_local: false,
@@ -101,6 +109,7 @@ pub async fn login_wisp(
         panel_id,
         display_name: account.display_name,
         email: account.email,
+        provider: provider_name.to_string(),
     })
 }
 
