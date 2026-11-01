@@ -23,6 +23,8 @@ import PanelsPage from "./pages/PanelsPage";
 import ProfilesPage from "./pages/ProfilesPage";
 import SettingsPage from "./pages/SettingsPage";
 import SecurityPage from "./pages/SecurityPage";
+import PanelAccountPage from "./pages/PanelAccountPage";
+import PanelServersPage from "./pages/PanelServersPage";
 import "./App.css";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const routeLabels: Record<string, string> = {
   "/ssh-config": "Configuration SSH",
   "/profiles": "Profils SSH",
   "/panels": "Panels",
+  "/panel/account": "Compte du panel",
+  "/panel/servers": "Serveurs",
   "/settings": "Paramètres",
   "/security": "Sécurité",
 };
@@ -85,6 +89,8 @@ function Workspace() {
               <Route path="/ssh-config" element={<SshConfigPage />} />
               <Route path="/profiles" element={<ProfilesPage />} />
               <Route path="/panels" element={<PanelsPage />} />
+              <Route path="/panel/account" element={<PanelAccountPage />} />
+              <Route path="/panel/servers" element={<PanelServersPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/security" element={<SecurityPage />} />
               <Route path="*" element={<Navigate to="/ssh-keys" replace />} />
@@ -103,7 +109,7 @@ export default function App() {
   const onAuthenticated = useCallback(() => setAuthenticated(true), []);
   useEffect(() => {
     void commands.listPanels().then(async (panels) => {
-      const saved = panels.find((panel) => panel.provider === "wisp" && panel.status === "ok");
+      const saved = panels.find((panel) => panel.status === "ok");
       if (saved && await commands.panelTokenConfigured(saved.id)) setAuthenticated(true);
     }).catch(() => undefined);
   }, []);

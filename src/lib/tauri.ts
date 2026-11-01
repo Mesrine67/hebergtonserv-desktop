@@ -74,9 +74,42 @@ export interface PanelCheckResult {
   panel_id: string;
   status: string;
   message: string;
+  provider: string;
   account_label?: string | null;
   api_keys_supported: boolean;
   ssh_keys_supported: boolean;
+}
+
+export interface PanelServer {
+  id: string;
+  identifier: string;
+  name: string;
+  description?: string | null;
+  status?: string | null;
+  node?: string | null;
+  egg?: string | null;
+  limits: {
+    memory?: number | null;
+    swap?: number | null;
+    disk?: number | null;
+    cpu?: number | null;
+    databases?: number | null;
+    allocations?: number | null;
+    backups?: number | null;
+  };
+}
+
+export interface PanelAccountSummary {
+  panel_id: string;
+  provider: string;
+  base_url: string;
+  account: {
+    id: number;
+    username: string;
+    email: string;
+    display_name: string;
+    admin: boolean;
+  };
 }
 
 export interface WispLoginResult {
@@ -165,6 +198,8 @@ export const commands = {
   savePanel: (panel: PanelConfig) => invoke<void>("save_panel", { panel }),
   deletePanel: (id: string) => invoke<void>("delete_panel", { id }),
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
+  getPanelAccount: (id: string) => invoke<PanelAccountSummary>("get_panel_account", { id }),
+  listPanelServers: (id: string) => invoke<PanelServer[]>("list_panel_servers", { id }),
   setPanelToken: (id: string, token: string) => invoke<void>("set_panel_token", { id, token }),
   panelTokenConfigured: (id: string) => invoke<boolean>("panel_token_configured", { id }),
   createPanelApiKey: (panelId: string, description: string, allowedIps: string[]) =>

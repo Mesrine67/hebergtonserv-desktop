@@ -15,6 +15,7 @@ pub struct PanelCheckResult {
     pub panel_id: String,
     pub status: String,
     pub message: String,
+    pub provider: String,
     pub account_label: Option<String>,
     pub api_keys_supported: bool,
     pub ssh_keys_supported: bool,
@@ -355,9 +356,30 @@ pub async fn check_panel(
         .find(|panel| panel.id == id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    let provider = provider_for(&panel)?;
     let url = url::validate_panel_url(&panel.base_url, panel.allow_local)?;
     url::verify_resolved_host(&url, panel.allow_local).await?;
+    let token = credential_entry(&panel.id)?.get_password().map_err(|_| {
+        app_error(
+            "api_token",
+            "Configurez le jeton API du panneau dans les paramètres.",
+        )
+    })?;
+    let detected = ApiClient::new(
+        &panel.base_url,
+        &token,
+        "application/vnd.wisp.v1+json",
+        panel.allow_local,
+    )?
+    .get_account_with_api()
+    .await?
+    .1;
+    let detected_provider = match detected {
+        AccountApi::Wisp => ProviderKind::Wisp.as_str(),
+        AccountApi::Pterodactyl => ProviderKind::Pterodactyl.as_str(),
+    };
+    let mut effective_panel = panel.clone();
+    effective_panel.provider = detected_provider.to_string();
+    let provider = provider_for(&effective_panel)?;
     let account = provider.account().await?;
     let api_keys = provider.list_api_keys().await?;
     let ssh_keys = provider.list_ssh_keys().await?;
@@ -365,6 +387,7 @@ pub async fn check_panel(
         panel_id: panel.id.clone(),
         status: "ok".to_string(),
         message: format!("Compte vérifié : {}", account.display_name),
+        provider: detected_provider.to_string(),
         account_label: Some(account.display_name.clone()),
         api_keys_supported: api_keys.supported,
         ssh_keys_supported: ssh_keys.supported,
@@ -372,9 +395,56 @@ pub async fn check_panel(
     let mut updated = document;
     if let Some(existing) = updated.data.panels.iter_mut().find(|panel| panel.id == id) {
         existing.status = Some(result.status.clone());
+        existing.provider = detected_provider.to_string();
         existing.account_label = result.account_label.clone();
         existing.last_checked_at = Some(chrono::Utc::now().to_rfc3339());
     }
     Storage::write_json(&state.storage.panels_path, &updated, 1)?;
     Ok(result)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PanelAccountSummary {
+    pub panel_id: String,
+    pub provider: String,
+    pub base_url: String,
+    pub account: crate::providers::models::PanelAccount,
+}
+
+#[tauri::command]
+pub async fn get_panel_account(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<PanelAccountSummary> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let account = provider_for(&panel)?.account().await?;
+    Ok(PanelAccountSummary {
+        panel_id: panel.id,
+        provider: panel.provider,
+        base_url: panel.base_url,
+        account,
+    })
+}
+
+#[tauri::command]
+pub async fn list_panel_servers(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<Vec<crate::providers::models::PanelServer>> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    provider_for(&panel)?.list_servers().await
 }

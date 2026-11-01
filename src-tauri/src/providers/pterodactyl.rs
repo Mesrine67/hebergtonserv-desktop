@@ -84,6 +84,12 @@ impl PanelProvider for PterodactylProvider {
         })
     }
 
+    async fn list_servers(&self) -> Result<Vec<crate::providers::models::PanelServer>> {
+        ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?
+            .list_servers(self.accept())
+            .await
+    }
+
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>> {
         let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let result = client

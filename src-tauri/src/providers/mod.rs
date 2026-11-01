@@ -4,7 +4,9 @@ pub mod pterodactyl;
 pub mod wisp;
 
 use crate::errors::Result;
-use crate::providers::models::{CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelSshKey};
+use crate::providers::models::{
+    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServer, PanelSshKey,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +65,8 @@ pub trait PanelProvider: Send + Sync + 'static {
     fn kind(&self) -> ProviderKind;
 
     async fn account(&self) -> Result<PanelAccount>;
+
+    async fn list_servers(&self) -> Result<Vec<PanelServer>>;
 
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>>;
 
