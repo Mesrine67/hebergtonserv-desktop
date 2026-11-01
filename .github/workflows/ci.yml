@@ -16,9 +16,9 @@ concurrency:
 jobs:
   frontend:
     name: Frontend (Vite / React)
-    # A public fork PR must never execute untrusted code on this self-hosted machine.
+    # Public-repository standard GitHub-hosted runners are free, isolating Node builds from the Windows packaging runner.
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -29,26 +29,14 @@ jobs:
         with:
           node-version: 24
 
-      - name: Verify pnpm already installed on self-hosted runner
-        shell: pwsh
-        run: |
-          $expected = "12.15.0"
-          $actual = pnpm --version
-          if ($LASTEXITCODE -ne 0 -or $actual.Trim() -ne $expected) {
-            throw "pnpm $expected required; found $actual. Install it on the Windows runner without overwriting Hermes."
-          }
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.15.0
+          run_install: false
 
       - name: Install dependencies
-        shell: pwsh
-        run: |
-          # The Windows self-hosted runner has a populated pnpm content store.
-          # Prefer it to avoid long registry stalls; fall back only when incomplete.
-          pnpm install --frozen-lockfile --offline --ignore-scripts --package-import-method=copy --reporter append-only
-          if ($LASTEXITCODE -ne 0) {
-            Write-Warning 'Offline pnpm store incomplete; retrying with bounded registry requests.'
-            pnpm install --frozen-lockfile --ignore-scripts --package-import-method=copy --fetch-retries=1 --fetch-timeout=30000 --reporter append-only
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
+        run: pnpm install --frozen-lockfile --ignore-scripts --reporter append-only
 
       - name: Typecheck
         run: pnpm typecheck
