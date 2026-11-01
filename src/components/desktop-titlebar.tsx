@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { commands } from "@/lib/tauri";
 import { isTauri } from "@tauri-apps/api/core";
-import { Maximize2, Minus, Moon, Sun, X } from "lucide-react";
+import { Copy, Minus, Moon, Square, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { version as buildVersion } from "../../package.json";
 import appIcon from "../../src-tauri/icons/128x128.png";
@@ -40,6 +40,13 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
   }, []);
   const isDark = resolvedTheme !== "light";
   const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.dataset.windowMaximized = String(isMaximized);
+    return () => {
+      delete document.documentElement.dataset.windowMaximized;
+    };
+  }, [isMaximized]);
 
   useEffect(() => {
     if (!appWindow) return;
@@ -84,7 +91,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
   }
 
   return (
-    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-2 border-b border-border/70 bg-card/95 px-2 backdrop-blur">
+    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-card/95 pr-2 backdrop-blur">
       {navigation && (
         <TitlebarSidebarRail />
       )}
@@ -123,7 +130,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
             <Minus className="size-4" />
           </Button>
           <Button id="snap-btn" type="button" variant="ghost" size="icon" className="size-9 rounded-none" onClick={() => runWindowAction("toggleMaximize")} aria-label={isMaximized ? "Restaurer la fenêtre" : "Agrandir la fenêtre"} title={isMaximized ? "Restaurer" : "Agrandir"}>
-            <Maximize2 className={`size-3.5 ${isMaximized ? "scale-75" : ""}`} />
+            {isMaximized ? <Copy className="size-3.5" aria-hidden="true" /> : <Square className="size-3.5" aria-hidden="true" />}
           </Button>
           <Button type="button" variant="ghost" size="icon" className="size-9 rounded-none hover:bg-destructive hover:text-destructive-foreground" onClick={() => runWindowAction("close")} aria-label="Fermer la fenêtre">
             <X className="size-4" />
