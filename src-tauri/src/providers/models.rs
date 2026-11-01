@@ -1,11 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PanelUserAttributes {
     pub id: Option<i64>,
     pub username: Option<String>,
     pub email: Option<String>,
+    #[serde(alias = "name_first")]
     pub first_name: Option<String>,
+    #[serde(alias = "name_last")]
     pub last_name: Option<String>,
     pub admin: Option<bool>,
     pub language: Option<String>,

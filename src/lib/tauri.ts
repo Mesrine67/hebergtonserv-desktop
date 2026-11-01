@@ -83,6 +83,7 @@ export interface WispLoginResult {
   panel_id: string;
   display_name: string;
   email: string;
+  provider: string;
 }
 
 export interface SshProfile {
