@@ -167,6 +167,7 @@ export interface SecurityState {
 }
 
 export const commands = {
+  toggleAppWindowMaximize: () => invoke<void>("toggle_app_window_maximize"),
   listSshKeys: () => invoke<SshKeySummary[]>("list_ssh_keys"),
   generateSshKey: (input: {
     name: string;

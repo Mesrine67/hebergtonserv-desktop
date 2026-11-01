@@ -15,6 +15,53 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_window_state::StateFlags;
 
+/// Ask Windows 11 DWM for its native rounded window corners. The compositor
+/// ignores this preference on unsupported versions; CSS clips the webview too.
+#[cfg(target_os = "windows")]
+fn prefer_native_rounded_corners(window: &tauri::WebviewWindow) {
+    #[link(name = "dwmapi")]
+    unsafe extern "system" {
+        fn DwmSetWindowAttribute(
+            hwnd: *mut std::ffi::c_void,
+            attribute: u32,
+            value: *const std::ffi::c_void,
+            value_size: u32,
+        ) -> i32;
+    }
+    if let Ok(hwnd) = window.hwnd() {
+        let corner_preference: i32 = 2; // DWMWCP_ROUND
+        // DWMWA_WINDOW_CORNER_PREFERENCE = 33, Windows 11.
+        let _ = unsafe {
+            DwmSetWindowAttribute(
+                hwnd.0,
+                33,
+                (&raw const corner_preference).cast(),
+                std::mem::size_of_val(&corner_preference) as u32,
+            )
+        };
+    }
+}
+
+#[tauri::command]
+fn toggle_app_window_maximize(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "Fenêtre principale introuvable".to_string())?;
+
+    if window
+        .is_maximized()
+        .map_err(|error| format!("Lecture de l’état de la fenêtre impossible : {error}"))?
+    {
+        window
+            .unmaximize()
+            .map_err(|error| format!("Restauration de la fenêtre impossible : {error}"))
+    } else {
+        window
+            .maximize()
+            .map_err(|error| format!("Agrandissement de la fenêtre impossible : {error}"))
+    }
+}
+
 #[derive(serde::Serialize)]
 struct LocalIdentity {
     username: String,
@@ -69,7 +116,17 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
+        .plugin(
+            tauri_plugin_snap_layout::init()
+                .button_id("snap-btn")
+                .padding_all(0)
+                .build(),
+        )
         .setup(|app| {
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                prefer_native_rounded_corners(&window);
+            }
             let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
             let storage = Storage::new(
                 app.path()
@@ -156,6 +213,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             get_local_identity,
+            toggle_app_window_maximize,
             commands::ssh::list_ssh_keys,
             commands::ssh::generate_ssh_key,
             commands::ssh::import_public_key,

@@ -1,18 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { commands } from "@/lib/tauri";
 import { isTauri } from "@tauri-apps/api/core";
-import { Minus, Moon, Square, Sun, X } from "lucide-react";
+import { Copy, Minus, Moon, Square, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { version as buildVersion } from "../../package.json";
 import appIcon from "../../src-tauri/icons/128x128.png";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Props = {
   title?: string;
   navigation?: boolean;
 };
+
+function TitlebarSidebarRail() {
+  const { state } = useSidebar();
+  return (
+    <div className={`hts-titlebar-rail flex h-full shrink-0 items-center border-r border-border/70 bg-sidebar ${state === "collapsed" ? "w-[var(--sidebar-width-icon)] justify-center" : "w-[var(--sidebar-width)] justify-start px-3"}`}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
+        </TooltipTrigger>
+        <TooltipContent>Afficher ou masquer la navigation</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation = false }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -25,6 +40,13 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
   }, []);
   const isDark = resolvedTheme !== "light";
   const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.dataset.windowMaximized = String(isMaximized);
+    return () => {
+      delete document.documentElement.dataset.windowMaximized;
+    };
+  }, [isMaximized]);
 
   useEffect(() => {
     if (!appWindow) return;
@@ -57,24 +79,21 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
 
   function runWindowAction(action: "minimize" | "toggleMaximize" | "close") {
     if (!appWindow) return;
+    if (action === "toggleMaximize") {
+      void commands.toggleAppWindowMaximize().catch((error: unknown) => {
+        console.error("[desktop-titlebar] toggle_app_window_maximize", error);
+      });
+      return;
+    }
     void appWindow[action]().catch((error: unknown) => {
       console.error(`[desktop-titlebar] ${action}`, error);
     });
   }
 
   return (
-    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-2 border-b border-border/70 bg-card/95 px-2 backdrop-blur">
+    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-card/95 pr-2 backdrop-blur">
       {navigation && (
-        <>
-          <div className="hts-titlebar-rail flex h-full w-[var(--sidebar-width-icon)] shrink-0 items-center justify-center border-r border-border/70 bg-sidebar">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
-              </TooltipTrigger>
-              <TooltipContent>Afficher ou masquer la navigation</TooltipContent>
-            </Tooltip>
-          </div>
-        </>
+        <TitlebarSidebarRail />
       )}
 
       <div className="flex h-full min-w-0 flex-1 items-center gap-2 px-1" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")}>
@@ -110,8 +129,8 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
           <Button type="button" variant="ghost" size="icon" className="size-9 rounded-none" onClick={() => runWindowAction("minimize")} aria-label="Réduire la fenêtre">
             <Minus className="size-4" />
           </Button>
-          <Button type="button" variant="ghost" size="icon" className="size-9 rounded-none" onClick={() => runWindowAction("toggleMaximize")} aria-label={isMaximized ? "Restaurer la fenêtre" : "Agrandir la fenêtre"} title={isMaximized ? "Restaurer" : "Agrandir"}>
-            <Square className={`size-3.5 ${isMaximized ? "scale-75" : ""}`} />
+          <Button id="snap-btn" type="button" variant="ghost" size="icon" className="size-9 rounded-none" onClick={() => runWindowAction("toggleMaximize")} aria-label={isMaximized ? "Restaurer la fenêtre" : "Agrandir la fenêtre"} title={isMaximized ? "Restaurer" : "Agrandir"}>
+            {isMaximized ? <Copy className="size-3.5" aria-hidden="true" /> : <Square className="size-3.5" aria-hidden="true" />}
           </Button>
           <Button type="button" variant="ghost" size="icon" className="size-9 rounded-none hover:bg-destructive hover:text-destructive-foreground" onClick={() => runWindowAction("close")} aria-label="Fermer la fenêtre">
             <X className="size-4" />

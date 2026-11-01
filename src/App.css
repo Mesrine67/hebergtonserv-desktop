@@ -154,14 +154,22 @@
 #workspace-scroll { scrollbar-gutter: stable; }
 
 /* Harmonized floating shell: sidebar and page share the same outer gap, radius and surface. */
-.hts-workspace-shell { gap: 0; }
-.hts-workspace-panel { position: relative; isolation: isolate; background: var(--background); }
+/* Clip the entire shell as one unit. An inner border or a separate panel radius
+   would create a seam between the titlebar and the sidebar. */
+#root { border-radius: 10px; overflow: hidden; }
+.hts-workspace-shell { gap: 0; border-radius: 10px; overflow: hidden; background: var(--sidebar); }
+html[data-window-maximized="true"] #root,
+html[data-window-maximized="true"] .hts-workspace-shell,
+html[data-window-maximized="true"] .hts-titlebar { border-radius: 0; }
+.hts-workspace-panel { position: relative; isolation: isolate; overflow: hidden; border-radius: 0; background: var(--background); }
 .hts-titlebar { -webkit-app-region: drag; user-select: none; }
+.hts-titlebar { border-bottom: 0 !important; border-radius: 9px 9px 0 0; }
 .hts-titlebar button { -webkit-app-region: no-drag; }
+#snap-btn.is-hovered { background-color: var(--accent); color: var(--accent-foreground); }
 .hts-titlebar-rail { -webkit-app-region: no-drag; }
 .hts-titlebar-rail [data-sidebar="trigger"] { -webkit-app-region: no-drag; }
-.hts-sidebar [data-sidebar="sidebar"] { border-radius: 0 !important; }
-.hts-sidebar [data-sidebar="sidebar"] { border-top: 0 !important; }
+.hts-sidebar[data-slot="sidebar-container"] { top: 2.75rem !important; height: calc(100dvh - 2.75rem) !important; }
+.hts-sidebar [data-sidebar="sidebar"] { border: 0 !important; border-right: 1px solid var(--sidebar-border) !important; border-radius: 0 !important; box-shadow: none !important; }
 .hts-sidebar [data-sidebar="header"] { padding: 0.75rem; }
 .hts-sidebar [data-sidebar="content"] { padding-inline: 0.25rem; }
 .hts-sidebar [data-sidebar="footer"] { padding: 0.75rem; }
