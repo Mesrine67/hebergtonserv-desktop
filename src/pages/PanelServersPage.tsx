@@ -194,9 +194,14 @@ function ServerCard({
           </div>
         )}
       </div>
+      {stats && (stats.network_rx_bytes != null || stats.network_tx_bytes != null) && (
+        <p className="px-4 pb-3 text-xs text-muted-foreground tabular-nums">
+          Réseau : ↓ {formatBytes(stats.network_rx_bytes)} · ↑ {formatBytes(stats.network_tx_bytes)}
+        </p>
+      )}
       {failed && (
-        <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          Les ressources en direct ne sont pas disponibles pour ce serveur.
+        <p className="border-t px-4 py-2 text-xs text-amber-500" role="status">
+          Métriques API indisponibles. Vérifiez les droits de la clé Client et l'accès à l'endpoint /resources.
         </p>
       )}
     </article>
@@ -227,14 +232,21 @@ export default function PanelServersPage() {
   const visibleServers = matchingServers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const resourceQueries = useQueries({
     queries: visibleServers.map((server) => ({
-      queryKey: ["panel-server-resources", panel?.id, server.identifier],
-      queryFn: () => commands.getPanelServerResources(panel!.id, server.identifier),
+      queryKey: ["panel-server-resources", panel?.id, server.id],
+      queryFn: () => commands.getPanelServerResources(
+        panel!.id,
+        panel?.provider.toLowerCase() === "pterodactyl" && panel.pterodactyl_version.startsWith("2")
+          ? server.id
+          : server.identifier,
+      ),
       staleTime: RESOURCE_REFRESH_MS,
       refetchInterval: RESOURCE_REFRESH_MS,
       retry: 1,
     })),
   });
+  const observedStates = resourceQueries.filter((query) => query.data?.state).length;
   const liveOnlineCount = resourceQueries.filter((query) => query.data && ["running", "online", "started"].includes(query.data.state?.toLowerCase() ?? "")).length;
+  const failedStates = resourceQueries.filter((query) => query.isError).length;
 
   const refresh = async () => {
     await servers.refetch();
@@ -268,7 +280,11 @@ export default function PanelServersPage() {
                 <h2 className="truncate font-semibold">{panel.name}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {servers.data ? `${servers.data.length} serveurs` : panel.provider.toUpperCase()}
-                  {resourceQueries.length > 0 && <> · {liveOnlineCount} en ligne sur cette page</>}
+                  {resourceQueries.length > 0 && (
+                    observedStates > 0
+                      ? <> · {liveOnlineCount} en ligne / {observedStates} états connus sur cette page</>
+                      : <> · {failedStates > 0 ? "États API indisponibles" : "Chargement des états…"}</>
+                  )}
                 </p>
               </div>
             </div>
@@ -305,7 +321,7 @@ export default function PanelServersPage() {
             ) : matchingServers.length === 0 ? (
               <EmptyState message={servers.data?.length ? "Aucun serveur ne correspond à votre recherche." : "Aucun serveur n’est associé à ce compte panel."} />
             ) : (
-              <div className="grid gap-3.5 xl:grid-cols-2">
+              <div className="grid gap-3.5 xl:grid-cols-2 2xl:grid-cols-3">
                 {visibleServers.map((server, index) => (
                   <ServerCard
                     key={server.identifier}

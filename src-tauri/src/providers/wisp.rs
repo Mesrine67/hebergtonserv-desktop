@@ -45,7 +45,7 @@ impl PanelProvider for WispProvider {
 
     async fn list_servers(&self) -> Result<Vec<crate::providers::models::PanelServer>> {
         ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?
-            .list_servers(self.accept())
+            .list_servers(self.accept(), "wisp")
             .await
     }
 
