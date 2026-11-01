@@ -1,21 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Moon, Sun } from "lucide-react";
-import { ThemeProvider, useTheme } from "next-themes";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import StartupWelcome from "@/components/startup-welcome";
 import WispLoginPage from "@/pages/WispLoginPage";
 import { commands } from "@/lib/tauri";
-import { Button } from "@/components/ui/button";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset, SidebarProvider, SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { DesktopTitlebar } from "@/components/desktop-titlebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import SshKeysPage from "./pages/SshKeysPage";
 import SshConfigPage from "./pages/SshConfigPage";
@@ -40,49 +33,17 @@ const routeLabels: Record<string, string> = {
   "/security": "Sécurité",
 };
 
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme !== "light";
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      type="button"
-      aria-label={isDark ? "Activer le thème clair" : "Activer le thème sombre"}
-      title={isDark ? "Thème clair" : "Thème sombre"}
-    >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </Button>
-  );
-}
-
 function Workspace() {
   const location = useLocation();
   const current = routeLabels[location.pathname] ?? "Clés SSH";
   return (
-    <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 overflow-hidden bg-sidebar p-2 gap-2">
+    <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
+      <DesktopTitlebar navigation title={current} />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
-      <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 h-full overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm md:!m-0 md:!ml-0 md:!rounded-2xl">
-        <header className="hts-workspace-header sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/70 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-          <SidebarTrigger className="-ml-1" aria-label="Afficher ou masquer la navigation" />
-          <Separator orientation="vertical" className="mr-1 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage className="font-medium">{current}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="hidden rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground sm:inline">
-              HébergTonServ Desktop
-            </span>
-            <ThemeToggle />
-          </div>
-        </header>
+      <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 h-full overflow-hidden bg-background">
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
-          <div className="mx-auto w-full max-w-6xl">
+          <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <Routes>
               <Route path="/" element={<Navigate to="/ssh-keys" replace />} />
               <Route path="/ssh-keys" element={<SshKeysPage />} />
@@ -98,6 +59,7 @@ function Workspace() {
           </div>
         </main>
       </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }
@@ -119,7 +81,21 @@ export default function App() {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="hts-ui-theme">
         <TooltipProvider delayDuration={150}>
           <BrowserRouter>
-              {welcomeVisible ? <StartupWelcome onDismiss={dismissWelcome} /> : authenticated ? <Workspace /> : <WispLoginPage onAuthenticated={onAuthenticated} />}
+              {welcomeVisible ? (
+                <div className="flex h-dvh min-h-0 flex-col bg-background">
+                  <DesktopTitlebar />
+                  <div className="relative min-h-0 flex-1">
+                    <StartupWelcome onDismiss={dismissWelcome} />
+                  </div>
+                </div>
+              ) : authenticated ? <Workspace /> : (
+                <div className="flex h-dvh min-h-0 flex-col bg-background">
+                  <DesktopTitlebar title="Connexion" />
+                  <div className="flex min-h-0 flex-1">
+                    <WispLoginPage onAuthenticated={onAuthenticated} />
+                  </div>
+                </div>
+              )}
           </BrowserRouter>
           <Toaster richColors position="top-right" />
         </TooltipProvider>

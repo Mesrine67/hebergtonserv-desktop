@@ -13,6 +13,7 @@ use crate::storage::Storage;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri_plugin_window_state::StateFlags;
 
 #[derive(serde::Serialize)]
 struct LocalIdentity {
@@ -48,7 +49,17 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_log::Builder::default().build())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    StateFlags::SIZE
+                        | StateFlags::POSITION
+                        | StateFlags::MAXIMIZED
+                        | StateFlags::VISIBLE
+                        | StateFlags::FULLSCREEN,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -172,6 +183,7 @@ pub fn run() {
             commands::panels::check_panel,
             commands::panels::get_panel_account,
             commands::panels::list_panel_servers,
+            commands::panels::get_panel_server_resources,
             commands::panels::create_panel_api_key,
             commands::panels::create_panel_ssh_key,
             commands::panels::revoke_panel_api_key,

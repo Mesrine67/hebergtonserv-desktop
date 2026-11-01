@@ -26,7 +26,9 @@ jobs:
         include:
           - platform: [self-hosted, Windows, X64]
             args: --bundles nsis,msi
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64]
+    env:
+      RUSTUP_TOOLCHAIN: 1.95.0-x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout repository
@@ -34,13 +36,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve Rust toolchain
+      - name: Verify Rust toolchain
         shell: pwsh
         run: |
-          rustup toolchain install stable --profile minimal
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          rustup default stable
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           rustc --version
           cargo --version
 
