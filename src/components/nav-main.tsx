@@ -37,7 +37,6 @@ export function NavMain({ items }: { items: NavSection[] }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <SidebarMenuButton
-                      tooltip={section.title}
                       aria-label={`Ouvrir le menu ${section.title}`}
                       aria-haspopup="menu"
                       isActive={active}
@@ -50,11 +49,11 @@ export function NavMain({ items }: { items: NavSection[] }) {
                   <DropdownMenuContent
                     side="right"
                     align="start"
-                    sideOffset={12}
+                    sideOffset={8}
                     collisionPadding={12}
-                    className="z-50 w-60 rounded-2xl border border-border/80 bg-popover p-2 shadow-xl"
+                    className="hts-floating-menu w-60"
                   >
-                    <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    <DropdownMenuLabel className="hts-floating-menu-label font-semibold">
                       {section.title}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -62,12 +61,12 @@ export function NavMain({ items }: { items: NavSection[] }) {
                       <DropdownMenuItem
                         key={entry.url}
                         asChild
-                        className="cursor-pointer rounded-lg px-3 py-2"
+                        className="hts-floating-menu-item"
                       >
                         <NavLink
                           to={entry.url}
                           aria-current={location.pathname === entry.url ? "page" : undefined}
-                          className={location.pathname === entry.url ? "bg-accent font-medium text-accent-foreground" : ""}
+                          className={location.pathname === entry.url ? "hts-floating-menu-current" : ""}
                         >
                           {entry.title}
                         </NavLink>

@@ -8,7 +8,7 @@ import { version as buildVersion } from "../../package.json";
 import appIcon from "../../src-tauri/icons/128x128.png";
 import { Button } from "@/components/ui/button";
 import { AppUpdaterAction } from "@/components/app-updater-action";
-import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Props = {
@@ -17,9 +17,10 @@ type Props = {
 };
 
 function TitlebarSidebarRail() {
-  const { state } = useSidebar();
+  // Window chrome is not part of the collapsible navigation column.
+  // Keep the application title anchored in both navigation states.
   return (
-    <div className={`hts-titlebar-rail flex h-full w-11 shrink-0 items-center justify-center bg-transparent ${state === "collapsed" ? "md:w-[var(--sidebar-width-icon)]" : "md:w-[var(--sidebar-width)] md:justify-start md:px-3"}`}>
+    <div className="hts-titlebar-rail flex h-full w-[var(--sidebar-width-icon)] shrink-0 items-center justify-center bg-transparent">
       <Tooltip>
         <TooltipTrigger asChild>
           <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
@@ -97,7 +98,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
         <TitlebarSidebarRail />
       )}
 
-      <div className="flex h-full min-w-0 flex-1 items-center gap-2 px-1" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")}>
+      <div className="hts-titlebar-brand flex h-full min-w-0 flex-1 items-center gap-2 px-1" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")}>
         <img src={appIcon} alt="" className="size-6 shrink-0 object-contain" aria-hidden="true" data-tauri-drag-region />
         <span className="truncate text-xs font-semibold text-foreground" data-tauri-drag-region>HébergTonServ Desktop</span>
         {navigation && (
