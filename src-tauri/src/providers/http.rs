@@ -162,14 +162,14 @@ fn parse_server(value: Value) -> Result<PanelServer> {
         .unwrap_or_else(|| id.clone());
     let limits = attrs.get("limits").cloned().unwrap_or(Value::Null);
     let mut limits: PanelServerLimits = serde_json::from_value(limits).unwrap_or_default();
-    if limits.databases.is_none() || limits.allocations.is_none() || limits.backups.is_none() {
-        if let Some(feature_limits) = attrs.get("feature_limits") {
-            let feature_limits: PanelServerLimits =
-                serde_json::from_value(feature_limits.clone()).unwrap_or_default();
-            limits.databases = limits.databases.or(feature_limits.databases);
-            limits.allocations = limits.allocations.or(feature_limits.allocations);
-            limits.backups = limits.backups.or(feature_limits.backups);
-        }
+    if (limits.databases.is_none() || limits.allocations.is_none() || limits.backups.is_none())
+        && let Some(feature_limits) = attrs.get("feature_limits")
+    {
+        let feature_limits: PanelServerLimits =
+            serde_json::from_value(feature_limits.clone()).unwrap_or_default();
+        limits.databases = limits.databases.or(feature_limits.databases);
+        limits.allocations = limits.allocations.or(feature_limits.allocations);
+        limits.backups = limits.backups.or(feature_limits.backups);
     }
     let included = attrs.get("relationships").unwrap_or(&Value::Null);
     let node = server_string(attrs, &["node"]).or_else(|| {

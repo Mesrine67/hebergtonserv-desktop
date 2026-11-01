@@ -20,7 +20,7 @@
 }
 
 .hts-welcome-screen {
-  position: fixed;
+  position: absolute;
   z-index: 10000;
   inset: 0;
   display: grid;

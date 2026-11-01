@@ -17,6 +17,7 @@
         "height": 820,
         "minWidth": 960,
         "minHeight": 640,
+        "decorations": false,
         "visible": true,
         "backgroundColor": "#0f172a",
         "userAgent": "hebergtonserv.desktop/0.4.0"

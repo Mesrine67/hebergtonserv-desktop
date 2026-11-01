@@ -29,7 +29,7 @@ export default function WispLoginPage({ onAuthenticated }: Props) {
   }
 
   return (
-    <main className="hts-auth-screen">
+    <main className="hts-auth-screen min-h-0 flex-1">
       <section className="hts-auth-card">
         <div className="hts-auth-brand"><img src="/hebergtonserv-mark.png" alt="" /><span>HébergTonServ <span className="text-muted-foreground">Desktop</span></span></div>
         <div className="hts-auth-icon"><KeyRound className="size-5" /></div>

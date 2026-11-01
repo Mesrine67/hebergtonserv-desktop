@@ -7,3 +7,9 @@
 - Charge les métriques uniquement pour les 12 serveurs visibles, avec une actualisation automatique chaque minute.
 - Ajoute recherche et pagination côté interface pour les listes de serveurs.
 - Conserve le type de média WISP documenté `application/vnd.wisp.v1+json` et utilise l'API Client Pterodactyl pour les ressources compatibles.
+
+## Interface de bureau
+
+- Ajoute une barre supérieure intégrée avec navigation, thème et contrôles natifs de fenêtre Tauri.
+- Étend la sidebar pour une navigation plein écran, avec largeur ajustée et mode réduit.
+- Retire les décorations natives Windows afin d'aligner la fenêtre sur le shell de l'application.
