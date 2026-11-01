@@ -3,6 +3,7 @@ import { KeyRound, LoaderCircle, Server, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { commands } from "@/lib/tauri";
+import { errorMessage } from "@/lib/error-message";
 
 type Props = { onAuthenticated: (account: { display_name: string; email: string }) => void };
 
@@ -21,7 +22,7 @@ export default function WispLoginPage({ onAuthenticated }: Props) {
       setToken("");
       onAuthenticated({ display_name: result.display_name, email: result.email });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
