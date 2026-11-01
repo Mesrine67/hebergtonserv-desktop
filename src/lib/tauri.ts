@@ -79,6 +79,12 @@ export interface PanelCheckResult {
   ssh_keys_supported: boolean;
 }
 
+export interface WispLoginResult {
+  panel_id: string;
+  display_name: string;
+  email: string;
+}
+
 export interface SshProfile {
   id: string;
   name: string;
@@ -154,6 +160,7 @@ export const commands = {
   agentRemoveIdentity: (keyName: string) =>
     invoke<void>("agent_remove_identity", { keyName }),
   listPanels: () => invoke<PanelConfig[]>("list_panels"),
+  loginWisp: (baseUrl: string, token: string) => invoke<WispLoginResult>("login_wisp", { baseUrl, token }),
   savePanel: (panel: PanelConfig) => invoke<void>("save_panel", { panel }),
   deletePanel: (id: string) => invoke<void>("delete_panel", { id }),
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),

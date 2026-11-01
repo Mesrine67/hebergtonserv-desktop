@@ -28,6 +28,82 @@ fn credential_entry(panel_id: &str) -> Result<Entry> {
     })
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WispLoginResult {
+    pub panel_id: String,
+    pub display_name: String,
+    pub email: String,
+}
+
+#[tauri::command]
+pub async fn login_wisp(
+    state: tauri::State<'_, AppState>,
+    base_url: String,
+    token: String,
+) -> Result<WispLoginResult> {
+    if token.trim().is_empty() || token.len() > 4096 {
+        return Err(app_error("api_token", "Jeton API vide ou trop long."));
+    }
+    let base = url::validate_panel_url(&base_url, false)?;
+    url::verify_resolved_host(&base, false).await?;
+    let provider = WispProvider::new(base.as_str(), token.trim(), false, "auto");
+    let account = provider.account().await?;
+    let mut document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel_id = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| {
+            panel.provider == "wisp"
+                && panel.base_url.trim_end_matches('/') == base.as_str().trim_end_matches('/')
+        })
+        .map(|panel| panel.id.clone())
+        .unwrap_or_else(|| format!("wisp-{}", uuid::Uuid::new_v4()));
+    let name = if base
+        .host_str()
+        .is_some_and(|host| host.eq_ignore_ascii_case("manage.hebergtonserv.com"))
+    {
+        "HébergTonServ".to_string()
+    } else {
+        base.host_str().unwrap_or("WISP").to_string()
+    };
+    let panel = PanelConfig {
+        id: panel_id.clone(),
+        name,
+        provider: "wisp".to_string(),
+        base_url: base.as_str().trim_end_matches('/').to_string(),
+        pterodactyl_version: "auto".to_string(),
+        allow_local: false,
+        status: Some("ok".to_string()),
+        account_label: Some(account.display_name.clone()),
+        last_checked_at: Some(chrono::Utc::now().to_rfc3339()),
+    };
+    credential_entry(&panel_id)?
+        .set_password(token.trim())
+        .map_err(|_| {
+            app_error(
+                "panel_keyring",
+                "Impossible de sauvegarder le jeton dans le coffre d'identifiants Windows.",
+            )
+        })?;
+    if let Some(existing) = document
+        .data
+        .panels
+        .iter_mut()
+        .find(|panel| panel.id == panel_id)
+    {
+        *existing = panel;
+    } else {
+        document.data.panels.push(panel);
+    }
+    Storage::write_json(&state.storage.panels_path, &document, 1)?;
+    Ok(WispLoginResult {
+        panel_id,
+        display_name: account.display_name,
+        email: account.email,
+    })
+}
+
 fn provider_for(panel: &PanelConfig) -> Result<Box<dyn PanelProvider>> {
     let base_url = panel.base_url.clone();
     let token = credential_entry(&panel.id)?.get_password().map_err(|_| {

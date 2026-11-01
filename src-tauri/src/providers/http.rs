@@ -41,6 +41,11 @@ pub struct ApiClient {
     pub allow_local: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WispLoginResponse {
+    pub user: Option<PanelUser>,
+}
+
 // Keep authorization failures distinct from missing provider endpoints. A 401
 // must never be interpreted as permission to retry with another API route.
 fn http_error_code(status: reqwest::StatusCode) -> &'static str {
@@ -141,7 +146,11 @@ impl ApiClient {
         let mut builder = client
             .request(method, &url)
             .bearer_auth(&self.token)
-            .header(reqwest::header::ACCEPT, self.accept.clone());
+            .header(reqwest::header::ACCEPT, self.accept.clone())
+            .header(
+                reqwest::header::USER_AGENT,
+                format!("HebergTonServ-Desktop/{}", env!("CARGO_PKG_VERSION")),
+            );
         if let Some(b) = body {
             let payload = serde_json::to_vec(b)
                 .map_err(|_| app_error("api_invalid_request", "Requête API invalide."))?;
@@ -190,6 +199,32 @@ impl ApiClient {
             .send_json::<WispAccountResponse>(reqwest::Method::GET, "/api/client/auth/@me", None)
             .await?;
         Ok(response.user)
+    }
+
+    pub async fn validate_wisp_token(&self) -> Result<PanelAccount> {
+        let user = self.get_account_wisp().await?.ok_or_else(|| {
+            app_error(
+                "api_invalid_response",
+                "Le panneau n'a pas renvoyé de compte utilisateur.",
+            )
+        })?;
+        let attributes = user.attributes;
+        let display_name = if attributes.first_name.is_some() || attributes.last_name.is_some() {
+            format!(
+                "{}{}",
+                attributes.first_name.as_deref().unwrap_or(""),
+                attributes.last_name.as_deref().unwrap_or("")
+            )
+        } else {
+            attributes.username.clone().unwrap_or_default()
+        };
+        Ok(PanelAccount {
+            id: attributes.id.unwrap_or_default(),
+            username: attributes.username.unwrap_or_default(),
+            email: attributes.email.unwrap_or_default(),
+            display_name,
+            admin: attributes.root_admin.unwrap_or(false),
+        })
     }
 
     pub async fn get_account_pterodactyl(&self) -> Result<Option<PanelUser>> {
