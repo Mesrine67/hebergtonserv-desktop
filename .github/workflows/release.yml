@@ -26,7 +26,7 @@ jobs:
         include:
           - platform: [self-hosted, Windows, X64]
             args: --bundles nsis,msi
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64]
 
     steps:
       - name: Checkout repository

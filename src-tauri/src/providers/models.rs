@@ -59,8 +59,29 @@ pub struct PanelServer {
     pub description: Option<String>,
     pub status: Option<String>,
     pub node: Option<String>,
+    pub connect_address: Option<String>,
+    pub suspended: bool,
+    pub installing: bool,
     pub egg: Option<String>,
     pub limits: PanelServerLimits,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PanelServerResources {
+    pub state: Option<String>,
+    pub suspended: bool,
+    pub memory_used_bytes: Option<u64>,
+    pub memory_limit_bytes: Option<u64>,
+    pub cpu_percent: Option<f64>,
+    pub cpu_limit_percent: Option<f64>,
+    pub disk_used_bytes: Option<u64>,
+    pub disk_limit_bytes: Option<u64>,
+    pub network_rx_bytes: Option<u64>,
+    pub network_tx_bytes: Option<u64>,
+    pub uptime_ms: Option<u64>,
+    pub players: Option<u64>,
+    pub max_players: Option<u64>,
+    pub connect_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

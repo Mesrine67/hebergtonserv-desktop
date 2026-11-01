@@ -87,6 +87,9 @@ export interface PanelServer {
   description?: string | null;
   status?: string | null;
   node?: string | null;
+  connect_address?: string | null;
+  suspended: boolean;
+  installing: boolean;
   egg?: string | null;
   limits: {
     memory?: number | null;
@@ -97,6 +100,23 @@ export interface PanelServer {
     allocations?: number | null;
     backups?: number | null;
   };
+}
+
+export interface PanelServerResources {
+  state?: string | null;
+  suspended: boolean;
+  memory_used_bytes?: number | null;
+  memory_limit_bytes?: number | null;
+  cpu_percent?: number | null;
+  cpu_limit_percent?: number | null;
+  disk_used_bytes?: number | null;
+  disk_limit_bytes?: number | null;
+  network_rx_bytes?: number | null;
+  network_tx_bytes?: number | null;
+  uptime_ms?: number | null;
+  players?: number | null;
+  max_players?: number | null;
+  connect_address?: string | null;
 }
 
 export interface PanelAccountSummary {
@@ -200,6 +220,8 @@ export const commands = {
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
   getPanelAccount: (id: string) => invoke<PanelAccountSummary>("get_panel_account", { id }),
   listPanelServers: (id: string) => invoke<PanelServer[]>("list_panel_servers", { id }),
+  getPanelServerResources: (id: string, identifier: string) =>
+    invoke<PanelServerResources>("get_panel_server_resources", { id, identifier }),
   setPanelToken: (id: string, token: string) => invoke<void>("set_panel_token", { id, token }),
   panelTokenConfigured: (id: string) => invoke<boolean>("panel_token_configured", { id }),
   createPanelApiKey: (panelId: string, description: string, allowedIps: string[]) =>

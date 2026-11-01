@@ -448,3 +448,20 @@ pub async fn list_panel_servers(
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
     provider_for(&panel)?.list_servers().await
 }
+
+#[tauri::command]
+pub async fn get_panel_server_resources(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+) -> Result<crate::providers::models::PanelServerResources> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    provider_for(&panel)?.server_resources(&identifier).await
+}

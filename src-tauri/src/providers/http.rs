@@ -1,5 +1,7 @@
 use crate::errors::{Result, app_error, http_error};
-use crate::providers::models::{PanelAccount, PanelServer, PanelServerLimits, PanelUser};
+use crate::providers::models::{
+    PanelAccount, PanelServer, PanelServerLimits, PanelServerResources, PanelUser,
+};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::time::Duration;
@@ -57,6 +59,97 @@ fn server_string(value: &Value, keys: &[&str]) -> Option<String> {
     })
 }
 
+fn value_u64(value: &Value, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|key| {
+        value.get(key).and_then(|item| {
+            item.as_u64()
+                .or_else(|| item.as_str().and_then(|string| string.parse().ok()))
+        })
+    })
+}
+
+fn value_f64(value: &Value, keys: &[&str]) -> Option<f64> {
+    keys.iter().find_map(|key| {
+        value.get(key).and_then(|item| {
+            item.as_f64()
+                .or_else(|| item.as_str().and_then(|string| string.parse().ok()))
+        })
+    })
+}
+
+fn server_connect_address(attrs: &Value) -> Option<String> {
+    let allocations = attrs
+        .get("relationships")?
+        .get("allocations")?
+        .get("data")?
+        .as_array()?;
+    let allocation = allocations
+        .iter()
+        .find(|allocation| {
+            allocation
+                .get("attributes")
+                .and_then(|attributes| attributes.get("is_default"))
+                .and_then(Value::as_bool)
+                == Some(true)
+        })
+        .or_else(|| allocations.first())?;
+    let allocation = allocation.get("attributes").unwrap_or(allocation);
+    let host = server_string(allocation, &["ip_alias", "ip"])?;
+    let port = server_string(allocation, &["port"])?;
+    Some(format!("{host}:{port}"))
+}
+
+fn parse_server_resources(value: Value) -> PanelServerResources {
+    let attrs = value.get("attributes").unwrap_or(&value);
+    let proc = attrs.get("proc").unwrap_or(&Value::Null);
+    let memory = proc.get("memory").unwrap_or(&Value::Null);
+    let cpu = proc.get("cpu").unwrap_or(&Value::Null);
+    let disk = proc.get("disk").unwrap_or(&Value::Null);
+    let resources = attrs.get("resources").unwrap_or(&Value::Null);
+    let query = attrs.get("query").unwrap_or(&Value::Null);
+    let state = server_string(attrs, &["current_state", "state"]).or_else(|| {
+        value_u64(attrs, &["status"])
+            .map(|status| if status == 1 { "running" } else { "offline" }.to_string())
+    });
+    let players = query
+        .get("players")
+        .and_then(Value::as_array)
+        .map(|players| players.len() as u64)
+        .or_else(|| value_u64(query, &["numplayers", "players"]));
+    let max_players = value_u64(query, &["maxplayers", "max_players"]);
+    let connect_address = server_string(query, &["connect"]).or_else(|| {
+        let host = server_string(query, &["hostip", "ip"])?;
+        let port = server_string(query, &["hostport", "port"])?;
+        Some(format!("{host}:{port}"))
+    });
+
+    PanelServerResources {
+        state,
+        suspended: attrs
+            .get("is_suspended")
+            .or_else(|| attrs.get("suspended"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        memory_used_bytes: value_u64(resources, &["memory_bytes"])
+            .or_else(|| value_u64(memory, &["total", "used"])),
+        memory_limit_bytes: value_u64(memory, &["limit"]),
+        cpu_percent: value_f64(resources, &["cpu_absolute"])
+            .or_else(|| value_f64(cpu, &["total", "used"])),
+        cpu_limit_percent: value_f64(cpu, &["limit"]),
+        disk_used_bytes: value_u64(resources, &["disk_bytes"])
+            .or_else(|| value_u64(disk, &["used", "total"])),
+        disk_limit_bytes: value_u64(resources, &["disk_limit_bytes"]).or_else(|| {
+            value_u64(disk, &["limit"]).map(|limit_mib| limit_mib.saturating_mul(1024 * 1024))
+        }),
+        network_rx_bytes: value_u64(resources, &["network_rx_bytes"]),
+        network_tx_bytes: value_u64(resources, &["network_tx_bytes"]),
+        uptime_ms: value_u64(resources, &["uptime"]),
+        players,
+        max_players,
+        connect_address,
+    }
+}
+
 fn parse_server(value: Value) -> Result<PanelServer> {
     let attrs = value.get("attributes").unwrap_or(&value);
     let id = server_string(attrs, &["uuid", "id"]).ok_or_else(|| {
@@ -65,10 +158,19 @@ fn parse_server(value: Value) -> Result<PanelServer> {
             "Un serveur ne contient pas d'identifiant.",
         )
     })?;
-    let identifier =
-        server_string(attrs, &["identifier", "uuidShort"]).unwrap_or_else(|| id.clone());
+    let identifier = server_string(attrs, &["identifier", "uuid_short", "uuidShort"])
+        .unwrap_or_else(|| id.clone());
     let limits = attrs.get("limits").cloned().unwrap_or(Value::Null);
-    let limits: PanelServerLimits = serde_json::from_value(limits).unwrap_or_default();
+    let mut limits: PanelServerLimits = serde_json::from_value(limits).unwrap_or_default();
+    if limits.databases.is_none() || limits.allocations.is_none() || limits.backups.is_none() {
+        if let Some(feature_limits) = attrs.get("feature_limits") {
+            let feature_limits: PanelServerLimits =
+                serde_json::from_value(feature_limits.clone()).unwrap_or_default();
+            limits.databases = limits.databases.or(feature_limits.databases);
+            limits.allocations = limits.allocations.or(feature_limits.allocations);
+            limits.backups = limits.backups.or(feature_limits.backups);
+        }
+    }
     let included = attrs.get("relationships").unwrap_or(&Value::Null);
     let node = server_string(attrs, &["node"]).or_else(|| {
         included
@@ -96,6 +198,17 @@ fn parse_server(value: Value) -> Result<PanelServer> {
             .and_then(Value::as_str)
             .map(str::to_owned),
         node,
+        connect_address: server_connect_address(attrs),
+        suspended: attrs
+            .get("is_suspended")
+            .or_else(|| attrs.get("suspended"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        installing: attrs
+            .get("is_installing")
+            .or_else(|| attrs.get("installing"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         egg,
         limits,
     })
@@ -416,6 +529,32 @@ impl ApiClient {
             ));
         }
         Ok(servers)
+    }
+
+    pub async fn get_server_resources(
+        &self,
+        accept: &str,
+        server_identifier: &str,
+    ) -> Result<PanelServerResources> {
+        if server_identifier.is_empty()
+            || !server_identifier.chars().all(|character| {
+                character.is_ascii_alphanumeric() || character == '-' || character == '_'
+            })
+        {
+            return Err(app_error(
+                "api_invalid_request",
+                "Identifiant de serveur invalide.",
+            ));
+        }
+        let client = ApiClient::new(&self.base_url, &self.token, accept, self.allow_local)?;
+        let response = client
+            .send_json::<Value>(
+                reqwest::Method::GET,
+                &format!("/api/client/servers/{server_identifier}/resources"),
+                None,
+            )
+            .await?;
+        Ok(parse_server_resources(response))
     }
 
     pub async fn get_account(&self) -> Result<PanelAccount> {

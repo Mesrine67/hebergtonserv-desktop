@@ -1,6 +1,8 @@
 use crate::errors::Result;
 use crate::providers::http::ApiClient;
-use crate::providers::models::{CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelSshKey};
+use crate::providers::models::{
+    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServerResources, PanelSshKey,
+};
 use crate::providers::{Capability, PanelProvider, ProviderKind};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -87,6 +89,12 @@ impl PanelProvider for PterodactylProvider {
     async fn list_servers(&self) -> Result<Vec<crate::providers::models::PanelServer>> {
         ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?
             .list_servers(self.accept())
+            .await
+    }
+
+    async fn server_resources(&self, identifier: &str) -> Result<PanelServerResources> {
+        ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?
+            .get_server_resources(self.accept(), identifier)
             .await
     }
 

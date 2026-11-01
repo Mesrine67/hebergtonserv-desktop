@@ -82,7 +82,7 @@ function Workspace() {
           </div>
         </header>
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
-          <div className="mx-auto w-full max-w-6xl">
+          <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <Routes>
               <Route path="/" element={<Navigate to="/ssh-keys" replace />} />
               <Route path="/ssh-keys" element={<SshKeysPage />} />
