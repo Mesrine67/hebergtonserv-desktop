@@ -1,20 +1,26 @@
 .hts-hello-writing {
-  width: min(72vw, 420px);
+  width: min(84vw, 700px);
   height: auto;
-  color: #f8fafc;
+  flex: none;
+  display: block;
+  color: var(--foreground);
   overflow: visible;
-  filter: drop-shadow(0 0 22px rgb(99 102 241 / 0.22));
+  filter: drop-shadow(0 0 16px color-mix(in oklch, var(--primary) 17%, transparent));
 }
 
 .hts-hello-writing path {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   opacity: 0;
-  animation: hts-draw-hello var(--hello-stroke-duration, 0.7s) ease-out
-    var(--hello-stroke-delay, 0s) forwards;
+  animation: hts-hello-draw var(--hello-stroke-duration, 200ms) ease-in-out
+    var(--hello-stroke-delay, 0ms) both;
 }
 
-@keyframes hts-draw-hello {
+.hts-hello-writing path[data-accent="true"] {
+  stroke: var(--primary);
+}
+
+@keyframes hts-hello-draw {
   0% { stroke-dashoffset: 1; opacity: 1; }
   100% { stroke-dashoffset: 0; opacity: 1; }
 }
@@ -25,139 +31,110 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 38%, #1c2546 0%, #0c1328 48%, #060a13 100%);
-  color: #f8fafc;
+  background: radial-gradient(
+      ellipse at 50% 40%,
+      color-mix(in oklch, var(--primary) 10%, var(--background)) 0%,
+      var(--background) 68%
+    );
+  color: var(--foreground);
   isolation: isolate;
+  transition: opacity 240ms ease-in, transform 240ms ease-in;
 }
+
+.hts-welcome-screen[data-leaving="true"] {
+  opacity: 0;
+  transform: translateY(-8px) scale(1.005);
+  pointer-events: none;
+}
+
 .hts-welcome-screen::before {
   content: "";
   position: absolute;
-  inset: 9%;
+  inset: 7% 4%;
+  border: 1px solid color-mix(in oklch, var(--border) 45%, transparent);
+  border-radius: var(--radius-xl);
   pointer-events: none;
-  border: 1px solid rgb(148 163 184 / 0.07);
-  border-radius: 24px;
 }
+
 .hts-welcome-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 32px;
+  gap: 15px;
+  padding: clamp(20px, 5vw, 48px);
   text-align: center;
-  max-width: 560px;
+  width: 100%;
+  max-width: 850px;
 }
+
 .hts-welcome-eyebrow {
-  color: #a5b4fc;
-  font-weight: 600;
+  color: var(--primary);
   font-size: 11px;
-  letter-spacing: 0.3em;
+  font-weight: 650;
+  letter-spacing: .22em;
   text-transform: uppercase;
 }
+
 .hts-welcome-title {
-  font-size: clamp(17px, 3vw, 25px);
-  font-weight: 550;
-  letter-spacing: -0.02em;
+  font-size: clamp(18px, 2.8vw, 25px);
+  font-weight: 600;
+  letter-spacing: -.035em;
 }
+
 .hts-welcome-subtitle {
+  color: var(--muted-foreground);
+  max-width: 490px;
   font-size: 13px;
-  color: #94a3b8;
-  line-height: 1.6;
+  line-height: 1.65;
 }
+
+.hts-welcome-status {
+  min-height: 1.5rem;
+  margin-top: 4px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.hts-welcome-start {
+  margin-top: 8px;
+  min-height: 38px;
+  border-radius: var(--radius-md);
+  padding-inline: 18px;
+  box-shadow: 0 7px 25px color-mix(in oklch, var(--primary) 20%, transparent);
+  animation: hts-welcome-button-appear 300ms ease-out both;
+}
+
 .hts-welcome-skip {
   position: absolute;
-  right: 22px;
-  bottom: 20px;
-  border: 1px solid rgb(148 163 184 / 0.24);
-  border-radius: 10px;
-  background: rgb(30 41 59 / 0.45);
-  color: #cbd5e1;
-  font: inherit;
+  right: clamp(14px, 3vw, 32px);
+  bottom: clamp(14px, 3vw, 26px);
+  min-height: 32px;
+  color: var(--muted-foreground);
   font-size: 12px;
-  padding: 9px 15px;
-  cursor: pointer;
 }
-.hts-welcome-skip:hover,
-.hts-welcome-skip:focus-visible {
-  color: #fff;
-  border-color: #a5b4fc;
-  outline-offset: 3px;
+
+.hts-welcome-skip:hover {
+  color: var(--foreground);
+}
+
+@keyframes hts-welcome-button-appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+  .hts-hello-writing { width: min(91vw, 600px); }
+  .hts-welcome-inner { gap: 10px; padding: 20px; }
+  .hts-welcome-screen::before { inset: 2%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hts-hello-writing path {
     animation: none !important;
-    stroke-dashoffset: 0;
     opacity: 1;
+    stroke-dashoffset: 0;
   }
-}
-
-/* The welcome drawing may finish, but navigation remains user-controlled. */
-.hts-welcome-progress {
-  width: min(100%, 280px);
-  height: 4px;
-  margin-top: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgb(148 163 184 / 0.16);
-}
-.hts-welcome-progress-fill {
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #818cf8, #93c5fd);
-  box-shadow: 0 0 12px rgb(129 140 248 / 0.35);
-  animation: hts-welcome-reveal-progress 2.6s ease-out forwards;
-  transition: width 300ms ease-out;
-}
-.hts-welcome-progress-fill.is-complete {
-  width: 100%;
-  animation: none;
-}
-@keyframes hts-welcome-reveal-progress {
-  from { width: 0; }
-  to { width: 95%; }
-}
-.hts-welcome-status {
-  min-height: 20px;
-  color: #94a3b8;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.hts-welcome-start {
-  position: absolute;
-  right: 22px;
-  bottom: 20px;
-  border: 1px solid rgb(165 180 252 / 0.48);
-  border-radius: 10px;
-  background: linear-gradient(125deg, #4338ca, #2563eb);
-  color: #fff;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 11px 22px;
-  box-shadow: 0 6px 25px rgb(67 56 202 / 0.2);
-  cursor: pointer;
-  animation: hts-welcome-button-appear 260ms ease-out both;
-}
-.hts-welcome-start:hover,
-.hts-welcome-start:focus-visible {
-  background: linear-gradient(125deg, #4f46e5, #3b82f6);
-  border-color: #c7d2fe;
-  outline-offset: 3px;
-}
-@keyframes hts-welcome-button-appear {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hts-welcome-progress-fill { animation: none; width: 100%; transition: none; }
+  .hts-welcome-screen { transition: none; }
   .hts-welcome-start { animation: none; }
 }
-
-/* HébergTonServ branding: opacity and transform are compositor-friendly. */
-.hts-brand-writing { display: grid; place-items: center; position: relative; width: min(88vw, 660px); min-height: 110px; animation: hts-brand-enter 2.45s ease-out both; }
-.hts-brand-writing-text, .hts-brand-writing-glow { grid-area: 1 / 1; font-family: 'Geist Variable', sans-serif; font-weight: 750; font-size: clamp(32px, 6vw, 66px); letter-spacing: -.06em; white-space: nowrap; }
-.hts-brand-writing-text { color: #f8fafc; text-shadow: 0 0 32px rgb(129 140 248 / 20%); }
-.hts-brand-writing-glow { color: #818cf8; opacity: .15; filter: blur(16px); pointer-events: none; }
-@keyframes hts-brand-enter { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@media (prefers-reduced-motion: reduce) { .hts-brand-writing { animation: none; } }
