@@ -153,3 +153,11 @@
   .hts-welcome-progress-fill { animation: none; width: 100%; transition: none; }
   .hts-welcome-start { animation: none; }
 }
+
+/* HébergTonServ branding: opacity and transform are compositor-friendly. */
+.hts-brand-writing { display: grid; place-items: center; position: relative; width: min(88vw, 660px); min-height: 110px; animation: hts-brand-enter 2.45s ease-out both; }
+.hts-brand-writing-text, .hts-brand-writing-glow { grid-area: 1 / 1; font-family: 'Geist Variable', sans-serif; font-weight: 750; font-size: clamp(32px, 6vw, 66px); letter-spacing: -.06em; white-space: nowrap; }
+.hts-brand-writing-text { color: #f8fafc; text-shadow: 0 0 32px rgb(129 140 248 / 20%); }
+.hts-brand-writing-glow { color: #818cf8; opacity: .15; filter: blur(16px); pointer-events: none; }
+@keyframes hts-brand-enter { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .hts-brand-writing { animation: none; } }
