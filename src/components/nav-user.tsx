@@ -53,8 +53,8 @@ export function NavUser() {
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" alignOffset={10} sideOffset={8} className="w-60 border bg-popover p-1.5 shadow-xl">
-            <DropdownMenuLabel className="flex items-center gap-2 p-2 font-normal">
+          <DropdownMenuContent side="top" align="start" alignOffset={10} sideOffset={8} collisionPadding={12} className="hts-floating-menu w-60">
+            <DropdownMenuLabel className="hts-floating-menu-label flex items-center gap-2 font-normal">
               <Avatar className="size-9 rounded-lg">
                 <AvatarFallback className="rounded-lg bg-primary/10 text-primary"><Computer className="size-4" /></AvatarFallback>
               </Avatar>
@@ -64,13 +64,13 @@ export function NavUser() {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild className="hts-floating-menu-item">
               <Link to="/settings"><Settings2 className="size-4" />Paramètres</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild className="hts-floating-menu-item">
               <Link to="/security"><ShieldCheck className="size-4" />Sécurité</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild className="hts-floating-menu-item">
               <Link to="/ssh-keys"><KeyRound className="size-4" />Mes clés SSH</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

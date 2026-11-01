@@ -1,7 +1,7 @@
 {
   "name": "hebergtonserv-desktop",
   "private": true,
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement",
   "type": "module",
   "packageManager": "pnpm@12.15.0",
