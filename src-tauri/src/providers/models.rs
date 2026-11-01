@@ -51,6 +51,31 @@ pub struct PanelAccount {
     pub admin: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PanelServer {
+    pub id: String,
+    pub identifier: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub node: Option<String>,
+    pub egg: Option<String>,
+    pub limits: PanelServerLimits,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PanelServerLimits {
+    pub memory: Option<u64>,
+    pub swap: Option<u64>,
+    pub disk: Option<u64>,
+    pub io: Option<u64>,
+    pub cpu: Option<u64>,
+    pub threads: Option<String>,
+    pub databases: Option<u64>,
+    pub allocations: Option<u64>,
+    pub backups: Option<u64>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PanelApiKey {
     pub identifier: String,

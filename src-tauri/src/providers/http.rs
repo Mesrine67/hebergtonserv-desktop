@@ -1,5 +1,5 @@
 use crate::errors::{Result, app_error, http_error};
-use crate::providers::models::{PanelAccount, PanelUser};
+use crate::providers::models::{PanelAccount, PanelServer, PanelServerLimits, PanelUser};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::time::Duration;
@@ -21,6 +21,84 @@ fn append_bounded_response_chunk(out: &mut Vec<u8>, chunk: &[u8]) -> Result<()> 
 pub struct PanelListResponse<T> {
     #[serde(default)]
     pub data: Vec<T>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct PaginationMeta {
+    #[serde(default)]
+    pub pagination: Pagination,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Pagination {
+    #[serde(default)]
+    pub total_pages: u64,
+    #[serde(default)]
+    pub current_page: u64,
+    #[serde(default)]
+    pub count: u64,
+    #[serde(default)]
+    pub links: PaginationLinks,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct PaginationLinks {
+    #[serde(default)]
+    pub next: Option<String>,
+}
+
+fn server_string(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        value.get(key).and_then(|item| {
+            item.as_str()
+                .map(str::to_owned)
+                .or_else(|| item.as_u64().map(|n| n.to_string()))
+        })
+    })
+}
+
+fn parse_server(value: Value) -> Result<PanelServer> {
+    let attrs = value.get("attributes").unwrap_or(&value);
+    let id = server_string(attrs, &["uuid", "id"]).ok_or_else(|| {
+        app_error(
+            "api_invalid_response",
+            "Un serveur ne contient pas d'identifiant.",
+        )
+    })?;
+    let identifier =
+        server_string(attrs, &["identifier", "uuidShort"]).unwrap_or_else(|| id.clone());
+    let limits = attrs.get("limits").cloned().unwrap_or(Value::Null);
+    let limits: PanelServerLimits = serde_json::from_value(limits).unwrap_or_default();
+    let included = attrs.get("relationships").unwrap_or(&Value::Null);
+    let node = server_string(attrs, &["node"]).or_else(|| {
+        included
+            .get("node")
+            .and_then(|v| v.get("attributes"))
+            .and_then(|v| server_string(v, &["name"]))
+    });
+    let egg = server_string(attrs, &["egg", "image"]).or_else(|| {
+        included
+            .get("egg")
+            .and_then(|v| v.get("attributes"))
+            .and_then(|v| server_string(v, &["name"]))
+    });
+    let name = server_string(attrs, &["name"]).unwrap_or_else(|| identifier.clone());
+    Ok(PanelServer {
+        id,
+        identifier,
+        name,
+        description: attrs
+            .get("description")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        status: attrs
+            .get("status")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        node,
+        egg,
+        limits,
+    })
 }
 
 pub struct ApiClient {
@@ -284,6 +362,62 @@ impl ApiClient {
         parse_account_user(response)
     }
 
+    pub async fn list_servers(&self, accept: &str) -> Result<Vec<PanelServer>> {
+        const PAGE_SIZE: u64 = 25;
+        const MAX_PAGES: u64 = 500;
+        let client = ApiClient::new(&self.base_url, &self.token, accept, self.allow_local)?;
+        let mut servers = Vec::new();
+        for page in 1..=MAX_PAGES {
+            let path = format!(
+                "/api/client/servers?per_page={PAGE_SIZE}&page={page}&include=node,egg,allocations"
+            );
+            let response = client
+                .send_json::<Value>(reqwest::Method::GET, &path, None)
+                .await?;
+            let data = response
+                .get("data")
+                .and_then(Value::as_array)
+                .ok_or_else(|| {
+                    app_error(
+                        "api_invalid_response",
+                        "La liste des serveurs renvoyée par le panel est invalide.",
+                    )
+                })?;
+            if data.is_empty() {
+                break;
+            }
+            for server in data {
+                servers.push(parse_server(server.clone())?);
+            }
+            let pagination: PaginationMeta = response
+                .get("meta")
+                .cloned()
+                .and_then(|meta| serde_json::from_value(meta).ok())
+                .unwrap_or_default();
+            let has_next = pagination
+                .pagination
+                .links
+                .next
+                .as_ref()
+                .is_some_and(|next| !next.is_empty());
+            let total_pages = pagination.pagination.total_pages;
+            let count = pagination.pagination.count;
+            if (total_pages > 0 && page >= total_pages)
+                || (total_pages == 0 && !has_next && count < PAGE_SIZE)
+                || (total_pages == 0 && !has_next && data.len() < PAGE_SIZE as usize)
+            {
+                break;
+            }
+        }
+        if servers.len() >= (MAX_PAGES * PAGE_SIZE) as usize {
+            return Err(app_error(
+                "api_pagination_limit",
+                "Le panel contient trop de pages de serveurs pour une seule synchronisation.",
+            ));
+        }
+        Ok(servers)
+    }
+
     pub async fn get_account(&self) -> Result<PanelAccount> {
         self.get_account_with_api()
             .await
@@ -436,6 +570,42 @@ mod tests {
         assert_eq!(account.email, "client@example.test");
         assert_eq!(account.display_name, "Ada Lovelace");
         assert!(account.admin);
+    }
+
+    #[test]
+    fn parses_wisp_and_pterodactyl_server_list_shapes() {
+        let wisp = serde_json::json!({
+            "uuid": "uuid-123", "uuidShort": "abc123", "name": "Serveur test",
+            "description": "Description", "node": "game1", "egg": "Minecraft",
+            "limits": {"memory": 4096, "disk": 8192, "cpu": 200, "databases": 2}
+        });
+        let parsed = parse_server(wisp).unwrap();
+        assert_eq!(parsed.id, "uuid-123");
+        assert_eq!(parsed.identifier, "abc123");
+        assert_eq!(parsed.name, "Serveur test");
+        assert_eq!(parsed.limits.memory, Some(4096));
+
+        let pterodactyl = serde_json::json!({
+            "attributes": {
+                "uuid": "uuid-456", "identifier": "def456", "name": "Ptero",
+                "node": "node-2", "egg": "FiveM", "limits": {"memory": 2048},
+                "relationships": {"node": {"attributes": {"name": "node-2"}}}
+            }
+        });
+        let parsed = parse_server(pterodactyl).unwrap();
+        assert_eq!(parsed.identifier, "def456");
+        assert_eq!(parsed.node.as_deref(), Some("node-2"));
+    }
+
+    #[test]
+    fn reads_wisp_pagination_metadata() {
+        let value = serde_json::json!({
+            "meta": {"pagination": {"total_pages": 4, "current_page": 2, "count": 25, "links": {"next": "?page=3"}}}
+        });
+        let meta: PaginationMeta = serde_json::from_value(value["meta"].clone()).unwrap();
+        assert_eq!(meta.pagination.total_pages, 4);
+        assert_eq!(meta.pagination.current_page, 2);
+        assert!(meta.pagination.links.next.is_some());
     }
 
     #[test]

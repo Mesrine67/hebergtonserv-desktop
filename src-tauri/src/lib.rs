@@ -170,6 +170,8 @@ pub fn run() {
             commands::panels::set_panel_token,
             commands::panels::panel_token_configured,
             commands::panels::check_panel,
+            commands::panels::get_panel_account,
+            commands::panels::list_panel_servers,
             commands::panels::create_panel_api_key,
             commands::panels::create_panel_ssh_key,
             commands::panels::revoke_panel_api_key,

@@ -34,7 +34,11 @@ const sections = [
   {
     title: "Infrastructure",
     icon: ServerCog,
-    items: [{ title: "Panels Wisp & Pterodactyl", url: "/panels" }],
+    items: [
+      { title: "Panels", url: "/panels" },
+      { title: "Compte du panel", url: "/panel/account" },
+      { title: "Serveurs", url: "/panel/servers" },
+    ],
   },
   {
     title: "Application",
