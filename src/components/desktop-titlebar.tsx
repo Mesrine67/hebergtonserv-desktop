@@ -66,13 +66,14 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
     <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-2 border-b border-border/70 bg-card/95 px-2 backdrop-blur">
       {navigation && (
         <>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
-            </TooltipTrigger>
-            <TooltipContent>Afficher ou masquer la navigation</TooltipContent>
-          </Tooltip>
-          <span className="h-5 w-px bg-border" aria-hidden="true" />
+          <div className="hts-titlebar-rail flex h-full w-[var(--sidebar-width-icon)] shrink-0 items-center justify-center border-r border-border/70 bg-sidebar">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
+              </TooltipTrigger>
+              <TooltipContent>Afficher ou masquer la navigation</TooltipContent>
+            </Tooltip>
+          </div>
         </>
       )}
 
