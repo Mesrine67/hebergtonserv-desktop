@@ -151,7 +151,7 @@
     border-radius: var(--radius-xl);
   }
 }
-#workspace-scroll { scrollbar-gutter: stable; }
+
 
 /* Unified desktop chrome: one continuous titlebar/navigation surface.
    Embedded sidebar positioning avoids viewport offsets and visual seams. */
@@ -189,10 +189,10 @@
   min-width: 0;
   margin: 7px 11px 11px 3px;
   overflow: hidden;
-  border: 1px solid var(--sidebar-border);
+  border: 0;
   border-radius: 13px;
   background: var(--background);
-  box-shadow: 0 1px 7px oklch(0 0 0 / 8%);
+  box-shadow: none;
 }
 .hts-sidebar[data-slot="sidebar-container"] {
   height: 100%;
@@ -205,12 +205,12 @@
 }
 .hts-sidebar [data-sidebar="header"] { padding: 0.75rem; }
 .hts-sidebar [data-sidebar="content"] { padding-inline: 0.25rem; }
-.hts-sidebar [data-sidebar="footer"] { padding: 0.75rem; }
+.hts-sidebar [data-sidebar="footer"] { padding: 0.5rem 0.75rem 0.75rem 0.9rem; border: 0; }
 .hts-sidebar [data-sidebar="menu-button"] img {
   display: block;
   object-position: center;
 }
-#workspace-scroll { min-width: 0; scrollbar-gutter: stable; }
+#workspace-scroll { min-width: 0; scrollbar-gutter: auto; }
 #workspace-scroll > div { padding-bottom: 0.5rem; }
 html[data-window-maximized="true"] #root,
 html[data-window-maximized="true"] .hts-workspace-shell {
@@ -230,15 +230,27 @@ html[data-window-maximized="true"] .hts-workspace-shell {
 /* Warm theme applies only outside .dark; preserve the existing dark palette. */
 :root:not(.dark) .hts-workspace-panel {
   background: var(--background);
-  box-shadow: 0 10px 28px oklch(0.40 0.025 65 / 7%);
+  box-shadow: none;
 }
 :root:not(.dark) .hts-sidebar [data-sidebar="sidebar"] {
   background: var(--sidebar);
-  box-shadow: 0 8px 22px oklch(0.40 0.025 65 / 7%);
+  box-shadow: none;
 }
 :root:not(.dark) [data-slot="card"] {
   background: var(--card);
 }
 @media (prefers-reduced-motion: reduce) {
   .hts-sidebar [data-sidebar="menu-button"] { transition: none; }
+}
+
+/* Desktop-wide scrollbar visibility: preserve mouse, touchpad and keyboard scrolling.
+   Applies to embedded scroll areas and portal-mounted dropdowns as well. */
+html, body, body * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar, body::-webkit-scrollbar, body *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }

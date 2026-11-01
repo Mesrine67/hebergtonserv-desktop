@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { version as buildVersion } from "../../package.json";
 import appIcon from "../../src-tauri/icons/128x128.png";
 import { Button } from "@/components/ui/button";
+import { AppUpdaterAction } from "@/components/app-updater-action";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -108,6 +109,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
         {!navigation && <span className="sr-only">v{buildVersion}</span>}
       </div>
 
+      <AppUpdaterAction />
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -125,7 +127,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
       </Tooltip>
 
       {appWindow && (
-        <div className="ml-1 flex h-full items-center border-l border-border/70 pl-1">
+        <div className="ml-1 flex h-full items-center pl-1">
           <Button type="button" variant="ghost" size="icon" className="size-9 rounded-none" onClick={() => runWindowAction("minimize")} aria-label="Réduire la fenêtre">
             <Minus className="size-4" />
           </Button>

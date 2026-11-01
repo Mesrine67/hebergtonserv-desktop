@@ -38,7 +38,7 @@ export function NavUser() {
             <SidebarMenuButton
               size="lg"
               tooltip="Menu utilisateur"
-              className="h-12 border border-transparent aria-expanded:border-sidebar-border aria-expanded:bg-sidebar-accent/60"
+              className="hts-user-menu-trigger ml-1 h-12 w-[calc(100%-0.25rem)] border border-transparent aria-expanded:border-sidebar-border aria-expanded:bg-sidebar-accent/60 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:w-full"
               aria-label={`Menu de ${displayName}`}
             >
               <Avatar className="size-8 rounded-lg">
@@ -53,7 +53,7 @@ export function NavUser() {
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-60 border bg-popover p-1.5 shadow-xl">
+          <DropdownMenuContent side="top" align="start" alignOffset={10} sideOffset={8} className="w-60 border bg-popover p-1.5 shadow-xl">
             <DropdownMenuLabel className="flex items-center gap-2 p-2 font-normal">
               <Avatar className="size-9 rounded-lg">
                 <AvatarFallback className="rounded-lg bg-primary/10 text-primary"><Computer className="size-4" /></AvatarFallback>
