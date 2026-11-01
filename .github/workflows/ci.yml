@@ -57,18 +57,17 @@ jobs:
     name: Rust (Windows / Tauri)
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, Windows, X64]
+    env:
+      RUSTUP_TOOLCHAIN: 1.95.0-x86_64-pc-windows-msvc
     timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Install stable Rust
+      - name: Verify Rust toolchain
         shell: pwsh
         run: |
-          rustup toolchain install stable --profile minimal
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          rustup default stable
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup toolchain list
           cargo --version
           rustc --version
 
