@@ -4,15 +4,13 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  useSidebar,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton,
+  SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton,
+  SidebarMenuSubItem, useSidebar,
 } from "@/components/ui/sidebar";
 
 export type NavSection = {
@@ -23,28 +21,94 @@ export type NavSection = {
 
 export function NavMain({ items }: { items: NavSection[] }) {
   const location = useLocation();
-  const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  // On small screens the sidebar is a sheet, not the desktop icon rail.
+  const iconMode = state === "collapsed" && !isMobile;
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Navigation</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((section) => {
+          const active = section.items.some((entry) => location.pathname === entry.url);
+          if (iconMode) {
+            return (
+              <SidebarMenuItem key={section.title}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton
+                      tooltip={section.title}
+                      aria-label={`Ouvrir le menu ${section.title}`}
+                      aria-haspopup="menu"
+                      isActive={active}
+                      className="rounded-lg"
+                    >
+                      <section.icon className="size-4 shrink-0" aria-hidden="true" />
+                      <span>{section.title}</span>
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    side="right"
+                    align="start"
+                    sideOffset={12}
+                    collisionPadding={12}
+                    className="z-50 w-60 rounded-2xl border border-border/80 bg-popover p-2 shadow-xl"
+                  >
+                    <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      {section.title}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {section.items.map((entry) => (
+                      <DropdownMenuItem
+                        key={entry.url}
+                        asChild
+                        className="cursor-pointer rounded-lg px-3 py-2"
+                      >
+                        <NavLink
+                          to={entry.url}
+                          aria-current={location.pathname === entry.url ? "page" : undefined}
+                          className={location.pathname === entry.url ? "bg-accent font-medium text-accent-foreground" : ""}
+                        >
+                          {entry.title}
+                        </NavLink>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            );
+          }
+
           return (
             <Collapsible key={section.title} asChild defaultOpen className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={section.title} aria-label={"Afficher ou masquer " + section.title} onClick={() => { if (!isMobile && state === "collapsed") setOpen(true); }}>
+                  <SidebarMenuButton
+                    tooltip={section.title}
+                    isActive={active}
+                    aria-label={`Afficher ou masquer ${section.title}`}
+                  >
                     <section.icon className="size-4 shrink-0" aria-hidden="true" />
                     <span>{section.title}</span>
-                    <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" aria-hidden="true" />
+                    <ChevronRight
+                      className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                      aria-hidden="true"
+                    />
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <SidebarMenuSub>
                     {section.items.map((entry) => (
                       <SidebarMenuSubItem key={entry.url}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === entry.url} aria-current={location.pathname === entry.url ? "page" : undefined}>
-                          <NavLink to={entry.url} onClick={() => { if (isMobile) setOpenMobile(false); }}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location.pathname === entry.url}
+                          aria-current={location.pathname === entry.url ? "page" : undefined}
+                        >
+                          <NavLink
+                            to={entry.url}
+                            onClick={() => { if (isMobile) setOpenMobile(false); }}
+                          >
                             <span>{entry.title}</span>
                           </NavLink>
                         </SidebarMenuSubButton>
