@@ -425,6 +425,20 @@ mod tests {
     }
 
     #[test]
+    fn parses_live_wisp_root_response_with_string_user_id() {
+        let value: Value = serde_json::from_str(
+            r#"{"object":"user","attributes":{"id":"user_test_12345","email":"client@example.test","name_first":"Ada","name_last":"Lovelace","root_admin":true,"has_servers":true}}"#,
+        )
+        .unwrap();
+        let user = parse_account_user(value).unwrap().unwrap();
+        let account = account_from_user(user).unwrap();
+        assert_eq!(account.id, 0);
+        assert_eq!(account.email, "client@example.test");
+        assert_eq!(account.display_name, "Ada Lovelace");
+        assert!(account.admin);
+    }
+
+    #[test]
     fn parses_pterodactyl_v2_root_user_response_without_wisp_envelope() {
         let value: Value = serde_json::from_str(
             r#"{"object":"user","attributes":{"id":22065,"admin":false,"username":"skye_42","email":"skye@example.test","first_name":"Skye","last_name":"Rogahn","language":"en"}}"#,

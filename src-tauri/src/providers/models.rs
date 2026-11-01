@@ -1,8 +1,23 @@
 use serde::{Deserialize, Serialize};
 
+fn deserialize_optional_user_id<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(match value {
+        Some(serde_json::Value::Number(number)) => number.as_i64(),
+        Some(serde_json::Value::String(value)) => value.parse().ok(),
+        _ => None,
+    })
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelUserAttributes {
+    #[serde(default, deserialize_with = "deserialize_optional_user_id")]
     pub id: Option<i64>,
     pub username: Option<String>,
     pub email: Option<String>,
