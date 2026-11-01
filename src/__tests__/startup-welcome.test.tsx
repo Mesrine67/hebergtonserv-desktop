@@ -29,7 +29,7 @@ describe("Startup Hello Effect", () => {
     const dismiss = vi.fn();
     await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
     expect(container.querySelector('[data-testid="hello-writing"]')).not.toBeNull();
-    expect(container.querySelectorAll("svg path")).toHaveLength(5);
+    expect(container.querySelector(".hts-brand-writing-text")?.textContent).toBe("HébergTonServ");
     const skip = container.querySelector<HTMLButtonElement>(".hts-welcome-skip");
     expect(skip?.textContent).toContain("Passer");
     await act(async () => skip?.click());
