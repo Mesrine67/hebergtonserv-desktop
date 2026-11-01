@@ -18,7 +18,7 @@ type Props = {
 function TitlebarSidebarRail() {
   const { state } = useSidebar();
   return (
-    <div className={`hts-titlebar-rail flex h-full shrink-0 items-center border-r border-border/70 bg-sidebar ${state === "collapsed" ? "w-[var(--sidebar-width-icon)] justify-center" : "w-[var(--sidebar-width)] justify-start px-3"}`}>
+    <div className={`hts-titlebar-rail flex h-full w-11 shrink-0 items-center justify-center bg-transparent ${state === "collapsed" ? "md:w-[var(--sidebar-width-icon)]" : "md:w-[var(--sidebar-width)] md:justify-start md:px-3"}`}>
       <Tooltip>
         <TooltipTrigger asChild>
           <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
@@ -91,7 +91,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
   }
 
   return (
-    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-card/95 pr-2 backdrop-blur">
+    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2">
       {navigation && (
         <TitlebarSidebarRail />
       )}
