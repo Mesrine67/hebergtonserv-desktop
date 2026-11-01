@@ -44,7 +44,10 @@ fn http_error_code(status: reqwest::StatusCode) -> &'static str {
 }
 
 fn fallback_to_pterodactyl(error_code: &str) -> bool {
-    matches!(error_code, "api_not_found" | "api_invalid_response" | "api_error")
+    matches!(
+        error_code,
+        "api_not_found" | "api_invalid_response" | "api_error"
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,11 +70,20 @@ fn parse_account_user(value: Value) -> Result<Option<PanelUser>> {
     } else {
         serde_json::from_value::<PanelUser>(serde_json::json!({ "attributes": candidate }))
     }
-    .map_err(|_| app_error("api_invalid_response", "Le format du compte renvoyé par le panel n'est pas reconnu."))?;
+    .map_err(|_| {
+        app_error(
+            "api_invalid_response",
+            "Le format du compte renvoyé par le panel n'est pas reconnu.",
+        )
+    })?;
 
     let attributes = &user.attributes;
     if attributes.id.is_none()
-        && attributes.username.as_deref().unwrap_or_default().is_empty()
+        && attributes
+            .username
+            .as_deref()
+            .unwrap_or_default()
+            .is_empty()
         && attributes.email.as_deref().unwrap_or_default().is_empty()
     {
         return Ok(None);
@@ -84,16 +96,23 @@ fn account_from_user(user: PanelUser) -> Result<PanelAccount> {
     let username = attributes.username.unwrap_or_default();
     let email = attributes.email.unwrap_or_default();
     let display_name = if attributes.first_name.is_some() || attributes.last_name.is_some() {
-        format!("{} {}", attributes.first_name.as_deref().unwrap_or(""), attributes.last_name.as_deref().unwrap_or(""))
-            .trim()
-            .to_string()
+        format!(
+            "{} {}",
+            attributes.first_name.as_deref().unwrap_or(""),
+            attributes.last_name.as_deref().unwrap_or("")
+        )
+        .trim()
+        .to_string()
     } else if !username.is_empty() {
         username.clone()
     } else {
         email.clone()
     };
     if display_name.is_empty() {
-        return Err(app_error("api_invalid_response", "Le panel a répondu sans identifiant de compte exploitable."));
+        return Err(app_error(
+            "api_invalid_response",
+            "Le panel a répondu sans identifiant de compte exploitable.",
+        ));
     }
     Ok(PanelAccount {
         id: attributes.id.unwrap_or(0),
@@ -244,7 +263,10 @@ impl ApiClient {
 
     pub async fn validate_wisp_token(&self) -> Result<PanelAccount> {
         let user = self.get_account_wisp().await?.ok_or_else(|| {
-            app_error("api_invalid_response", "Le panel a répondu sans compte WISP; tentative du format Pterodactyl Client API.")
+            app_error(
+                "api_invalid_response",
+                "Le panel a répondu sans compte WISP; tentative du format Pterodactyl Client API.",
+            )
         })?;
         account_from_user(user)
     }
@@ -257,39 +279,45 @@ impl ApiClient {
             self.allow_local,
         )?;
         let response = client
-            .send_json::<Value>(
-                reqwest::Method::GET,
-                "/api/client/account",
-                None,
-            )
+            .send_json::<Value>(reqwest::Method::GET, "/api/client/account", None)
             .await?;
         parse_account_user(response)
     }
 
     pub async fn get_account(&self) -> Result<PanelAccount> {
-        self.get_account_with_api().await.map(|(account, _)| account)
+        self.get_account_with_api()
+            .await
+            .map(|(account, _)| account)
     }
 
     pub async fn get_account_with_api(&self) -> Result<(PanelAccount, AccountApi)> {
         match self.get_account_wisp().await {
             Ok(Some(user)) => match account_from_user(user) {
                 Ok(account) => Ok((account, AccountApi::Wisp)),
-                Err(error) if fallback_to_pterodactyl(error.code()) => {
-                    self.get_pterodactyl_account().await.map(|account| (account, AccountApi::Pterodactyl))
-                }
+                Err(error) if fallback_to_pterodactyl(error.code()) => self
+                    .get_pterodactyl_account()
+                    .await
+                    .map(|account| (account, AccountApi::Pterodactyl)),
                 Err(error) => Err(error),
             },
-            Ok(None) => self.get_pterodactyl_account().await.map(|account| (account, AccountApi::Pterodactyl)),
-            Err(error) if fallback_to_pterodactyl(error.code()) => {
-                self.get_pterodactyl_account().await.map(|account| (account, AccountApi::Pterodactyl))
-            }
+            Ok(None) => self
+                .get_pterodactyl_account()
+                .await
+                .map(|account| (account, AccountApi::Pterodactyl)),
+            Err(error) if fallback_to_pterodactyl(error.code()) => self
+                .get_pterodactyl_account()
+                .await
+                .map(|account| (account, AccountApi::Pterodactyl)),
             Err(error) => Err(error),
         }
     }
 
     async fn get_pterodactyl_account(&self) -> Result<PanelAccount> {
         let user = self.get_account_pterodactyl().await?.ok_or_else(|| {
-            app_error("api_invalid_response", "Les API WISP et Pterodactyl n'ont pas renvoyé de compte utilisateur.")
+            app_error(
+                "api_invalid_response",
+                "Les API WISP et Pterodactyl n'ont pas renvoyé de compte utilisateur.",
+            )
         })?;
         account_from_user(user)
     }

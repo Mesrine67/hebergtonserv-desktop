@@ -1,8 +1,8 @@
 use crate::AppState;
 use crate::errors::{Result, app_error};
+use crate::providers::http::{AccountApi, ApiClient};
 use crate::providers::pterodactyl::PterodactylProvider;
 use crate::providers::wisp::WispProvider;
-use crate::providers::http::{AccountApi, ApiClient};
 use crate::providers::{PanelProvider, ProviderKind};
 use crate::security::url;
 use crate::storage::Storage;
@@ -64,9 +64,7 @@ pub async fn login_wisp(
         .data
         .panels
         .iter()
-        .find(|panel| {
-            panel.base_url.trim_end_matches('/') == base.as_str().trim_end_matches('/')
-        })
+        .find(|panel| panel.base_url.trim_end_matches('/') == base.as_str().trim_end_matches('/'))
         .map(|panel| panel.id.clone())
         .unwrap_or_else(|| format!("{provider_name}-{}", uuid::Uuid::new_v4()));
     let name = if base
