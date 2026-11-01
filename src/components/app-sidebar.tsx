@@ -56,12 +56,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar variant="floating" collapsible="icon" className="hts-sidebar" {...props}>
       <SidebarHeader>
-        <div className="flex min-w-0 items-center gap-1 group-data-[collapsible=icon]:flex-col">
+        <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <SidebarMenu className="min-w-0 flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="HébergTonServ Desktop">
               <Link to="/ssh-keys">
-                <img src={appIcon} alt="" className="size-8 shrink-0 rounded-lg object-contain" aria-hidden="true" />
+                <img src={appIcon} alt="" className="size-8 shrink-0 rounded-lg object-contain group-data-[collapsible=icon]:size-7" aria-hidden="true" />
                 <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">HébergTonServ</span>
                   <span className="truncate text-xs text-sidebar-foreground/60">Desktop · Gestionnaire</span>
@@ -70,7 +70,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           </SidebarMenu>
-          <div className="shrink-0 group-data-[collapsible=icon]:hidden"><SidebarUpdaterAction /></div>
+          <div className="flex shrink-0 items-center justify-center group-data-[collapsible=icon]:w-full"><SidebarUpdaterAction /></div>
         </div>
       </SidebarHeader>
       <SidebarSeparator />
