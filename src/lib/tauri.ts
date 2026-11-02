@@ -168,7 +168,19 @@ export interface SecurityState {
   https_only: boolean;
 }
 
+export interface GitTools { git: string | null; gh: string | null; }
+export interface GitCommit { hash: string; subject: string; }
+export interface GitSnapshot {
+  root: string;
+  branch: string;
+  changes: string[];
+  changes_truncated: boolean;
+  commits: GitCommit[];
+}
+
 export const commands = {
+  getGitTools: () => invoke<GitTools>("get_git_tools"),
+  inspectGitRepository: (path: string) => invoke<GitSnapshot>("inspect_git_repository", { path }),
   toggleAppWindowMaximize: () => invoke<void>("toggle_app_window_maximize"),
   listSshKeys: () => invoke<SshKeySummary[]>("list_ssh_keys"),
   generateSshKey: (input: {
