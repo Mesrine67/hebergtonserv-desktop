@@ -8,6 +8,7 @@ import { version as buildVersion } from "../../package.json";
 import appIcon from "../../src-tauri/icons/128x128.png";
 import { Button } from "@/components/ui/button";
 import { AppUpdaterAction } from "@/components/app-updater-action";
+import { DiscussionAction } from "@/components/discussion-action";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -111,6 +112,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
         {!navigation && <span className="sr-only">v{buildVersion}</span>}
       </div>
 
+      <DiscussionAction />
       <AppUpdaterAction />
       <Tooltip>
         <TooltipTrigger asChild>

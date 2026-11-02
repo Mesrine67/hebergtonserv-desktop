@@ -1,0 +1,27 @@
+.hts-discussion-panel {
+  height: min(660px, calc(100dvh - 66px));
+  min-height: min(340px, calc(100dvh - 66px));
+  border-radius: calc(var(--radius) + 6px);
+  backdrop-filter: blur(18px);
+  -webkit-app-region: no-drag;
+}
+.hts-discussion-panel [data-slot="message-scroller-viewport"] {
+  scroll-padding-block: 14px;
+}
+.hts-discussion-panel [data-slot="message-scroller-item"] {
+  overflow-wrap: anywhere;
+}
+.hts-discussion-panel [data-slot="message-scroller-button"] {
+  border: 1px solid var(--border);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 12%);
+}
+.hts-discussion-panel [data-slot="input-group-control"] {
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hts-discussion-panel, .hts-discussion-panel * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
