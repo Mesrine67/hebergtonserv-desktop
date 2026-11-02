@@ -495,6 +495,89 @@ pub async fn get_panel_server_resources(
     result
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ConsoleCredentials {
+    pub socket: String,
+    pub token: String,
+}
+
+/// Ephemeral Wings credentials: never persist, print, cache or send to diagnostics.
+#[tauri::command]
+pub async fn get_panel_console_credentials(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+) -> Result<ConsoleCredentials> {
+    if identifier.is_empty()
+        || identifier.len() > 128
+        || !identifier
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(app_error(
+            "api_invalid_request",
+            "Identifiant serveur invalide.",
+        ));
+    }
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|item| item.id == id)
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let token = credential_entry(&panel.id)?
+        .get_password()
+        .map_err(|_| app_error("api_token", "Clé Client API indisponible."))?;
+    let accept = if panel.provider == "wisp" {
+        "application/vnd.wisp.v1+json"
+    } else {
+        "application/json"
+    };
+    let client = ApiClient::new(&panel.base_url, &token, accept, panel.allow_local)?;
+    let response: serde_json::Value = client
+        .send_json(
+            reqwest::Method::GET,
+            &format!("/api/client/servers/{identifier}/websocket"),
+            None,
+        )
+        .await?;
+    let data = response.get("data").unwrap_or(&response);
+    let socket = data
+        .get("socket")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| app_error("api_invalid_response", "Adresse WebSocket manquante."))?;
+    let ephemeral = data
+        .get("token")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| app_error("api_invalid_response", "Jeton WebSocket manquant."))?;
+    let socket_url = reqwest::Url::parse(socket)
+        .map_err(|_| app_error("api_invalid_response", "Adresse WebSocket invalide."))?;
+    if socket_url.scheme() != "wss"
+        || socket_url.host_str().is_none()
+        || !socket_url.username().is_empty()
+        || socket_url.password().is_some()
+        || socket_url.query().is_some()
+        || ephemeral.len() > 8192
+        || ephemeral.is_empty()
+    {
+        return Err(app_error(
+            "api_invalid_response",
+            "WebSocket Wings non sécurisé ou jeton invalide.",
+        ));
+    }
+    // Reject private/loopback Wings targets before opening a native WebSocket.
+    let mut probe = socket_url.clone();
+    probe
+        .set_scheme("https")
+        .map_err(|_| app_error("api_invalid_response", "Adresse WebSocket invalide."))?;
+    crate::security::url::verify_resolved_host(&probe, panel.allow_local).await?;
+    Ok(ConsoleCredentials {
+        socket: socket.to_string(),
+        token: ephemeral.to_string(),
+    })
+}
+
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct ResourceRequest {
     pub key: String,
