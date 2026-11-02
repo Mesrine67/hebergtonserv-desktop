@@ -95,7 +95,9 @@ fn formatted_log() -> String {
             entry.timestamp, entry.level, entry.operation, entry.code, entry.message
         ));
         let hint = match entry.code.as_str() {
-            "api_validation_error" => "HTTP 400/422 : paramètres invalides ou état incompatible, vérifier la suspension et les droits.",
+            "api_validation_error" => {
+                "HTTP 400/422 : paramètres invalides ou état incompatible, vérifier la suspension et les droits."
+            }
             "api_auth_failed" => "HTTP 401 : authentification Client API refusée.",
             "api_forbidden" => "HTTP 403 : autorisation Client API insuffisante.",
             "api_not_found" => "HTTP 404 : serveur ou endpoint inconnu.",
