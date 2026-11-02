@@ -153,8 +153,16 @@ pub async fn export_panel_diagnostics(path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // These tests mutate a process-global journal. Their execution must be
+    // serialized; Rust's test harness executes independent tests in parallel.
+    static TEST_JOURNAL_LOCK: Mutex<()> = Mutex::new(());
+
     #[test]
     fn console_events_are_whitelisted_without_untrusted_data() {
+        let _guard = TEST_JOURNAL_LOCK
+            .lock()
+            .expect("test journal lock poisoned");
         clear_panel_diagnostics();
         record_console_connection_event("ws_connected".into());
         record_console_connection_event("token=do-not-record".into());
@@ -167,6 +175,9 @@ mod tests {
 
     #[test]
     fn ignores_untrusted_codes_and_bounds_history() {
+        let _guard = TEST_JOURNAL_LOCK
+            .lock()
+            .expect("test journal lock poisoned");
         clear_panel_diagnostics();
         record("error", "resource", "token=secret", "Échec");
         assert!(list_panel_diagnostics().is_empty());

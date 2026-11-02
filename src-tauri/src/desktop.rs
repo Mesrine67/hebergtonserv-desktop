@@ -151,6 +151,18 @@ pub fn open_task_manager(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Show the main window only after the initial React frame is rendered.
+#[tauri::command]
+pub fn show_ready_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    if std::env::args_os().any(|arg| arg == "--minimized") {
+        return Ok(());
+    }
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "Fenêtre principale introuvable".to_string())?;
+    window.show().map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn finish_main_window_close(app: tauri::AppHandle) -> Result<(), String> {
     use crate::{state::AppState, storage::Storage};

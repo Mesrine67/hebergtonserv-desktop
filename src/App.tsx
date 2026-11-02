@@ -9,6 +9,7 @@ import WispLoginPage from "@/pages/WispLoginPage";
 import { commands } from "@/lib/tauri";
 import { version as buildVersion } from "../package.json";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { DesktopTitlebar } from "@/components/desktop-titlebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -117,12 +118,39 @@ export default function App() {
           closingRef.current = false;
           setIsClosing(false);
         });
-      }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 340);
+      }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 510);
     }
     window.addEventListener("hts:request-close", requestClose);
-    return () => window.removeEventListener("hts:request-close", requestClose);
+    // Native close requests (Alt+F4 / Windows) also use the animated path.
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    if (isTauri()) {
+      void listen("hts:request-close", requestClose).then((stop) => {
+        if (disposed) stop(); else unlisten = stop;
+      }).catch(() => undefined);
+    }
+    return () => {
+      disposed = true;
+      unlisten?.();
+      window.removeEventListener("hts:request-close", requestClose);
+    };
   }, []);
   const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    // Show only after React has rendered the actual welcome scene.
+    // Avoids a blank WebView2 frame on cold Windows launches.
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        void invoke("show_ready_main_window").catch((error: unknown) => {
+          console.error("[desktop] ready window", error);
+        });
+      });
+    });
+    return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
+  }, []);
   const onAuthenticated = useCallback(() => {
     try { window.localStorage.setItem("hts-last-authenticated-version", buildVersion); } catch { /* private storage unavailable */ }
     setAuthenticated(true);
@@ -143,8 +171,8 @@ export default function App() {
           <TooltipProvider delayDuration={150}>
             <BrowserRouter>
               <div data-window-closing={isClosing ? "true" : undefined} className="hts-window-boot relative h-dvh min-h-0 overflow-hidden bg-background">
-                {(!welcomeVisible || entering) && (
-                  <div className="hts-app-scene" data-entering={entering && welcomeVisible ? "true" : undefined}>
+                {!welcomeVisible && (
+                  <div className="hts-app-scene" data-entering={entering ? "true" : undefined}>
                     {authenticated ? <Workspace /> : (
                       <div className="flex h-dvh min-h-0 flex-col bg-background">
                         <DesktopTitlebar title="Connexion" />
