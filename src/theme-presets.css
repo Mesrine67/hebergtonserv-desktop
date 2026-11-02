@@ -1,0 +1,114 @@
+/* Semantic Mira palettes: shadcn components consume these variables directly.
+   The original :root/.dark palette remains unchanged for "mira". */
+:root[data-hts-preset="ocean"] {
+ --background:oklch(.955 .012 220);--foreground:oklch(.25 .035 232);
+ --card:oklch(.978 .009 220);--card-foreground:var(--foreground);
+ --popover:oklch(.98 .008 220);--popover-foreground:var(--foreground);
+ --primary:oklch(.48 .13 229);--primary-foreground:oklch(.98 .007 230);
+ --secondary:oklch(.921 .019 218);--secondary-foreground:var(--foreground);
+ --muted:oklch(.928 .014 220);--muted-foreground:oklch(.49 .025 230);
+ --accent:oklch(.888 .03 218);--accent-foreground:var(--foreground);
+ --border:oklch(.854 .025 220);--input:var(--border);--ring:oklch(.61 .10 218);
+ --sidebar:oklch(.921 .017 221);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.887 .023 218);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);--radius:.75rem;
+}
+.dark[data-hts-preset="ocean"] {
+ --background:oklch(.164 .023 236);--foreground:oklch(.95 .015 219);
+ --card:oklch(.213 .025 235);--card-foreground:var(--foreground);
+ --popover:oklch(.225 .028 235);--popover-foreground:var(--foreground);
+ --primary:oklch(.71 .13 206);--primary-foreground:oklch(.15 .027 230);
+ --secondary:oklch(.255 .027 237);--secondary-foreground:var(--foreground);
+ --muted:oklch(.255 .027 237);--muted-foreground:oklch(.72 .026 230);
+ --accent:oklch(.29 .04 228);--accent-foreground:var(--foreground);
+ --border:oklch(.37 .033 230);--input:var(--border);--ring:oklch(.68 .10 206);
+ --sidebar:oklch(.19 .024 235);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.28 .035 234);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);
+}
+:root[data-hts-preset="jade"] {
+ --background:oklch(.952 .013 155);--foreground:oklch(.26 .022 156);
+ --card:oklch(.974 .010 155);--card-foreground:var(--foreground);
+ --popover:oklch(.976 .010 155);--popover-foreground:var(--foreground);
+ --primary:oklch(.46 .115 161);--primary-foreground:oklch(.98 .007 160);
+ --secondary:oklch(.92 .019 154);--secondary-foreground:var(--foreground);
+ --muted:oklch(.926 .015 156);--muted-foreground:oklch(.46 .026 159);
+ --accent:oklch(.89 .03 156);--accent-foreground:var(--foreground);
+ --border:oklch(.852 .027 157);--input:var(--border);--ring:oklch(.6 .08 160);
+ --sidebar:oklch(.919 .021 156);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.885 .03 156);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);--radius:.75rem;
+}
+.dark[data-hts-preset="jade"] {
+ --background:oklch(.165 .014 159);--foreground:oklch(.949 .014 155);
+ --card:oklch(.22 .018 160);--card-foreground:var(--foreground);
+ --popover:oklch(.23 .02 160);--popover-foreground:var(--foreground);
+ --primary:oklch(.74 .124 159);--primary-foreground:oklch(.16 .025 163);
+ --secondary:oklch(.27 .022 159);--secondary-foreground:var(--foreground);
+ --muted:oklch(.27 .022 159);--muted-foreground:oklch(.72 .022 158);
+ --accent:oklch(.31 .03 159);--accent-foreground:var(--foreground);
+ --border:oklch(.365 .027 158);--input:var(--border);--ring:oklch(.69 .09 157);
+ --sidebar:oklch(.19 .018 162);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.285 .027 157);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);
+}
+:root[data-hts-preset="plum"] {
+ --background:oklch(.956 .012 316);--foreground:oklch(.265 .026 312);
+ --card:oklch(.98 .008 315);--card-foreground:var(--foreground);
+ --popover:oklch(.978 .01 315);--popover-foreground:var(--foreground);
+ --primary:oklch(.50 .135 306);--primary-foreground:oklch(.98 .007 310);
+ --secondary:oklch(.93 .018 314);--secondary-foreground:var(--foreground);
+ --muted:oklch(.93 .015 315);--muted-foreground:oklch(.48 .023 313);
+ --accent:oklch(.905 .03 315);--accent-foreground:var(--foreground);
+ --border:oklch(.865 .022 315);--input:var(--border);--ring:oklch(.63 .11 309);
+ --sidebar:oklch(.92 .018 315);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.89 .03 315);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);--radius:.68rem;
+}
+.dark[data-hts-preset="plum"] {
+ --background:oklch(.16 .022 314);--foreground:oklch(.96 .012 313);
+ --card:oklch(.22 .028 313);--card-foreground:var(--foreground);
+ --popover:oklch(.225 .031 313);--popover-foreground:var(--foreground);
+ --primary:oklch(.75 .12 308);--primary-foreground:oklch(.19 .025 311);
+ --secondary:oklch(.275 .027 313);--secondary-foreground:var(--foreground);
+ --muted:oklch(.275 .027 313);--muted-foreground:oklch(.735 .026 315);
+ --accent:oklch(.312 .044 312);--accent-foreground:var(--foreground);
+ --border:oklch(.39 .03 314);--input:var(--border);--ring:oklch(.68 .11 308);
+ --sidebar:oklch(.196 .024 315);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.286 .032 313);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);
+}
+:root[data-hts-preset="sand"] {
+ --background:oklch(.95 .018 75);--foreground:oklch(.285 .022 56);
+ --card:oklch(.975 .014 75);--card-foreground:var(--foreground);
+ --popover:oklch(.975 .015 75);--popover-foreground:var(--foreground);
+ --primary:oklch(.50 .125 55);--primary-foreground:oklch(.98 .008 76);
+ --secondary:oklch(.922 .024 70);--secondary-foreground:var(--foreground);
+ --muted:oklch(.928 .02 71);--muted-foreground:oklch(.48 .028 57);
+ --accent:oklch(.89 .04 72);--accent-foreground:var(--foreground);
+ --border:oklch(.852 .028 71);--input:var(--border);--ring:oklch(.63 .09 58);
+ --sidebar:oklch(.919 .024 71);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.89 .036 70);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);--radius:.7rem;
+}
+.dark[data-hts-preset="sand"] {
+ --background:oklch(.18 .014 67);--foreground:oklch(.95 .015 72);
+ --card:oklch(.238 .02 68);--card-foreground:var(--foreground);
+ --popover:oklch(.248 .021 68);--popover-foreground:var(--foreground);
+ --primary:oklch(.76 .114 66);--primary-foreground:oklch(.19 .027 65);
+ --secondary:oklch(.292 .021 67);--secondary-foreground:var(--foreground);
+ --muted:oklch(.292 .021 67);--muted-foreground:oklch(.73 .025 71);
+ --accent:oklch(.33 .037 69);--accent-foreground:var(--foreground);
+ --border:oklch(.399 .03 71);--input:var(--border);--ring:oklch(.7 .095 65);
+ --sidebar:oklch(.215 .019 68);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.3 .03 69);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring);
+}

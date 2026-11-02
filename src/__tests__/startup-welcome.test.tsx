@@ -41,7 +41,8 @@ describe("HébergTonServ handwritten welcome effect", () => {
   it("skips drawing but does not enter until Démarrer is explicitly clicked", async () => {
     vi.useFakeTimers();
     const dismiss = vi.fn();
-    await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
+    const enter = vi.fn();
+    await act(async () => root.render(<StartupWelcome onEnter={enter} onDismiss={dismiss} />));
     const skip = container.querySelector<HTMLButtonElement>(".hts-welcome-skip");
     expect(skip?.textContent).toContain("Passer");
     expect(document.activeElement).toBe(skip);
@@ -52,8 +53,9 @@ describe("HébergTonServ handwritten welcome effect", () => {
     expect(document.activeElement).toBe(start);
     await act(async () => start?.click());
     expect(container.querySelector(".hts-welcome-screen")?.getAttribute("data-leaving")).toBe("true");
+    expect(enter).toHaveBeenCalledTimes(1);
     expect(dismiss).not.toHaveBeenCalled();
-    await act(async () => { vi.advanceTimersByTime(260); });
+    await act(async () => { vi.advanceTimersByTime(730); });
     expect(dismiss).toHaveBeenCalledTimes(1);
   });
 
