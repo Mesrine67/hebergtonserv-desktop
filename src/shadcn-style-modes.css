@@ -90,3 +90,52 @@
 :root[data-hts-style] .hts-titlebar .hts-window-control:not(:hover) {
   background: transparent;
 }
+
+/* Sidebar follows the active shadcn visual recipe, including nested controls. */
+:root[data-hts-style] .hts-sidebar {
+  --hts-sidebar-control-height: clamp(28px, var(--hts-ui-height), 42px);
+}
+:root[data-hts-style] .hts-sidebar :is(
+ [data-slot="sidebar-menu-button"],
+ [data-slot="sidebar-menu-sub-button"],
+ [data-slot="sidebar-menu-action"],
+ [data-slot="sidebar-group-label"]
+) {
+ border-radius: var(--hts-ui-radius);
+ font-size: var(--hts-ui-font-size);
+ transition: background-color 150ms ease, color 150ms ease, border-radius 150ms ease;
+}
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-button"]:not([data-size="lg"]) {
+ min-height: var(--hts-sidebar-control-height);
+}
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-sub-button"] {
+ min-height: calc(var(--hts-sidebar-control-height) - 4px);
+ height: auto;
+ padding-block: 5px;
+ box-shadow: none !important;
+ border-left: 0 !important;
+}
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-sub-button"][data-active="true"] {
+ background: var(--sidebar-accent);
+ color: var(--sidebar-accent-foreground);
+ font-weight: 600;
+}
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-button"][data-active="true"] {
+ color: var(--sidebar-accent-foreground);
+ background: var(--sidebar-accent);
+}
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-button"]:focus-visible,
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-sub-button"]:focus-visible {
+ outline: 2px solid var(--sidebar-ring);
+ outline-offset: 2px;
+}
+:root[data-hts-style="lyra"] .hts-sidebar [data-slot="sidebar-menu-sub"] {
+ border-radius: 0;
+}
+:root[data-hts-style="maia"] .hts-sidebar [data-slot="sidebar-menu-sub-button"],
+:root[data-hts-style="luma"] .hts-sidebar [data-slot="sidebar-menu-sub-button"] {
+ padding-inline: 14px;
+}
+:root[data-hts-style] .hts-sidebar [data-slot="sidebar-menu-sub"] {
+ border-color: var(--sidebar-border);
+}
