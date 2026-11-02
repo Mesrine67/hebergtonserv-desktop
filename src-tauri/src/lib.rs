@@ -239,6 +239,8 @@ pub fn run() {
             commands::ssh::agent_identities,
             commands::ssh::agent_add_identity,
             commands::ssh::agent_remove_identity,
+            commands::git::get_git_tools,
+            commands::git::inspect_git_repository,
             commands::panels::list_panels,
             commands::panels::login_wisp,
             commands::panels::save_panel,
