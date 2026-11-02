@@ -12,6 +12,7 @@ export default function PanelsPage() {
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const [name, setName] = useState("HébergTonServ");
   const [provider, setProvider] = useState("wisp");
+  const [apiVersion, setApiVersion] = useState("auto");
   const [baseUrl, setBaseUrl] = useState("https://manage.hebergtonserv.com/");
   const [allowLocal, setAllowLocal] = useState(false);
   const [token, setToken] = useState("");
@@ -21,7 +22,7 @@ export default function PanelsPage() {
     mutationFn: async () => {
       if (!name.trim() || !token.trim() || !baseUrl.trim()) throw new Error("Nom, adresse HTTPS et jeton API requis.");
       const id = crypto.randomUUID();
-      await commands.savePanel({ id, name: name.trim(), provider, base_url: baseUrl.trim(), pterodactyl_version: "auto",
+      await commands.savePanel({ id, name: name.trim(), provider, base_url: baseUrl.trim(), pterodactyl_version: apiVersion,
         allow_local: allowLocal, status: null, account_label: null, last_checked_at: null });
       try { await commands.setPanelToken(id, token); }
       catch (error) {
@@ -57,7 +58,23 @@ export default function PanelsPage() {
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>La clé est conservée dans Windows Credential Manager. Seule l’API Client HTTPS est appelée; aucun cookie de navigateur n’est lu.</span></div>
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
             <Field htmlFor="panel-name" label="Nom du panel"><Input id="panel-name" value={name} onChange={(e) => setName(e.target.value)} required /></Field>
-            <Field htmlFor="panel-provider" label="Plateforme"><select id="panel-provider" className={selectStyles} value={provider} onChange={(e) => setProvider(e.target.value)}><option value="wisp">Wisp</option><option value="pterodactyl">Pterodactyl</option></select></Field>
+            <Field htmlFor="panel-provider" label="Plateforme"><select id="panel-provider" className={selectStyles} value={provider} onChange={(e) => { setProvider(e.target.value); setApiVersion("auto"); }}><option value="wisp">Wisp</option><option value="pterodactyl">Pterodactyl</option></select></Field>
+            <Field htmlFor="panel-api-version" label="Contrat API" hint={provider === "wisp" ? "WISP API v1 est documentée. v2 MIME est expérimental et nécessite un panel compatible." : "Auto garde le comportement historique 1.x. Choisissez 2.x pour le JSON documenté."}>
+              <select id="panel-api-version" className={selectStyles} value={apiVersion} onChange={(e) => setApiVersion(e.target.value)}>
+                {provider === "wisp" ? (
+                  <>
+                    <option value="auto">WISP API v1 (documentée)</option>
+                    <option value="wisp-v2-experimental">WISP API v2 (expérimental, non vérifié)</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="auto">Auto / compatibilité 1.x</option>
+                    <option value="1">Pterodactyl 1.x</option>
+                    <option value="2">Pterodactyl 2.x (JSON)</option>
+                  </>
+                )}
+              </select>
+            </Field>
             <Field htmlFor="panel-url" label="Adresse du panel"><Input id="panel-url" type="url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://panel.exemple.fr/" required /></Field>
             <Field htmlFor="panel-token" label="Jeton API" hint="Saisi uniquement ici ; jamais affiché ou stocké dans un fichier JSON.">
               <Input id="panel-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Clé d'API Client" autoComplete="off" required />
@@ -83,6 +100,7 @@ export default function PanelsPage() {
                       <div className="min-w-0 flex-1">
                         <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">{p.name}<span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-normal uppercase text-muted-foreground">{p.provider}</span></h3>
                         <p className="mt-1 break-all text-xs text-muted-foreground">{p.base_url}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">API : {p.provider === "wisp" ? (p.pterodactyl_version === "wisp-v2-experimental" ? "v2 expérimentale" : "v1 documentée") : (p.pterodactyl_version === "2" ? "Pterodactyl 2.x" : "Pterodactyl 1.x / Auto")}</p>
                         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                           {p.status === "ok" ? <CheckCircle2 className="size-3.5 text-emerald-500" /> : <ExternalLink className="size-3.5" />}
                           {p.status === "ok" ? (p.account_label ?? "Compte vérifié") : "Connexion non vérifiée"}

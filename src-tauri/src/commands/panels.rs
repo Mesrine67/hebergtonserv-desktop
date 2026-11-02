@@ -364,10 +364,17 @@ pub async fn check_panel(
             "Configurez le jeton API du panneau dans les paramètres.",
         )
     })?;
+    let detection_accept = if panel.provider == "wisp"
+        && panel.pterodactyl_version == "wisp-v2-experimental"
+    {
+        "application/vnd.wisp.v2+json"
+    } else {
+        "application/vnd.wisp.v1+json"
+    };
     let detected = ApiClient::new(
         &panel.base_url,
         &token,
-        "application/vnd.wisp.v1+json",
+        detection_accept,
         panel.allow_local,
     )?
     .get_account_with_api()
