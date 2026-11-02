@@ -84,7 +84,7 @@ export function NavMain({ items }: { items: NavSection[] }) {
                 <CollapsibleTrigger asChild>
                   <SidebarMenuButton
                     tooltip={section.title}
-                    isActive={active}
+                    className="hts-nav-group-toggle"
                     aria-label={`Afficher ou masquer ${section.title}`}
                   >
                     <section.icon className="size-4 shrink-0" aria-hidden="true" />

@@ -9,6 +9,8 @@ import appIcon from "../../src-tauri/icons/128x128.png";
 import { Button } from "@/components/ui/button";
 import { AppUpdaterAction } from "@/components/app-updater-action";
 import { DiscussionAction } from "@/components/discussion-action";
+import { NotificationsAction } from "@/components/notifications-action";
+import { DesktopMenubar } from "@/components/desktop-menubar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -33,7 +35,7 @@ function TitlebarSidebarRail() {
   );
 }
 
-export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation = false, welcome = false }: Props) {
+export function DesktopTitlebar({ navigation = false, welcome = false }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
   const appWindow = useMemo(() => {
     try {
@@ -100,18 +102,14 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
         <TitlebarSidebarRail />
       )}
 
-      <div className="hts-titlebar-brand flex h-full min-w-0 flex-1 items-center gap-2 px-1" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")}>
-        <img src={appIcon} alt="" className="size-6 shrink-0 object-contain" aria-hidden="true" data-tauri-drag-region />
-        <span className="truncate text-xs font-semibold text-foreground" data-tauri-drag-region>HébergTonServ Desktop</span>
-        {navigation && (
-          <>
-            <span className="text-muted-foreground" aria-hidden="true" data-tauri-drag-region>·</span>
-            <span className="truncate text-xs text-muted-foreground" data-tauri-drag-region>{title}</span>
-          </>
-        )}
-        {!navigation && <span className="sr-only">v{buildVersion}</span>}
+      <div className="hts-titlebar-brand flex h-full shrink-0 items-center px-1.5">
+        <img src={appIcon} alt="HébergTonServ" className="size-6 shrink-0 object-contain" />
+        <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
       </div>
+      {navigation && <DesktopMenubar />}
+      <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />
 
+      {navigation && <NotificationsAction />}
       <DiscussionAction />
       <AppUpdaterAction />
       <Tooltip>

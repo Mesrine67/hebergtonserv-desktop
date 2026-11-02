@@ -11,6 +11,8 @@ import { DesktopTitlebar } from "@/components/desktop-titlebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeStyleProvider } from "@/lib/theme-style";
+import { WorkspaceNavigationProvider } from "@/lib/workspace-navigation";
+import GitHubPage from "@/pages/GitHubPage";
 import SshKeysPage from "./pages/SshKeysPage";
 import SshConfigPage from "./pages/SshConfigPage";
 import PanelsPage from "./pages/PanelsPage";
@@ -22,6 +24,7 @@ import PanelServersPage from "./pages/PanelServersPage";
 import "./App.css";
 import "./theme-presets.css";
 import "./welcome-motion.css";
+import "./desktop-polish.css";
 
 const queryClient = new QueryClient();
 
@@ -34,19 +37,23 @@ const routeLabels: Record<string, string> = {
   "/panel/servers": "Serveurs",
   "/settings": "Paramètres",
   "/security": "Sécurité",
+  "/git": "Git / GH",
 };
 
 function Workspace() {
   const location = useLocation();
+  useEffect(() => { document.getElementById("workspace-scroll")?.scrollTo({ top: 0 }); }, [location.pathname]);
   const current = routeLabels[location.pathname] ?? "Clés SSH";
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
+      <WorkspaceNavigationProvider>
       <DesktopTitlebar navigation title={current} />
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
       <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 overflow-hidden bg-background">
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
           <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
+            <div key={location.pathname} className="hts-route-scene">
             <Routes>
               <Route path="/" element={<Navigate to="/ssh-keys" replace />} />
               <Route path="/ssh-keys" element={<SshKeysPage />} />
@@ -57,12 +64,15 @@ function Workspace() {
               <Route path="/panel/servers" element={<PanelServersPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/security" element={<SecurityPage />} />
+              <Route path="/git" element={<GitHubPage />} />
               <Route path="*" element={<Navigate to="/ssh-keys" replace />} />
             </Routes>
+            </div>
           </div>
         </main>
       </SidebarInset>
       </div>
+      </WorkspaceNavigationProvider>
     </SidebarProvider>
   );
 }
@@ -86,7 +96,7 @@ export default function App() {
         <ThemeStyleProvider>
           <TooltipProvider delayDuration={150}>
             <BrowserRouter>
-              <div className="relative h-dvh min-h-0 overflow-hidden bg-background">
+              <div className="hts-window-boot relative h-dvh min-h-0 overflow-hidden bg-background">
                 {(!welcomeVisible || entering) && (
                   <div className="hts-app-scene" data-entering={entering && welcomeVisible ? "true" : undefined}>
                     {authenticated ? <Workspace /> : (

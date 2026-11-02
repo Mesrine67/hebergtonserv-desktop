@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowDownToLine, CheckCircle2, LoaderCircle, RefreshCw } from "lucide-react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { notifyDesktop } from "@/lib/notifications";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -24,7 +25,7 @@ export function AppUpdaterAction() {
     void getVersion().then(setCurrent, () => {});
   }, []);
 
-  async function checkForUpdates() {
+  const checkForUpdates = useCallback(async () => {
     if (!isTauri()) { toast.info("Les mises à jour nécessitent l'application Windows."); return; }
     setBusy(true);
     try {
@@ -32,12 +33,21 @@ export function AppUpdaterAction() {
       if (available) await available.close();
       setAvailable(candidate);
       setChecked(true);
-      if (candidate) toast.info(`Mise à jour ${candidate.version} disponible`);
+      if (candidate) {
+        toast.info(`Mise à jour ${candidate.version} disponible`);
+        notifyDesktop("Mise à jour disponible", `La version ${candidate.version} de HébergTonServ Desktop est disponible.`, "update");
+      }
       else toast.success("HébergTonServ Desktop est à jour.");
     } catch {
       toast.error("Recherche impossible. Vérifiez votre connexion et GitHub Releases.");
     } finally { setBusy(false); }
-  }
+  }, [available]);
+
+  useEffect(() => {
+    const handler = () => { void checkForUpdates(); };
+    window.addEventListener("hts:check-for-updates", handler);
+    return () => window.removeEventListener("hts:check-for-updates", handler);
+  }, [checkForUpdates]);
 
   async function install() {
     if (!available || !isTauri()) return;
@@ -86,7 +96,7 @@ export function AppUpdaterAction() {
             <p className="text-muted-foreground">Recherchez une version Windows signée sur GitHub.</p>
           )}
           {progress > 0 && <p aria-live="polite">Téléchargé : {(progress / 1048576).toFixed(1)} Mo</p>}
-          <Button className="w-full" variant="outline" size="sm" disabled={busy}
+          <Button id="hts-update-check" className="w-full" variant="outline" size="sm" disabled={busy}
             onClick={() => void checkForUpdates()}>
             <RefreshCw className={`size-4 ${busy ? "animate-spin" : ""}`} />
             {busy ? "Opération en cours…" : "Vérifier maintenant"}

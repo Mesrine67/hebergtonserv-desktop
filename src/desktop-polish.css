@@ -1,0 +1,96 @@
+/* Window opening: animate the complete frameless surface, including the titlebar. */
+.hts-window-boot {
+  animation: hts-window-arrive 560ms cubic-bezier(.22, 1, .36, 1) both;
+  transform-origin: 50% 45%;
+}
+@keyframes hts-window-arrive {
+  from { opacity: 0; transform: translateY(11px) scale(.986); filter: blur(4px); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.hts-window-boot > .hts-intro-overlay .hts-titlebar {
+  animation: hts-window-chrome 440ms cubic-bezier(.22, 1, .36, 1) 90ms both;
+}
+@keyframes hts-window-chrome {
+  from { opacity: .3; transform: translateY(-5px); }
+  to { opacity: 1; transform: none; }
+}
+.hts-route-scene {
+  animation: hts-route-appear 340ms cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes hts-route-appear {
+  from { opacity: .4; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+/* One active leaf in expanded groups. Parent only indicates an expanded section. */
+.hts-sidebar [data-slot="sidebar-menu-button"].hts-nav-group-toggle,
+.hts-sidebar [data-slot="sidebar-menu-button"].hts-nav-group-toggle[data-state="open"] {
+  background: transparent;
+  color: var(--sidebar-foreground);
+  font-weight: 500;
+}
+.hts-sidebar [data-slot="sidebar-menu-button"].hts-nav-group-toggle:hover {
+  background: color-mix(in oklch, var(--sidebar-accent) 45%, transparent);
+}
+.hts-sidebar [data-slot="sidebar-menu-sub-button"][data-active="true"] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+  font-weight: 650;
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.hts-sidebar [data-slot="sidebar-menu-sub-button"][data-active="false"] {
+  color: var(--muted-foreground);
+}
+.hts-sidebar [data-slot="sidebar-menu-sub-button"],
+.hts-sidebar [data-slot="sidebar-menu-button"] {
+  transition: background-color 210ms ease, color 210ms ease, box-shadow 210ms ease;
+}
+.hts-sidebar [data-slot="collapsible-content"] {
+  overflow: hidden;
+  animation: hts-group-expand 280ms cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes hts-group-expand {
+  from { opacity: .3; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.hts-titlebar .hts-main-menubar,
+.hts-titlebar .hts-main-menubar [data-slot="menubar-trigger"],
+.hts-titlebar .hts-desktop-navigation,
+.hts-titlebar .hts-titlebar-brand {
+  -webkit-app-region: no-drag;
+}
+.hts-titlebar .hts-main-menubar [data-slot="menubar-trigger"] {
+  color: var(--muted-foreground);
+  padding-inline: .55rem;
+  font-size: 11px;
+  transition: color 170ms, background 170ms;
+}
+.hts-titlebar .hts-main-menubar [data-slot="menubar-trigger"]:hover,
+.hts-titlebar .hts-main-menubar [data-slot="menubar-trigger"][data-state="open"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.hts-desktop-menubar-menu[data-slot="menubar-content"] {
+  z-index: 10020;
+  padding: 6px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 36px #0003;
+  border-radius: calc(var(--radius) + 4px);
+  backdrop-filter: blur(15px);
+  animation: hts-menu-reveal 170ms cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes hts-menu-reveal {
+  from { opacity: .5; transform: translateY(-4px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 1100px) {
+  .hts-titlebar .hts-main-menubar [data-slot="menubar-trigger"] { padding-inline: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hts-window-boot, .hts-window-boot *,
+  .hts-route-scene, .hts-sidebar [data-slot="collapsible-content"],
+  .hts-desktop-menubar-menu[data-slot="menubar-content"] {
+    animation: none !important; transition: none !important; filter: none !important;
+  }
+}
