@@ -119,6 +119,8 @@ export interface PanelServerResources {
   connect_address?: string | null;
 }
 
+export interface PanelResourceBatchItem { key: string; resources: PanelServerResources | null; error_code: string | null; }
+
 export interface PanelAccountSummary {
   panel_id: string;
   provider: string;
@@ -221,6 +223,7 @@ export const commands = {
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
   getPanelAccount: (id: string) => invoke<PanelAccountSummary>("get_panel_account", { id }),
   listPanelServers: (id: string) => invoke<PanelServer[]>("list_panel_servers", { id }),
+  getPanelResourcesBatch: (id: string, requests: { key: string; identifier: string }[]) => invoke<PanelResourceBatchItem[]>("get_panel_resources_batch", { id, requests }),
   getPanelServerResources: (id: string, identifier: string) =>
     invoke<PanelServerResources>("get_panel_server_resources", { id, identifier }),
   setPanelToken: (id: string, token: string) => invoke<void>("set_panel_token", { id, token }),

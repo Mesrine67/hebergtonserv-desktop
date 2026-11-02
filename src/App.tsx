@@ -30,6 +30,7 @@ import "./theme-presets.css";
 import "./welcome-motion.css";
 import "./desktop-polish.css";
 import "./desktop-next.css";
+import "./shadcn-style-modes.css";
 
 const queryClient = new QueryClient();
 

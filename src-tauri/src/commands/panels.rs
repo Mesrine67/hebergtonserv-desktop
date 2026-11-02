@@ -447,7 +447,26 @@ pub async fn list_panel_servers(
         .find(|panel| panel.id == id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    provider_for(&panel)?.list_servers().await
+    let result = provider_for(&panel)?.list_servers().await;
+    match &result {
+        Ok(servers) => crate::diagnostics::record(
+            "info",
+            "panel_servers",
+            "list_ok",
+            if servers.is_empty() {
+                "Liste de serveurs vide"
+            } else {
+                "Liste de serveurs reçue"
+            },
+        ),
+        Err(error) => crate::diagnostics::record(
+            "error",
+            "panel_servers",
+            error.code(),
+            "Impossible de lister les serveurs",
+        ),
+    }
+    result
 }
 
 #[tauri::command]
@@ -464,5 +483,130 @@ pub async fn get_panel_server_resources(
         .find(|panel| panel.id == id)
         .cloned()
         .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
-    provider_for(&panel)?.server_resources(&identifier).await
+    let result = provider_for(&panel)?.server_resources(&identifier).await;
+    if let Err(error) = &result {
+        crate::diagnostics::record(
+            "warning",
+            "panel_resources",
+            error.code(),
+            "Ressources indisponibles",
+        );
+    }
+    result
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ResourceRequest {
+    pub key: String,
+    pub identifier: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResourceResult {
+    pub key: String,
+    pub resources: Option<crate::providers::models::PanelServerResources>,
+    pub error_code: Option<String>,
+}
+
+/// Fetch up to one page of resources in groups of four. Avoid the previous
+/// 12-request burst, which could trigger rate limits or stall weaker panels.
+#[tauri::command]
+pub async fn get_panel_resources_batch(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    requests: Vec<ResourceRequest>,
+) -> Result<Vec<ResourceResult>> {
+    if requests.len() > 16
+        || requests.iter().any(|item| {
+            item.key.is_empty()
+                || item.key.len() > 128
+                || item.identifier.is_empty()
+                || item.identifier.len() > 128
+                || !item
+                    .identifier
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        })
+    {
+        return Err(app_error(
+            "api_invalid_request",
+            "Liste de ressources invalide.",
+        ));
+    }
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let mut results = Vec::with_capacity(requests.len());
+    for chunk in requests.chunks(4) {
+        let mut jobs = tokio::task::JoinSet::new();
+        for item in chunk {
+            let panel = panel.clone();
+            let key = item.key.clone();
+            let identifier = item.identifier.clone();
+            jobs.spawn(async move {
+                let result = match provider_for(&panel) {
+                    Ok(provider) => provider.server_resources(&identifier).await,
+                    Err(error) => Err(error),
+                };
+                match result {
+                    Ok(resources) => ResourceResult {
+                        key,
+                        resources: Some(resources),
+                        error_code: None,
+                    },
+                    Err(error) => ResourceResult {
+                        key,
+                        resources: None,
+                        error_code: Some(error.code().to_string()),
+                    },
+                }
+            });
+        }
+        while let Some(result) = jobs.join_next().await {
+            match result {
+                Ok(result) => {
+                    if let Some(code) = &result.error_code {
+                        crate::diagnostics::record(
+                            "warning",
+                            "panel_resources",
+                            code,
+                            "Échec du chargement de ressources",
+                        );
+                    }
+                    results.push(result);
+                }
+                Err(_) => crate::diagnostics::record(
+                    "error",
+                    "panel_resources",
+                    "task_failed",
+                    "Tâche de requête interrompue",
+                ),
+            }
+        }
+    }
+    let failures = results
+        .iter()
+        .filter(|result| result.error_code.is_some())
+        .count();
+    if failures == 0 {
+        crate::diagnostics::record(
+            "info",
+            "panel_resources",
+            "batch_ok",
+            "Lecture des ressources terminée",
+        );
+    } else {
+        crate::diagnostics::record(
+            "warning",
+            "panel_resources",
+            "batch_partial",
+            "Certaines ressources sont indisponibles",
+        );
+    }
+    Ok(results)
 }

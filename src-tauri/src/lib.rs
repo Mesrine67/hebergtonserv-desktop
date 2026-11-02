@@ -2,6 +2,7 @@
 
 pub mod commands;
 pub mod desktop;
+pub mod diagnostics;
 pub mod errors;
 pub mod providers;
 pub mod security;
@@ -247,6 +248,10 @@ pub fn run() {
             commands::panels::get_panel_account,
             commands::panels::list_panel_servers,
             commands::panels::get_panel_server_resources,
+            commands::panels::get_panel_resources_batch,
+            diagnostics::list_panel_diagnostics,
+            diagnostics::clear_panel_diagnostics,
+            diagnostics::export_panel_diagnostics,
             commands::panels::create_panel_api_key,
             commands::panels::create_panel_ssh_key,
             commands::panels::revoke_panel_api_key,

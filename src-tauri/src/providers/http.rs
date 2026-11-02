@@ -143,13 +143,13 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
     let disk = proc.get("disk").unwrap_or(&Value::Null);
     let resources = attrs.get("resources").unwrap_or(&Value::Null);
     let query = attrs.get("query").unwrap_or(&Value::Null);
-    let state = server_string(attrs, &["current_state", "state"]).or_else(|| {
-        value_u64(attrs, &["status"]).and_then(|status| match status {
-            1 => Some("running".to_string()),
-            0 => Some("offline".to_string()),
-            _ => None,
-        })
-    });
+    let state = server_string(attrs, &["current_state", "state"])
+        .or_else(|| server_string(attrs, &["status"]))
+        .map(|status| match status.trim().to_ascii_lowercase().as_str() {
+            "1" | "on" | "started" | "online" => "running".to_string(),
+            "0" | "off" | "stopped" => "offline".to_string(),
+            other => other.to_string(),
+        });
     let query_raw = query.get("raw").unwrap_or(&Value::Null);
     let gamespy = query_raw.get("gamespy").unwrap_or(&Value::Null);
     let vanilla = query_raw.get("vanilla").unwrap_or(&Value::Null);
