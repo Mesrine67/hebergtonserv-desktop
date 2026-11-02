@@ -179,6 +179,34 @@ jobs:
           }
           Write-Output ("Verified " + $assets.Count + " release assets.")
 
+      - name: Publish verified release for in-app updates
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          $release = gh release view $tag --json isDraft,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.tagName -ne $tag) {
+            throw "Cannot verify GitHub release for $tag."
+          }
+          if (-not $release.isDraft) {
+            throw "Refusing to republish a release that is not a draft: $tag"
+          }
+          $editArgs = @('release', 'edit', $tag, '--title', "HébergTonServ Desktop $tag", '--draft=false', '--prerelease=false', '--latest')
+          $notesPath = "docs/release-v$($config.version).md"
+          if (Test-Path -LiteralPath $notesPath) {
+            $editArgs += @('--notes-file', $notesPath)
+          }
+          & gh @editArgs
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish $tag." }
+          $published = gh release view $tag --json isDraft,isPrerelease,publishedAt | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $published.isDraft -or $published.isPrerelease -or -not $published.publishedAt) {
+            throw "Release $tag was not publicly published."
+          }
+          Write-Output "Published $tag for Tauri automatic updates."
+
       - name: Release summary
         if: steps.tauri.outputs.releaseHtmlUrl != ''
         shell: pwsh
@@ -191,5 +219,5 @@ jobs:
             '',
             '- Platform: Windows x64',
             "- Version: $env:APP_VERSION",
-            "- Draft release: $env:RELEASE_URL"
+            "- Published release: $env:RELEASE_URL"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
