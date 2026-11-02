@@ -1,5 +1,5 @@
 import {
-  KeyRound, ServerCog, Settings2,
+  GitBranch, House, KeyRound, ServerCog, Settings2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -7,7 +7,6 @@ import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
 import { version as buildVersion } from "../../package.json";
 import { NavMain } from "@/components/nav-main";
-import appIcon from "../../src-tauri/icons/128x128.png";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -39,6 +38,11 @@ const sections = [
     ],
   },
   {
+    title: "Développement",
+    icon: GitBranch,
+    items: [{ title: "Git / GH", url: "/git" }],
+  },
+  {
     title: "Application",
     icon: Settings2,
     items: [
@@ -63,7 +67,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="HébergTonServ Desktop">
               <Link to="/ssh-keys">
-                <img src={appIcon} alt="" className="size-8 shrink-0 rounded-lg object-contain group-data-[collapsible=icon]:size-7" aria-hidden="true" />
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-data-[collapsible=icon]:size-7"><House className="size-5" aria-hidden="true" /></span>
                 <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">HébergTonServ</span>
                   <span className="truncate text-xs text-sidebar-foreground/60">Desktop · Gestionnaire</span>

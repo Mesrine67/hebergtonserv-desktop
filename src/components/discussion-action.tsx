@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { LifeBuoy, MessageCircle, Plus, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -44,6 +44,11 @@ export function DiscussionAction() {
   const [messages, setMessages] = useState<DiscussionMessage[]>(readInitial);
   const [draft, setDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const openDiscussion = () => setOpen(true);
+    window.addEventListener("hts:open-discussion", openDiscussion);
+    return () => window.removeEventListener("hts:open-discussion", openDiscussion);
+  }, []);
 
   function send(value = draft) {
     const content = value.trim();
