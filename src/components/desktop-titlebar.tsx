@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 type Props = {
   title?: string;
   navigation?: boolean;
+  welcome?: boolean;
 };
 
 function TitlebarSidebarRail() {
@@ -31,7 +32,7 @@ function TitlebarSidebarRail() {
   );
 }
 
-export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation = false }: Props) {
+export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation = false, welcome = false }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
   const appWindow = useMemo(() => {
     try {
@@ -93,7 +94,7 @@ export function DesktopTitlebar({ title = "HébergTonServ Desktop", navigation =
   }
 
   return (
-    <header className="hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2">
+    <header className={`hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2 ${welcome ? "hts-titlebar--welcome" : ""}`}>
       {navigation && (
         <TitlebarSidebarRail />
       )}

@@ -10,6 +10,7 @@ import { commands } from "@/lib/tauri";
 import { DesktopTitlebar } from "@/components/desktop-titlebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeStyleProvider } from "@/lib/theme-style";
 import SshKeysPage from "./pages/SshKeysPage";
 import SshConfigPage from "./pages/SshConfigPage";
 import PanelsPage from "./pages/PanelsPage";
@@ -19,6 +20,8 @@ import SecurityPage from "./pages/SecurityPage";
 import PanelAccountPage from "./pages/PanelAccountPage";
 import PanelServersPage from "./pages/PanelServersPage";
 import "./App.css";
+import "./theme-presets.css";
+import "./welcome-motion.css";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +69,7 @@ function Workspace() {
 
 export default function App() {
   const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [entering, setEntering] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
   const onAuthenticated = useCallback(() => setAuthenticated(true), []);
@@ -78,27 +82,36 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="hts-ui-theme">
-        <TooltipProvider delayDuration={150}>
-          <BrowserRouter>
-              {welcomeVisible ? (
-                <div className="flex h-dvh min-h-0 flex-col bg-background">
-                  <DesktopTitlebar />
-                  <div className="relative min-h-0 flex-1">
-                    <StartupWelcome onDismiss={dismissWelcome} />
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="hts-ui-theme">
+        <ThemeStyleProvider>
+          <TooltipProvider delayDuration={150}>
+            <BrowserRouter>
+              <div className="relative h-dvh min-h-0 overflow-hidden bg-background">
+                {(!welcomeVisible || entering) && (
+                  <div className="hts-app-scene" data-entering={entering && welcomeVisible ? "true" : undefined}>
+                    {authenticated ? <Workspace /> : (
+                      <div className="flex h-dvh min-h-0 flex-col bg-background">
+                        <DesktopTitlebar title="Connexion" />
+                        <div className="flex min-h-0 flex-1">
+                          <WispLoginPage onAuthenticated={onAuthenticated} />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ) : authenticated ? <Workspace /> : (
-                <div className="flex h-dvh min-h-0 flex-col bg-background">
-                  <DesktopTitlebar title="Connexion" />
-                  <div className="flex min-h-0 flex-1">
-                    <WispLoginPage onAuthenticated={onAuthenticated} />
+                )}
+                {welcomeVisible && (
+                  <div className="hts-intro-overlay" data-leaving={entering ? "true" : undefined}>
+                    <DesktopTitlebar welcome />
+                    <div className="relative min-h-0 flex-1">
+                      <StartupWelcome onEnter={() => setEntering(true)} onDismiss={dismissWelcome} />
+                    </div>
                   </div>
-                </div>
-              )}
-          </BrowserRouter>
-          <Toaster richColors position="top-right" />
-        </TooltipProvider>
+                )}
+              </div>
+            </BrowserRouter>
+            <Toaster richColors position="top-right" />
+          </TooltipProvider>
+        </ThemeStyleProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

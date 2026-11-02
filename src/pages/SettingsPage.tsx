@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { PageHeader, SectionCard } from "@/components/page-shell";
 import { commands } from "@/lib/tauri";
 import UpdaterSection from "@/components/UpdaterSection";
+import ThemeStyleSection from "@/components/theme-style-section";
 
 export default function SettingsPage() {
   const qc = useQueryClient();
@@ -57,6 +58,7 @@ export default function SettingsPage() {
               </label>
             </div>}
       </SectionCard>
+      <ThemeStyleSection />
       <div className="max-w-3xl"><UpdaterSection /></div>
       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Settings2 className="size-4" /> Les changements sont enregistrés automatiquement.</div>
     </div>
