@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
@@ -7,12 +7,16 @@ import { AppSidebar } from "@/components/app-sidebar";
 import StartupWelcome from "@/components/startup-welcome";
 import WispLoginPage from "@/pages/WispLoginPage";
 import { commands } from "@/lib/tauri";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { DesktopTitlebar } from "@/components/desktop-titlebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeStyleProvider } from "@/lib/theme-style";
 import { WorkspaceNavigationProvider } from "@/lib/workspace-navigation";
 import GitHubPage from "@/pages/GitHubPage";
+import HomePage from "@/pages/HomePage";
+import DocumentationPage from "@/pages/DocumentationPage";
+import { DesktopHelpPanels } from "@/components/desktop-help-panels";
 import SshKeysPage from "./pages/SshKeysPage";
 import SshConfigPage from "./pages/SshConfigPage";
 import PanelsPage from "./pages/PanelsPage";
@@ -25,10 +29,13 @@ import "./App.css";
 import "./theme-presets.css";
 import "./welcome-motion.css";
 import "./desktop-polish.css";
+import "./desktop-next.css";
 
 const queryClient = new QueryClient();
 
 const routeLabels: Record<string, string> = {
+  "/home": "Accueil",
+  "/documentation": "Documentation",
   "/ssh-keys": "Clés SSH",
   "/ssh-config": "Configuration SSH",
   "/profiles": "Profils SSH",
@@ -48,6 +55,7 @@ function Workspace() {
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
       <DesktopTitlebar navigation title={current} />
+      <DesktopHelpPanels />
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
       <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 overflow-hidden bg-background">
@@ -55,7 +63,9 @@ function Workspace() {
           <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <div key={location.pathname} className="hts-route-scene">
             <Routes>
-              <Route path="/" element={<Navigate to="/ssh-keys" replace />} />
+              <Route path="/" element={<Navigate to="/home" replace />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/documentation" element={<DocumentationPage />} />
               <Route path="/ssh-keys" element={<SshKeysPage />} />
               <Route path="/ssh-config" element={<SshConfigPage />} />
               <Route path="/profiles" element={<ProfilesPage />} />
@@ -65,7 +75,7 @@ function Workspace() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/security" element={<SecurityPage />} />
               <Route path="/git" element={<GitHubPage />} />
-              <Route path="*" element={<Navigate to="/ssh-keys" replace />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
             </div>
           </div>
@@ -79,8 +89,27 @@ function Workspace() {
 
 export default function App() {
   const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [isClosing, setIsClosing] = useState(false);
+  const closingRef = useRef(false);
   const [entering, setEntering] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  useEffect(() => {
+    function requestClose() {
+      if (!isTauri() || closingRef.current) return;
+      closingRef.current = true;
+      setIsClosing(true);
+      window.setTimeout(() => {
+        void invoke("finish_main_window_close").catch((error: unknown) => {
+          console.error("[desktop] close", error);
+        }).finally(() => {
+          closingRef.current = false;
+          setIsClosing(false);
+        });
+      }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 340);
+    }
+    window.addEventListener("hts:request-close", requestClose);
+    return () => window.removeEventListener("hts:request-close", requestClose);
+  }, []);
   const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
   const onAuthenticated = useCallback(() => setAuthenticated(true), []);
   useEffect(() => {
@@ -96,7 +125,7 @@ export default function App() {
         <ThemeStyleProvider>
           <TooltipProvider delayDuration={150}>
             <BrowserRouter>
-              <div className="hts-window-boot relative h-dvh min-h-0 overflow-hidden bg-background">
+              <div data-window-closing={isClosing ? "true" : undefined} className="hts-window-boot relative h-dvh min-h-0 overflow-hidden bg-background">
                 {(!welcomeVisible || entering) && (
                   <div className="hts-app-scene" data-entering={entering && welcomeVisible ? "true" : undefined}>
                     {authenticated ? <Workspace /> : (

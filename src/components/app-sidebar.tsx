@@ -66,7 +66,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenu className="min-w-0 flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="HébergTonServ Desktop">
-              <Link to="/ssh-keys">
+              <Link to="/home">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-data-[collapsible=icon]:size-7"><House className="size-5" aria-hidden="true" /></span>
                 <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">HébergTonServ</span>

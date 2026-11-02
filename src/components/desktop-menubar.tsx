@@ -1,9 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, ArrowRight, FileText, GitBranch, HelpCircle, Home, KeyRound, Moon, PanelLeftClose, RefreshCw, Settings2, ShieldCheck, Sun } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Command, GitBranch, HelpCircle, Home, KeyRound, ListTree, Moon, PanelLeftClose, RefreshCw, Settings2, ShieldCheck, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
@@ -12,11 +9,7 @@ import {
 } from "@/components/ui/menubar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWorkspaceNavigation } from "@/lib/workspace-navigation";
-
-function openExternal(url: string) {
-  if (isTauri()) void openUrl(url);
-  else window.open(url, "_blank", "noopener,noreferrer");
-}
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export function DesktopMenubar() {
   const navigate = useNavigate();
@@ -38,13 +31,14 @@ export function DesktopMenubar() {
         <MenubarMenu>
           <MenubarTrigger>Fichier</MenubarTrigger>
           <MenubarContent className="hts-desktop-menubar-menu min-w-52">
+            <MenubarItem onSelect={() => navigate("/home")}><Home /> Accueil</MenubarItem>
             <MenubarItem onSelect={() => navigate("/ssh-keys")}><KeyRound /> Clés SSH</MenubarItem>
             <MenubarItem onSelect={() => navigate("/panels")}><Home /> Panels</MenubarItem>
             <MenubarItem onSelect={() => navigate("/git")}><GitBranch /> Git / GH</MenubarItem>
             <MenubarSeparator />
             <MenubarItem onSelect={() => navigate("/settings")}><Settings2 /> Paramètres</MenubarItem>
             <MenubarSeparator />
-            <MenubarItem onSelect={() => { if (isTauri()) void getCurrentWindow().close(); }} disabled={!isTauri()}>Fermer la fenêtre</MenubarItem>
+            <MenubarItem onSelect={() => { if (isTauri()) window.dispatchEvent(new Event("hts:request-close")); }} disabled={!isTauri()}>Fermer la fenêtre</MenubarItem>
           </MenubarContent>
         </MenubarMenu>
         <MenubarMenu>
@@ -68,9 +62,12 @@ export function DesktopMenubar() {
         <MenubarMenu>
           <MenubarTrigger>Aide</MenubarTrigger>
           <MenubarContent className="hts-desktop-menubar-menu min-w-56">
-            <MenubarItem onSelect={() => openExternal("https://github.com/Mesrine67/hebergtonserv-desktop#readme")}><FileText /> Documentation</MenubarItem>
+            <MenubarItem onSelect={() => navigate("/documentation")}><BookOpen /> Documentation intégrée</MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-discussion"))}><HelpCircle /> Discussion / assistance</MenubarItem>
-            <MenubarItem onSelect={() => openExternal("https://github.com/Mesrine67/hebergtonserv-desktop/releases")}>Nouveautés</MenubarItem>
+            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-changelog"))}><ListTree /> Nouveautés / Changelog</MenubarItem>
+            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-shortcuts"))}><Command /> Afficher les raccourcis clavier <MenubarShortcut>Ctrl+/</MenubarShortcut></MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem disabled={!isTauri()} onSelect={() => { void invoke("open_task_manager").catch(console.error); }}><ListTree /> Gestionnaire de tâches</MenubarItem>
             <MenubarSeparator />
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:check-for-updates"))}><RefreshCw /> Rechercher des mises à jour</MenubarItem>
             <MenubarItem onSelect={() => navigate("/security")}><ShieldCheck /> Sécurité</MenubarItem>

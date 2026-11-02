@@ -1,6 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
 pub mod commands;
+pub mod desktop;
 pub mod errors;
 pub mod providers;
 pub mod security;
@@ -214,6 +215,10 @@ pub fn run() {
             greet,
             get_local_identity,
             toggle_app_window_maximize,
+            desktop::fetch_changelog,
+            desktop::list_desktop_tasks,
+            desktop::open_task_manager,
+            desktop::finish_main_window_close,
             commands::ssh::list_ssh_keys,
             commands::ssh::generate_ssh_key,
             commands::ssh::import_public_key,
