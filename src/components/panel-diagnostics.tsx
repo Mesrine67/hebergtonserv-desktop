@@ -23,11 +23,17 @@ function diagnosticHint(code: string): string {
     case "api_rate_limited": return "HTTP 429 : limitation du nombre de requêtes.";
     case "api_network": return "Erreur réseau : vérifier la connexion et le certificat TLS.";
     case "batch_partial": return "Au moins une requête de ressources du lot a échoué.";
+    case "ws_connect_failed": return "Connexion TLS/WebSocket Wings échouée : vérifier l’URL Wings et son accessibilité.";
+    case "ws_auth_failed": return "Authentification Wings refusée : vérifier le jeton éphémère et les permissions de la console.";
+    case "ws_closed": return "WebSocket fermé : vérifier la suspension, le réseau et l’état du serveur.";
+    case "ws_expired": return "Jeton Wings expiré : une reconnexion doit obtenir un nouveau jeton.";
+    case "api_invalid_response": return "Réponse API non compatible avec le contrat attendu : vérifier la version WISP/Pterodactyl.";
+    case "api_ok": return "Appel Client API réussi.";
     default: return "Vérifier le statut du panel, les permissions et les journaux du serveur.";
   }
 }
 export function formatDiagnosticEntries(entries: DiagnosticEntry[]) {
-  return ["# HébergTonServ Desktop — Diagnostic API (sans secrets)", ...entries.map(e =>
+  return ["# HébergTonServ Desktop — Journal global des API (sans secrets)", ...entries.map(e =>
     `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}`
   )].join("\n") + "\n";
 }
@@ -71,7 +77,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
     <DialogContent className="z-[10025] flex h-[min(85vh,820px)] w-[min(94vw,1200px)] max-w-none flex-col gap-3 overflow-hidden bg-card p-0 sm:max-w-none">
       <DialogHeader className="border-b px-5 py-4">
         <DialogTitle className="flex items-center gap-2"><FileText className="size-4 text-primary"/>Journal des API</DialogTitle>
-        <DialogDescription>Diagnostics anonymisés des appels WISP/Pterodactyl. Aucune clé API, URL, adresse ni nom de serveur n'est enregistré.</DialogDescription>
+        <DialogDescription>Journal commun des appels WISP, Pterodactyl et des connexions console de HébergTonServ. Aucun jeton, contenu WebSocket, URL ni identifiant de serveur n’est enregistré.</DialogDescription>
       </DialogHeader>
       <div className="flex flex-wrap gap-2 px-4">
         <Button size="sm" variant="outline" onClick={()=>void refresh()}><RefreshCw className="size-4"/> Actualiser</Button>
@@ -82,7 +88,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
       <div className="flex flex-wrap items-center gap-2 px-4"><Input className="max-w-sm" placeholder="Filtrer les événements…" aria-label="Filtrer les journaux" value={filter} onChange={e=>setFilter(e.target.value)}/><select className="rounded-md border bg-background px-3 py-2 text-xs" aria-label="Niveau des événements" value={severity} onChange={e=>setSeverity(e.target.value)}><option value="all">Tous les niveaux</option><option value="info">Informations</option><option value="warning">Avertissements</option><option value="error">Erreurs</option></select><span className="text-xs text-muted-foreground">{shown.length} / {entries.length} événements</span></div>
       {feedback&&<p className="px-4 text-xs text-muted-foreground" role="status">{feedback}</p>}
       <div className="min-h-0 flex-1 overflow-auto bg-background/70 px-4 pb-5 font-mono">
-        {shown.length===0?<p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Aucune entrée. Actualisez les serveurs pour collecter des diagnostics.</p>:<div className="divide-y divide-border/60 rounded-md border">
+        {shown.length===0?<p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Aucun événement. Les appels Client API et les connexions console y apparaîtront automatiquement.</p>:<div className="divide-y divide-border/60 rounded-md border">
           {[...shown].reverse().map((entry,i)=><div key={`${entry.timestamp}-${i}`} className="px-3 py-2 text-xs hover:bg-muted/40">
             <button type="button" className="grid w-full items-center gap-2 text-left md:grid-cols-[16px_175px_75px_1fr]" aria-expanded={expanded.includes(`${entry.timestamp}-${i}`)} onClick={()=>toggle(`${entry.timestamp}-${i}`)}>
               {expanded.includes(`${entry.timestamp}-${i}`)?<ChevronDown className="size-3.5"/>:<ChevronRight className="size-3.5"/>}
@@ -94,7 +100,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
 
           </div>)}</div>}
       </div>
-      <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile limité à 300 entrées, perdu à la fermeture complète de l'application.</p>
+      <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile de 300 événements maximum, perdu à la fermeture de l’application. Aucune donnée sensible n’est conservée.</p>
     </DialogContent>
   </Dialog>;
 }

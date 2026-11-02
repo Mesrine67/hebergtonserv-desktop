@@ -11,7 +11,6 @@ import {
   HardDrive,
   MemoryStick,
   RefreshCw,
-  ScrollText,
   Search,
   Server,
   Users,
@@ -20,7 +19,6 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, selectStyles } from "@/components/page-shell";
-import { PanelDiagnostics } from "@/components/panel-diagnostics";
 import { commands, type PanelServer, type PanelServerResources } from "@/lib/tauri";
 import { consoleRoute, resolvePanel } from "@/lib/panel-navigation";
 
@@ -216,7 +214,7 @@ function ServerCard({
       )}
       {failed && (
         <p className="border-t px-4 py-2 text-xs text-amber-500" role="status">
-          Ressources indisponibles ({errorCode ?? "api_network"}). Consultez le journal API pour diagnostiquer les autorisations, la version et les limites de requêtes.
+          Ressources indisponibles ({errorCode ?? "api_network"}). Ouvrez Aide → Journal des API pour diagnostiquer les permissions et les limites de requêtes.
         </p>
       )}
     </article>
@@ -228,7 +226,6 @@ export default function PanelServersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [showLogs, setShowLogs] = useState(false);
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const panel = resolvePanel(panels.data, searchParams.get("panel"));
   const servers = useQuery({
@@ -274,7 +271,6 @@ export default function PanelServersPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <PanelDiagnostics open={showLogs} onOpenChange={setShowLogs} />
       {!panel ? (
         <EmptyState message="Aucun panel configuré. Ajoutez un panel puis connectez-vous." />
       ) : (
@@ -293,7 +289,6 @@ export default function PanelServersPage() {
                     {panels.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                   </select>
                 )}
-                <Button size="sm" variant="outline" onClick={()=>setShowLogs(true)}><ScrollText className="size-4" /> Journal API</Button>
                 <Button size="sm" variant="outline" onClick={()=>void refresh()} disabled={servers.isFetching || loadingResources}>
                   <RefreshCw className={servers.isFetching || loadingResources ? "size-4 animate-spin" : "size-4"}/> Actualiser
                 </Button>

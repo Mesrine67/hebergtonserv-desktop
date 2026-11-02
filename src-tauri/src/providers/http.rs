@@ -424,6 +424,38 @@ fn parse_panel_error_detail(status: reqwest::StatusCode, bytes: &[u8]) -> String
         .unwrap_or_else(|| format!("Réponse HTTP {status}"))
 }
 
+/// Only hardcoded categories reach the journal; paths may include private server IDs.
+fn api_operation(path: &str, accept: &str) -> &'static str {
+    let wisp = accept.contains("vnd.wisp");
+    let category = if path.contains("/websocket") {
+        0
+    } else if path.contains("/resources") {
+        1
+    } else if path.starts_with("/api/client/servers") {
+        2
+    } else if path.contains("/auth/") || path.contains("/account") {
+        3
+    } else if path.contains("/api/client/") {
+        4
+    } else {
+        5
+    };
+    match (wisp, category) {
+        (true, 0) => "wisp_console_credentials",
+        (false, 0) => "pterodactyl_console_credentials",
+        (true, 1) => "wisp_resources",
+        (false, 1) => "pterodactyl_resources",
+        (true, 2) => "wisp_servers",
+        (false, 2) => "pterodactyl_servers",
+        (true, 3) => "wisp_account",
+        (false, 3) => "pterodactyl_account",
+        (true, 4) => "wisp_client_api",
+        (false, 4) => "pterodactyl_client_api",
+        (true, _) => "wisp_other_api",
+        (false, _) => "pterodactyl_other_api",
+    }
+}
+
 impl ApiClient {
     pub fn new(base_url: &str, token: &str, accept: &str, allow_local: bool) -> Result<Self> {
         if base_url.trim().is_empty() {
@@ -444,7 +476,29 @@ impl ApiClient {
         })
     }
 
+    /// Centralized, sanitized telemetry for every Client API request.
+    /// Record only a fixed operation label and an application error code.
     pub(crate) async fn send_json<T: DeserializeOwned>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<&Value>,
+    ) -> Result<T> {
+        let operation = api_operation(path, &self.accept);
+        let result = self.send_json_inner(method, path, body).await;
+        match &result {
+            Ok(_) => crate::diagnostics::record("info", operation, "api_ok", "Requête API réussie"),
+            Err(error) => crate::diagnostics::record(
+                "warning",
+                operation,
+                error.code(),
+                "Requête API échouée",
+            ),
+        }
+        result
+    }
+
+    async fn send_json_inner<T: DeserializeOwned>(
         &self,
         method: reqwest::Method,
         path: &str,
@@ -733,6 +787,28 @@ mod tests {
         assert_eq!(detail, "Permission denied");
         let fallback = parse_panel_error_detail(reqwest::StatusCode::FORBIDDEN, b"{broken");
         assert!(fallback.starts_with("Réponse HTTP 403"));
+    }
+
+    #[test]
+    fn diagnostics_categorize_without_exposing_server_identifiers() {
+        assert_eq!(
+            api_operation(
+                "/api/client/servers/private-identifier/websocket",
+                "application/vnd.wisp.v1+json"
+            ),
+            "wisp_console_credentials"
+        );
+        assert_eq!(
+            api_operation(
+                "/api/client/servers/private-identifier/resources",
+                "application/json"
+            ),
+            "pterodactyl_resources"
+        );
+        assert_eq!(
+            api_operation("/api/client/account", "application/vnd.wisp.v1+json"),
+            "wisp_account"
+        );
     }
 
     #[test]
