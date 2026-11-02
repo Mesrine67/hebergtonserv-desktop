@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { isTauri } from "@tauri-apps/api/core";
 import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleOff,
+  ExternalLink,
   Cpu,
   HardDrive,
   MemoryStick,
@@ -53,6 +56,7 @@ function usagePercent(used?: number | null, limit?: number | null) {
 export function stateFor(server: PanelServer, resources?: PanelServerResources) {
   if (server.suspended || resources?.suspended) return "suspended";
   if (server.installing) return "installing";
+  if (server.status?.toLowerCase() === "suspended") return "suspended";
   const state = resources?.state?.toLowerCase() ?? server.status?.toLowerCase();
   if (state && ["running", "online", "started", "1"].includes(state)) return "online";
   if (state && ["offline", "stopped", "stopping", "0", "install_failed"].includes(state)) return "offline";
@@ -114,15 +118,18 @@ function ServerCard({
   loading,
   failed,
   errorCode,
+  panelUrl,
 }: {
   server: PanelServer;
+  panelUrl: string;
   resources?: PanelServerResources;
   loading: boolean;
   failed: boolean;
   errorCode?: string;
 }) {
   const state = stateFor(server, stats);
-  const stateText = failed ? "API indisponible" : stateLabel(state);
+  // The list endpoint can report a suspended server even when its resources endpoint rejects the request.
+  const stateText = state === "suspended" ? stateLabel(state) : failed ? "API indisponible" : stateLabel(state);
   const memoryLimit = memoryBytes(server, stats);
   const diskLimit = diskBytes(server, stats);
   const cpuLimit = stats?.cpu_limit_percent ?? server.limits.cpu ?? undefined;
@@ -131,6 +138,18 @@ function ServerCard({
   const diskPercent = usagePercent(stats?.disk_used_bytes, diskLimit);
   const address = stats?.connect_address ?? server.connect_address;
   const shortId = server.identifier || server.id.slice(0, 8);
+  const openConsole = () => {
+    try {
+      const url = new URL(panelUrl);
+      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return;
+      // The client console uses the short identifier, not the admin numeric ID.
+      url.pathname = `/server/${encodeURIComponent(server.identifier)}`;
+      url.search = "";
+      url.hash = "";
+      if (isTauri()) void openUrl(url.toString());
+      else window.open(url.toString(), "_blank", "noopener,noreferrer");
+    } catch { /* Invalid saved panel URL: do not open. */ }
+  };
 
   const stateIcon = state === "online"
     ? <CircleCheck className="size-4 text-emerald-500" aria-hidden="true" />
@@ -159,6 +178,9 @@ function ServerCard({
             <span>{stateText}</span>
           </div>
         </div>
+        <button type="button" onClick={openConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
+          <ExternalLink className="size-3.5" aria-hidden="true" /> Ouvrir la console
+        </button>
         {server.egg && (
           <div className="mt-3 flex items-center gap-2 pl-[52px] text-xs text-muted-foreground">
             <span className="max-w-full truncate rounded-md border bg-background/60 px-2 py-1">{server.egg}</span>
@@ -337,6 +359,7 @@ export default function PanelServersPage() {
                   <ServerCard
                     key={server.id}
                     server={server}
+                    panelUrl={panel.base_url}
                     resources={resourcesByKey.get(server.id)?.resources ?? undefined}
                     loading={loadingResources}
                     failed={Boolean(resourcesByKey.get(server.id)?.error_code || resourcesQuery.isError)}

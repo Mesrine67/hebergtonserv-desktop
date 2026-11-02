@@ -593,6 +593,7 @@ pub async fn get_panel_resources_batch(
         .iter()
         .filter(|result| result.error_code.is_some())
         .count();
+    crate::diagnostics::record_batch_summary(results.len(), failures);
     if failures == 0 {
         crate::diagnostics::record(
             "info",

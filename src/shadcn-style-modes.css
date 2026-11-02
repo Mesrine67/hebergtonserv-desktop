@@ -40,3 +40,53 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-hts-style] [data-slot="button"],:root[data-hts-style] [data-slot="input"] { transition: none; }
 }
+
+/* Shared design tokens across shadcn primitives and desktop-specific surfaces. */
+:root[data-hts-style] {
+  --radius: var(--hts-ui-radius);
+  --hts-control-height: var(--hts-ui-height);
+  --hts-surface-radius: var(--hts-ui-card-radius);
+}
+:root[data-hts-style] :is(
+  [data-slot="card"], [data-slot="dialog-content"], [data-slot="sheet-content"],
+  [data-slot="alert-dialog-content"], [data-slot="popover-content"],
+  [data-slot="dropdown-menu-content"], [data-slot="context-menu-content"],
+  [data-slot="select-content"], [data-slot="command"], [data-slot="alert"]
+) { border-radius: var(--hts-ui-card-radius); box-shadow: var(--hts-ui-shadow); }
+:root[data-hts-style] :is(
+  [data-slot="textarea"], [data-slot="select-trigger"], [data-slot="checkbox"],
+  [data-slot="switch"], [data-slot="toggle"], [data-slot="tabs-trigger"],
+  [data-slot="accordion-trigger"], [data-slot="menubar-trigger"],
+  [data-slot="input-group"], [data-slot="sidebar-menu-button"]
+) { border-radius: var(--hts-ui-radius); }
+:root[data-hts-style] :is(
+  [data-slot="select-trigger"], [data-slot="input"], [data-slot="input-group"],
+  [data-slot="combobox-trigger"]
+) { min-height: var(--hts-ui-height); font-size: var(--hts-ui-font-size); }
+:root[data-hts-style] :is([data-slot="card-header"], [data-slot="card-content"], [data-slot="card-footer"]) {
+  padding-inline: var(--hts-ui-card-padding);
+}
+:root[data-hts-style] :is([data-slot="table"], [data-slot="dropdown-menu-item"], [data-slot="select-item"], [data-slot="command-item"]) {
+  font-size: var(--hts-ui-font-size);
+}
+:root[data-hts-style] .hts-workspace-panel :is(.rounded-lg, .rounded-md):not([data-slot]) {
+  border-radius: min(var(--hts-ui-radius), 1rem);
+}
+
+:root[data-hts-style] [data-slot="tooltip-content"] {
+  border-radius: var(--hts-ui-radius);
+  font-size: var(--hts-ui-font-size);
+  box-shadow: var(--hts-ui-shadow);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border-color: var(--border);
+}
+:root[data-hts-style] .hts-titlebar .hts-window-control {
+  border-radius: var(--hts-ui-radius);
+  min-width: 2rem;
+  min-height: 2rem;
+  box-shadow: none;
+}
+:root[data-hts-style] .hts-titlebar .hts-window-control:not(:hover) {
+  background: transparent;
+}
