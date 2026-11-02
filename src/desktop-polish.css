@@ -36,7 +36,7 @@
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
   font-weight: 650;
-  box-shadow: inset 2px 0 0 var(--primary);
+  box-shadow: none;
 }
 .hts-sidebar [data-slot="sidebar-menu-sub-button"][data-active="false"] {
   color: var(--muted-foreground);

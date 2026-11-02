@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { Clipboard, Download, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Clipboard, Download, FileText, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,21 @@ export interface DiagnosticEntry {
   code: string;
   message: string;
 }
+function diagnosticHint(code: string): string {
+  switch (code) {
+    case "api_validation_error": return "HTTP 400/422 : paramètres invalides ou état du serveur incompatible (suspension possible). Contrôler les permissions et le statut depuis le panel.";
+    case "api_auth_failed": return "HTTP 401 : authentification Client API refusée.";
+    case "api_forbidden": return "HTTP 403 : accès interdit, vérifier les droits Client API.";
+    case "api_not_found": return "HTTP 404 : serveur ou endpoint introuvable pour cette version du panel.";
+    case "api_rate_limited": return "HTTP 429 : limitation du nombre de requêtes.";
+    case "api_network": return "Erreur réseau : vérifier la connexion et le certificat TLS.";
+    case "batch_partial": return "Au moins une requête de ressources du lot a échoué.";
+    default: return "Vérifier le statut du panel, les permissions et les journaux du serveur.";
+  }
+}
 export function formatDiagnosticEntries(entries: DiagnosticEntry[]) {
   return ["# HébergTonServ Desktop — Diagnostic API (sans secrets)", ...entries.map(e =>
-    `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}`
+    `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}`
   )].join("\n") + "\n";
 }
 export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChange:(open:boolean)=>void}) {
@@ -25,6 +37,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
   const [feedback,setFeedback]=useState("");
   const [filter,setFilter]=useState("");
   const [severity,setSeverity]=useState("all");
+  const [expanded,setExpanded]=useState<string[]>([]);
   const refresh=useCallback(async()=>{
     if(!isTauri())return;
     try {setEntries(await invoke<DiagnosticEntry[]>("list_panel_diagnostics"));setFeedback("");}
@@ -32,7 +45,8 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
   },[]);
   useEffect(()=>{if(!open)return;void refresh();const t=window.setInterval(()=>void refresh(),12000);return()=>window.clearInterval(t);},[open,refresh]);
   const shown=useMemo(()=>entries.filter(e=>(severity==="all"||e.level===severity)&&`${e.operation} ${e.code} ${e.message}`.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),[entries,filter,severity]);
-  const content=useMemo(()=>formatDiagnosticEntries(shown),[shown]);
+  const content=useMemo(()=>formatDiagnosticEntries(entries),[entries]);
+  const toggle=(key:string)=>setExpanded(previous=>previous.includes(key)?previous.filter(x=>x!==key):[...previous,key]);
   async function copy(){
     try {if(isTauri()) await writeText(content);else await navigator.clipboard.writeText(content);setFeedback("Journal copié.");}
     catch {setFeedback("Copie indisponible.");}
@@ -69,12 +83,14 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
       {feedback&&<p className="px-4 text-xs text-muted-foreground" role="status">{feedback}</p>}
       <div className="min-h-0 flex-1 overflow-auto bg-background/70 px-4 pb-5 font-mono">
         {shown.length===0?<p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Aucune entrée. Actualisez les serveurs pour collecter des diagnostics.</p>:<div className="divide-y divide-border/60 rounded-md border">
-          {[...shown].reverse().map((entry,i)=><div key={`${entry.timestamp}-${i}`} className="grid gap-1 px-3 py-2 text-xs hover:bg-muted/40 md:grid-cols-[180px_75px_1fr]">
-            <div className="flex flex-wrap gap-2 md:contents">
+          {[...shown].reverse().map((entry,i)=><div key={`${entry.timestamp}-${i}`} className="px-3 py-2 text-xs hover:bg-muted/40">
+            <button type="button" className="grid w-full items-center gap-2 text-left md:grid-cols-[16px_175px_75px_1fr]" aria-expanded={expanded.includes(`${entry.timestamp}-${i}`)} onClick={()=>toggle(`${entry.timestamp}-${i}`)}>
+              {expanded.includes(`${entry.timestamp}-${i}`)?<ChevronDown className="size-3.5"/>:<ChevronRight className="size-3.5"/>}
               <span className="font-mono text-[11px] text-muted-foreground">{new Date(entry.timestamp).toLocaleString("fr-FR")}</span>
               <span className={entry.level==="error"?"text-destructive":entry.level==="warning"?"text-amber-500":"text-primary"}>{entry.level}</span>
-            </div>
-            <p className="font-semibold">{entry.operation} · {entry.code} — <span className="font-normal text-muted-foreground">{entry.message}</span></p>
+              <p className="font-semibold">{entry.operation} · {entry.code} — <span className="font-normal text-muted-foreground">{entry.message}</span></p>
+            </button>
+            {expanded.includes(`${entry.timestamp}-${i}`)&&<div className="mt-2 grid gap-1 rounded-md border bg-muted/35 p-3 font-mono text-xs break-all"><p>Date UTC : {entry.timestamp}</p><p>Niveau : {entry.level}</p><p>Opération : {entry.operation}</p><p>Code : {entry.code}</p><p>Résumé : {entry.message}</p><p>Diagnostic probable : {diagnosticHint(entry.code)}</p><p className="text-muted-foreground">Les données privées (jetons, URL, réponses brutes et identifiants) sont volontairement exclues.</p><Button variant="outline" size="sm" className="w-fit" onClick={()=>void (isTauri()?writeText(formatDiagnosticEntries([entry])):navigator.clipboard.writeText(formatDiagnosticEntries([entry])))}>Copier cet événement</Button></div>}
 
           </div>)}</div>}
       </div>
