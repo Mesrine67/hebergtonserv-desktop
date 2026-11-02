@@ -12,9 +12,9 @@ pub mod storage;
 
 use crate::state::AppState;
 use crate::storage::Storage;
-use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{Emitter, Manager};
 use tauri_plugin_window_state::StateFlags;
 
 /// Ask Windows 11 DWM for its native rounded window corners. The compositor
@@ -193,24 +193,14 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Respect the user setting; otherwise allow the application to close.
-                let should_hide = window
-                    .app_handle()
-                    .try_state::<AppState>()
-                    .and_then(|state| {
-                        Storage::read_json(
-                            &state.storage.settings_path,
-                            crate::storage::models::SettingsDocument::default(),
-                        )
-                        .ok()
-                    })
-                    .map(|settings| settings.data.close_to_tray)
-                    .unwrap_or(false);
-                if should_hide {
-                    let _ = window.hide();
-                    api.prevent_close();
-                }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == "main"
+            {
+                // Alt+F4 and native close requests follow the same animated
+                // path as the titlebar button. The frontend invokes the final
+                // hide/exit command once the transition has completed.
+                api.prevent_close();
+                let _ = window.emit("hts:request-close", ());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -221,6 +211,7 @@ pub fn run() {
             desktop::list_desktop_tasks,
             desktop::open_task_manager,
             desktop::finish_main_window_close,
+            desktop::show_ready_main_window,
             commands::ssh::list_ssh_keys,
             commands::ssh::generate_ssh_key,
             commands::ssh::import_public_key,

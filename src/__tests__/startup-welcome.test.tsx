@@ -38,16 +38,14 @@ describe("HébergTonServ handwritten welcome effect", () => {
     expect(dismiss).not.toHaveBeenCalled();
   });
 
-  it("skips drawing but does not enter until Démarrer is explicitly clicked", async () => {
+  it("has no skip control and enters only after the handwriting completes and Démarrer is clicked", async () => {
     vi.useFakeTimers();
     const dismiss = vi.fn();
     const enter = vi.fn();
     await act(async () => root.render(<StartupWelcome onEnter={enter} onDismiss={dismiss} />));
-    const skip = container.querySelector<HTMLButtonElement>(".hts-welcome-skip");
-    expect(skip?.textContent).toContain("Passer");
-    expect(document.activeElement).toBe(skip);
-    await act(async () => skip?.click());
-    expect(dismiss).not.toHaveBeenCalled();
+    expect(container.querySelector(".hts-welcome-skip")).toBeNull();
+    expect(container.querySelector(".hts-welcome-start")).toBeNull();
+    await act(async () => { vi.advanceTimersByTime(3900); });
     const start = container.querySelector<HTMLButtonElement>(".hts-welcome-start");
     expect(start?.textContent).toContain("Démarrer");
     expect(document.activeElement).toBe(start);
@@ -98,11 +96,12 @@ describe("HébergTonServ handwritten welcome effect", () => {
     expect(dismiss).toHaveBeenCalledTimes(1);
   });
 
-  it("Escape skips drawing without skipping the confirmation button", async () => {
+  it("Escape does not bypass the mandatory introduction", async () => {
     const dismiss = vi.fn();
     await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
     await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-    expect(container.querySelector(".hts-welcome-start")).not.toBeNull();
+    expect(container.querySelector(".hts-welcome-start")).toBeNull();
+    expect(container.querySelector(".hts-welcome-skip")).toBeNull();
     expect(dismiss).not.toHaveBeenCalled();
   });
 });

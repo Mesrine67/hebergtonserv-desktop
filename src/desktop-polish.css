@@ -1,6 +1,6 @@
 /* Window opening: animate the complete frameless surface, including the titlebar. */
 .hts-window-boot {
-  animation: hts-window-arrive 560ms cubic-bezier(.22, 1, .36, 1) both;
+  animation: hts-window-arrive 640ms cubic-bezier(.22, 1, .36, 1) both;
   transform-origin: 50% 45%;
 }
 @keyframes hts-window-arrive {
