@@ -112,3 +112,98 @@
  --sidebar-accent:oklch(.3 .03 69);--sidebar-accent-foreground:var(--foreground);
  --sidebar-border:var(--border);--sidebar-ring:var(--ring);
 }
+
+/* Runtime adaptations of official shadcn visual families.  These are compatible
+   variants of the existing Radix components, not downloaded registry rewrites. */
+:root[data-hts-style="vega"]{--radius:.625rem}
+:root[data-hts-style="nova"]{--radius:.48rem}
+:root[data-hts-style="maia"]{--radius:1.05rem}
+:root[data-hts-style="lyra"]{--radius:.15rem}
+:root[data-hts-style="mira"]{--radius:.62rem}
+:root[data-hts-style="luma"]{--radius:.9rem}
+:root[data-hts-style="sera"]{--radius:.85rem}
+:root[data-hts-style="rhea"]{--radius:.35rem}
+:root[data-hts-style="hebergtonserv"]{--radius:.75rem}
+[data-hts-style="nova"] .hts-workspace-panel [data-slot="button"]{letter-spacing:-.01em}
+[data-hts-style="maia"] .hts-workspace-panel [data-slot="button"]{border-radius:1.15rem}
+[data-hts-style="lyra"] .hts-workspace-panel [data-slot="button"]{border-radius:.15rem}
+[data-hts-style="luma"] .hts-workspace-panel [data-slot="button"]{font-weight:450}
+[data-hts-style="rhea"] .hts-workspace-panel section.rounded-xl{border-width:1.5px}
+[data-hts-style="sera"] .hts-workspace-panel section.rounded-xl{box-shadow:0 6px 24px #00000009}
+[data-hts-style="hebergtonserv"] .hts-workspace-panel section.rounded-xl{box-shadow:0 6px 22px #1f48b70d}
+:root[data-hts-preset="hebergtonserv"]{
+ --background:oklch(.954 .010 255);--foreground:oklch(.24 .03 255);
+ --card:oklch(.98 .007 255);--card-foreground:var(--foreground);
+ --popover:oklch(.982 .007 255);--popover-foreground:var(--foreground);
+ --primary:oklch(.53 .20 258);--primary-foreground:oklch(.99 .003 260);
+ --secondary:oklch(.92 .018 250);--secondary-foreground:var(--foreground);
+ --muted:oklch(.93 .013 253);--muted-foreground:oklch(.48 .028 250);
+ --accent:oklch(.886 .033 253);--accent-foreground:var(--foreground);
+ --border:oklch(.853 .022 250);--input:var(--border);--ring:oklch(.62 .12 254);
+ --sidebar:oklch(.921 .020 252);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.891 .030 254);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring)
+}
+.dark[data-hts-preset="hebergtonserv"]{
+ --background:oklch(.148 .015 258);--foreground:oklch(.957 .011 256);
+ --card:oklch(.194 .020 256);--card-foreground:var(--foreground);
+ --popover:oklch(.212 .022 256);--popover-foreground:var(--foreground);
+ --primary:oklch(.664 .194 256);--primary-foreground:oklch(.98 .009 256);
+ --secondary:oklch(.258 .025 255);--secondary-foreground:var(--foreground);
+ --muted:oklch(.258 .024 255);--muted-foreground:oklch(.73 .024 251);
+ --accent:oklch(.29 .043 257);--accent-foreground:var(--foreground);
+ --border:oklch(.35 .034 256);--input:var(--border);--ring:oklch(.67 .16 255);
+ --sidebar:oklch(.181 .02 258);--sidebar-foreground:var(--foreground);
+ --sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);
+ --sidebar-accent:oklch(.28 .035 255);--sidebar-accent-foreground:var(--foreground);
+ --sidebar-border:var(--border);--sidebar-ring:var(--ring)
+}
+:root[data-hts-base="stone"]{--background:oklch(.96 0.014 58);--card:oklch(.981 0.014 58);--popover:oklch(.982 0.014 58);--secondary:oklch(.92 0.014 58);--muted:oklch(.93 0.014 58);--accent:oklch(.901 0.0252 58);--border:oklch(.861 0.014 58);--input:var(--border);--sidebar:oklch(.932 0.014 58);--sidebar-accent:oklch(.896 0.021 58);--sidebar-border:var(--border)}
+.dark[data-hts-base="stone"]{--background:oklch(.169 0.014 58);--card:oklch(.216 0.014 58);--popover:oklch(.223 0.014 58);--secondary:oklch(.265 0.014 58);--muted:oklch(.273 0.014 58);--accent:oklch(.307 0.0252 58);--border:oklch(.371 0.014 58);--input:var(--border);--sidebar:oklch(.199 0.014 58);--sidebar-accent:oklch(.28 0.0196 58);--sidebar-border:var(--border)}
+:root[data-hts-base="zinc"]{--background:oklch(.96 0.01 275);--card:oklch(.981 0.01 275);--popover:oklch(.982 0.01 275);--secondary:oklch(.92 0.01 275);--muted:oklch(.93 0.01 275);--accent:oklch(.901 0.018000000000000002 275);--border:oklch(.861 0.01 275);--input:var(--border);--sidebar:oklch(.932 0.01 275);--sidebar-accent:oklch(.896 0.015 275);--sidebar-border:var(--border)}
+.dark[data-hts-base="zinc"]{--background:oklch(.169 0.01 275);--card:oklch(.216 0.01 275);--popover:oklch(.223 0.01 275);--secondary:oklch(.265 0.01 275);--muted:oklch(.273 0.01 275);--accent:oklch(.307 0.018000000000000002 275);--border:oklch(.371 0.01 275);--input:var(--border);--sidebar:oklch(.199 0.01 275);--sidebar-accent:oklch(.28 0.013999999999999999 275);--sidebar-border:var(--border)}
+:root[data-hts-base="mauve"]{--background:oklch(.96 0.018 309);--card:oklch(.981 0.018 309);--popover:oklch(.982 0.018 309);--secondary:oklch(.92 0.018 309);--muted:oklch(.93 0.018 309);--accent:oklch(.901 0.0324 309);--border:oklch(.861 0.018 309);--input:var(--border);--sidebar:oklch(.932 0.018 309);--sidebar-accent:oklch(.896 0.026999999999999996 309);--sidebar-border:var(--border)}
+.dark[data-hts-base="mauve"]{--background:oklch(.169 0.018 309);--card:oklch(.216 0.018 309);--popover:oklch(.223 0.018 309);--secondary:oklch(.265 0.018 309);--muted:oklch(.273 0.018 309);--accent:oklch(.307 0.0324 309);--border:oklch(.371 0.018 309);--input:var(--border);--sidebar:oklch(.199 0.018 309);--sidebar-accent:oklch(.28 0.025199999999999997 309);--sidebar-border:var(--border)}
+:root[data-hts-base="olive"]{--background:oklch(.96 0.018 114);--card:oklch(.981 0.018 114);--popover:oklch(.982 0.018 114);--secondary:oklch(.92 0.018 114);--muted:oklch(.93 0.018 114);--accent:oklch(.901 0.0324 114);--border:oklch(.861 0.018 114);--input:var(--border);--sidebar:oklch(.932 0.018 114);--sidebar-accent:oklch(.896 0.026999999999999996 114);--sidebar-border:var(--border)}
+.dark[data-hts-base="olive"]{--background:oklch(.169 0.018 114);--card:oklch(.216 0.018 114);--popover:oklch(.223 0.018 114);--secondary:oklch(.265 0.018 114);--muted:oklch(.273 0.018 114);--accent:oklch(.307 0.0324 114);--border:oklch(.371 0.018 114);--input:var(--border);--sidebar:oklch(.199 0.018 114);--sidebar-accent:oklch(.28 0.025199999999999997 114);--sidebar-border:var(--border)}
+:root[data-hts-base="mist"]{--background:oklch(.96 0.014 216);--card:oklch(.981 0.014 216);--popover:oklch(.982 0.014 216);--secondary:oklch(.92 0.014 216);--muted:oklch(.93 0.014 216);--accent:oklch(.901 0.0252 216);--border:oklch(.861 0.014 216);--input:var(--border);--sidebar:oklch(.932 0.014 216);--sidebar-accent:oklch(.896 0.021 216);--sidebar-border:var(--border)}
+.dark[data-hts-base="mist"]{--background:oklch(.169 0.014 216);--card:oklch(.216 0.014 216);--popover:oklch(.223 0.014 216);--secondary:oklch(.265 0.014 216);--muted:oklch(.273 0.014 216);--accent:oklch(.307 0.0252 216);--border:oklch(.371 0.014 216);--input:var(--border);--sidebar:oklch(.199 0.014 216);--sidebar-accent:oklch(.28 0.0196 216);--sidebar-border:var(--border)}
+:root[data-hts-base="taupe"]{--background:oklch(.96 0.018 55);--card:oklch(.981 0.018 55);--popover:oklch(.982 0.018 55);--secondary:oklch(.92 0.018 55);--muted:oklch(.93 0.018 55);--accent:oklch(.901 0.0324 55);--border:oklch(.861 0.018 55);--input:var(--border);--sidebar:oklch(.932 0.018 55);--sidebar-accent:oklch(.896 0.026999999999999996 55);--sidebar-border:var(--border)}
+.dark[data-hts-base="taupe"]{--background:oklch(.169 0.018 55);--card:oklch(.216 0.018 55);--popover:oklch(.223 0.018 55);--secondary:oklch(.265 0.018 55);--muted:oklch(.273 0.018 55);--accent:oklch(.307 0.0324 55);--border:oklch(.371 0.018 55);--input:var(--border);--sidebar:oklch(.199 0.018 55);--sidebar-accent:oklch(.28 0.025199999999999997 55);--sidebar-border:var(--border)}
+:root[data-hts-accent="neutral"]{--primary:oklch(.51 0.007 0);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.0059499999999999996 0);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="neutral"]{--primary:oklch(.72 0.007 0);--primary-foreground:oklch(.17 .015 0);--ring:oklch(.65 0.005600000000000001 0);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="amber"]{--primary:oklch(.51 0.14 71);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.11900000000000001 71);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="amber"]{--primary:oklch(.72 0.14 71);--primary-foreground:oklch(.17 .015 71);--ring:oklch(.65 0.11200000000000002 71);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="blue"]{--primary:oklch(.51 0.16 255);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.136 255);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="blue"]{--primary:oklch(.72 0.16 255);--primary-foreground:oklch(.17 .015 255);--ring:oklch(.65 0.128 255);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="cyan"]{--primary:oklch(.51 0.125 199);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.10625 199);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="cyan"]{--primary:oklch(.72 0.125 199);--primary-foreground:oklch(.17 .015 199);--ring:oklch(.65 0.1 199);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="emerald"]{--primary:oklch(.51 0.13 159);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.1105 159);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="emerald"]{--primary:oklch(.72 0.13 159);--primary-foreground:oklch(.17 .015 159);--ring:oklch(.65 0.10400000000000001 159);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="fuchsia"]{--primary:oklch(.51 0.16 320);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.136 320);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="fuchsia"]{--primary:oklch(.72 0.16 320);--primary-foreground:oklch(.17 .015 320);--ring:oklch(.65 0.128 320);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="green"]{--primary:oklch(.51 0.14 145);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.11900000000000001 145);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="green"]{--primary:oklch(.72 0.14 145);--primary-foreground:oklch(.17 .015 145);--ring:oklch(.65 0.11200000000000002 145);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="indigo"]{--primary:oklch(.51 0.15 274);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.1275 274);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="indigo"]{--primary:oklch(.72 0.15 274);--primary-foreground:oklch(.17 .015 274);--ring:oklch(.65 0.12 274);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="lime"]{--primary:oklch(.51 0.14 128);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.11900000000000001 128);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="lime"]{--primary:oklch(.72 0.14 128);--primary-foreground:oklch(.17 .015 128);--ring:oklch(.65 0.11200000000000002 128);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="orange"]{--primary:oklch(.51 0.17 55);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.14450000000000002 55);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="orange"]{--primary:oklch(.72 0.17 55);--primary-foreground:oklch(.17 .015 55);--ring:oklch(.65 0.136 55);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="pink"]{--primary:oklch(.51 0.16 351);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.136 351);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="pink"]{--primary:oklch(.72 0.16 351);--primary-foreground:oklch(.17 .015 351);--ring:oklch(.65 0.128 351);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="purple"]{--primary:oklch(.51 0.15 295);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.1275 295);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="purple"]{--primary:oklch(.72 0.15 295);--primary-foreground:oklch(.17 .015 295);--ring:oklch(.65 0.12 295);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="red"]{--primary:oklch(.51 0.17 28);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.14450000000000002 28);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="red"]{--primary:oklch(.72 0.17 28);--primary-foreground:oklch(.17 .015 28);--ring:oklch(.65 0.136 28);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="rose"]{--primary:oklch(.51 0.17 8);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.14450000000000002 8);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="rose"]{--primary:oklch(.72 0.17 8);--primary-foreground:oklch(.17 .015 8);--ring:oklch(.65 0.136 8);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="sky"]{--primary:oklch(.51 0.135 230);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.11475 230);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="sky"]{--primary:oklch(.72 0.135 230);--primary-foreground:oklch(.17 .015 230);--ring:oklch(.65 0.10800000000000001 230);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="teal"]{--primary:oklch(.51 0.12 177);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.102 177);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="teal"]{--primary:oklch(.72 0.12 177);--primary-foreground:oklch(.17 .015 177);--ring:oklch(.65 0.096 177);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="violet"]{--primary:oklch(.51 0.14 303);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.11900000000000001 303);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="violet"]{--primary:oklch(.72 0.14 303);--primary-foreground:oklch(.17 .015 303);--ring:oklch(.65 0.11200000000000002 303);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+:root[data-hts-accent="yellow"]{--primary:oklch(.52 0.15 92);--primary-foreground:oklch(.985 .005 255);--ring:oklch(.61 0.1275 92);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}
+.dark[data-hts-accent="yellow"]{--primary:oklch(.81 0.15 92);--primary-foreground:oklch(.17 .015 92);--ring:oklch(.65 0.12 92);--sidebar-primary:var(--primary);--sidebar-primary-foreground:var(--primary-foreground);--sidebar-ring:var(--ring)}

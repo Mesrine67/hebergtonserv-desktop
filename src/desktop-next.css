@@ -1,0 +1,52 @@
+/* Consistent titlebar chrome for window controls and application actions. */
+.hts-titlebar .hts-window-control {
+  margin-inline: 1px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, .5rem);
+  color: var(--muted-foreground);
+  background: transparent;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+.hts-titlebar .hts-window-control:hover {
+  border-color: var(--border);
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.hts-titlebar .hts-window-control:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -1px;
+}
+.hts-titlebar .hts-window-control:last-child:hover {
+  background: var(--destructive);
+  border-color: var(--destructive);
+  color: white;
+}
+.hts-titlebar [data-slot="button"]:not(.hts-window-control) {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.hts-titlebar .hts-window-control,
+.hts-titlebar .hts-titlebar-drag {
+  -webkit-app-region: no-drag;
+}
+.hts-titlebar .hts-titlebar-drag {
+  -webkit-app-region: drag;
+}
+/* Applied on actual close click: keep the tray setting and process lifecycle intact. */
+.hts-window-boot[data-window-closing="true"] {
+  pointer-events: none;
+  animation: hts-desktop-exit 340ms cubic-bezier(.4,0,.9,.5) forwards;
+  transform-origin: center center;
+}
+@keyframes hts-desktop-exit {
+  from { opacity:1; transform:scale(1) translateY(0); filter:blur(0); }
+  to { opacity:0; transform:scale(.983) translateY(7px); filter:blur(3px); }
+}
+.hts-task-window { animation: hts-task-enter 350ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes hts-task-enter {
+  from { opacity:0; transform:translateY(9px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hts-window-boot[data-window-closing="true"],
+  .hts-task-window { animation: none !important; }
+}
