@@ -26,6 +26,7 @@ import SettingsPage from "./pages/SettingsPage";
 import SecurityPage from "./pages/SecurityPage";
 import PanelAccountPage from "./pages/PanelAccountPage";
 import PanelServersPage from "./pages/PanelServersPage";
+import ServerConsolePage from "./pages/ServerConsolePage";
 import "./App.css";
 import "./theme-presets.css";
 import "./welcome-motion.css";
@@ -52,7 +53,7 @@ const routeLabels: Record<string, string> = {
 function Workspace() {
   const location = useLocation();
   useEffect(() => { document.getElementById("workspace-scroll")?.scrollTo({ top: 0 }); }, [location.pathname]);
-  const current = routeLabels[location.pathname] ?? "Clés SSH";
+  const current = routeLabels[location.pathname] ?? (location.pathname.startsWith("/panel/servers/") ? "Console serveur" : "Clés SSH");
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
@@ -74,6 +75,7 @@ function Workspace() {
               <Route path="/panels" element={<PanelsPage />} />
               <Route path="/panel/account" element={<PanelAccountPage />} />
               <Route path="/panel/servers" element={<PanelServersPage />} />
+              <Route path="/panel/servers/:identifier" element={<ServerConsolePage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/security" element={<SecurityPage />} />
               <Route path="/git" element={<GitHubPage />} />
