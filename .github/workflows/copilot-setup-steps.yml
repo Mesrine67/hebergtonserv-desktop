@@ -58,5 +58,13 @@ jobs:
           & (Join-Path $bin 'rustc.exe') --version
           & (Join-Path $bin 'cargo.exe') --version
 
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts --reporter append-only
+      # Dependency resolution and test/build run in the regular CI workflow.
+      # Avoid a second expensive pnpm install on the single Windows runner
+      # solely to prepare the GitHub-managed source scanner.
+      - name: Verify lockfile for source analysis
+        shell: pwsh
+        run: |
+          pnpm --version
+          if (-not (Test-Path -LiteralPath 'pnpm-lock.yaml')) {
+            throw 'Missing pnpm lockfile.'
+          }
