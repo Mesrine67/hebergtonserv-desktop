@@ -13,7 +13,10 @@ const MAX_RESPONSE_BYTES: usize = 1_048_576;
 fn standard_panel_headers(accept: &str) -> Result<reqwest::header::HeaderMap> {
     use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
     let mime = HeaderValue::from_str(accept).map_err(|_| {
-        app_error("api_config", "Le type de réponse attendu pour ce panel est invalide.")
+        app_error(
+            "api_config",
+            "Le type de réponse attendu pour ce panel est invalide.",
+        )
     })?;
     let agent = HeaderValue::from_str(&format!(
         "HebergTonServ-Desktop/{}",
@@ -670,7 +673,6 @@ impl ApiClient {
 mod tests {
     use super::*;
 
-
     #[test]
     fn sends_documented_json_headers_and_versioned_user_agent() {
         use reqwest::header::{ACCEPT, CONTENT_TYPE, USER_AGENT};
@@ -691,7 +693,6 @@ mod tests {
         }
         assert!(super::standard_panel_headers("bad\naccept").is_err());
     }
-
 
     #[test]
 

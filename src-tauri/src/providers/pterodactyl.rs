@@ -270,7 +270,6 @@ impl PanelProvider for PterodactylProvider {
     }
 }
 
-
 #[cfg(test)]
 mod compatibility_tests {
     use super::PterodactylProvider;

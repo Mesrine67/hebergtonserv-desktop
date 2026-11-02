@@ -150,7 +150,6 @@ impl PanelProvider for WispProvider {
     }
 }
 
-
 #[cfg(test)]
 mod compatibility_tests {
     use super::WispProvider;
@@ -169,7 +168,8 @@ mod compatibility_tests {
                 "token",
                 false,
                 "wisp-v2-experimental"
-            ).accept(),
+            )
+            .accept(),
             "application/vnd.wisp.v2+json"
         );
     }
