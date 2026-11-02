@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,6 +9,7 @@ import {
   HardDrive,
   MemoryStick,
   RefreshCw,
+  ScrollText,
   Search,
   Server,
   Users,
@@ -16,7 +17,8 @@ import {
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState, PageHeader } from "@/components/page-shell";
+import { EmptyState } from "@/components/page-shell";
+import { PanelDiagnostics } from "@/components/panel-diagnostics";
 import { commands, type PanelServer, type PanelServerResources } from "@/lib/tauri";
 
 const PAGE_SIZE = 12;
@@ -48,7 +50,7 @@ function usagePercent(used?: number | null, limit?: number | null) {
   return Math.max(0, Math.min(100, (used / limit) * 100));
 }
 
-function stateFor(server: PanelServer, resources?: PanelServerResources) {
+export function stateFor(server: PanelServer, resources?: PanelServerResources) {
   if (server.suspended || resources?.suspended) return "suspended";
   if (server.installing) return "installing";
   const state = resources?.state?.toLowerCase() ?? server.status?.toLowerCase();
@@ -111,13 +113,16 @@ function ServerCard({
   resources: stats,
   loading,
   failed,
+  errorCode,
 }: {
   server: PanelServer;
   resources?: PanelServerResources;
   loading: boolean;
   failed: boolean;
+  errorCode?: string;
 }) {
   const state = stateFor(server, stats);
+  const stateText = failed ? "API indisponible" : stateLabel(state);
   const memoryLimit = memoryBytes(server, stats);
   const diskLimit = diskBytes(server, stats);
   const cpuLimit = stats?.cpu_limit_percent ?? server.limits.cpu ?? undefined;
@@ -151,7 +156,7 @@ function ServerCard({
           </div>
           <div className="flex shrink-0 items-center gap-1.5 rounded-full border bg-background/75 px-2.5 py-1 text-xs font-medium">
             {stateIcon}
-            <span>{stateLabel(state)}</span>
+            <span>{stateText}</span>
           </div>
         </div>
         {server.egg && (
@@ -201,7 +206,7 @@ function ServerCard({
       )}
       {failed && (
         <p className="border-t px-4 py-2 text-xs text-amber-500" role="status">
-          Métriques API indisponibles. Vérifiez les droits de la clé Client et l'accès à l'endpoint /resources.
+          Ressources indisponibles ({errorCode ?? "api_network"}). Consultez le journal API pour diagnostiquer les autorisations, la version et les limites de requêtes.
         </p>
       )}
     </article>
@@ -211,6 +216,7 @@ function ServerCard({
 export default function PanelServersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [showLogs, setShowLogs] = useState(false);
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const panel = panels.data?.find((item) => item.status === "ok") ?? panels.data?.[0];
   const servers = useQuery({
@@ -230,48 +236,52 @@ export default function PanelServersPage() {
   const pageCount = Math.max(1, Math.ceil(matchingServers.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const visibleServers = matchingServers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const resourceQueries = useQueries({
-    queries: visibleServers.map((server) => ({
-      queryKey: ["panel-server-resources", panel?.id, server.id],
-      queryFn: () => commands.getPanelServerResources(
-        panel!.id,
-        panel?.provider.toLowerCase() === "pterodactyl" && panel.pterodactyl_version.startsWith("2")
-          ? server.id
-          : server.identifier,
-      ),
-      staleTime: RESOURCE_REFRESH_MS,
-      refetchInterval: RESOURCE_REFRESH_MS,
-      retry: 1,
-    })),
+  const isPterodactyl2 = panel?.provider.toLowerCase() === "pterodactyl" &&
+    /^v?2(\.|$)/.test(panel.pterodactyl_version);
+  const resourceRequests = visibleServers.map(server => ({
+    key: server.id,
+    identifier: isPterodactyl2 ? server.id : server.identifier,
+  }));
+  const resourcesQuery = useQuery({
+    queryKey: ["panel-server-resources-batch", panel?.id, resourceRequests.map(x=>x.identifier).join(",")],
+    queryFn: () => commands.getPanelResourcesBatch(panel!.id, resourceRequests),
+    enabled: Boolean(panel && resourceRequests.length),
+    staleTime: RESOURCE_REFRESH_MS,
+    refetchInterval: RESOURCE_REFRESH_MS,
+    retry: 0,
   });
-  const observedStates = resourceQueries.filter((query) => query.data?.state).length;
-  const liveOnlineCount = resourceQueries.filter((query) => query.data && ["running", "online", "started"].includes(query.data.state?.toLowerCase() ?? "")).length;
-  const failedStates = resourceQueries.filter((query) => query.isError).length;
-
+  const resourcesByKey = new Map((resourcesQuery.data ?? []).map(item=>[item.key,item]));
+  const observedStates = (resourcesQuery.data ?? []).filter(item => item.resources?.state).length;
+  const liveOnlineCount = (resourcesQuery.data ?? []).filter(item => item.resources?.state && ["running","online","started"].includes(item.resources.state.toLowerCase())).length;
+  const failedStates = (resourcesQuery.data ?? []).filter(item=>item.error_code).length;
+  const loadingResources = resourcesQuery.isFetching;
   const refresh = async () => {
     await servers.refetch();
-    await Promise.all(resourceQueries.map((query) => query.refetch()));
+    await resourcesQuery.refetch();
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Infrastructure · Client API"
-        title="Mes serveurs"
-        description="État et ressources en direct de vos serveurs WISP et Pterodactyl."
-        action={panel ? (
-          <Button variant="outline" onClick={() => void refresh()} disabled={servers.isFetching || resourceQueries.some((query) => query.isFetching)}>
-            <RefreshCw data-icon="inline-start" className={servers.isFetching || resourceQueries.some((query) => query.isFetching) ? "animate-spin" : ""} />
-            Actualiser
-          </Button>
-        ) : undefined}
-      />
-
+    <div className="flex flex-col gap-3">
+      <PanelDiagnostics open={showLogs} onOpenChange={setShowLogs} />
       {!panel ? (
         <EmptyState message="Aucun panel configuré. Ajoutez un panel puis connectez-vous." />
       ) : (
         <section className="overflow-hidden rounded-xl border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b px-4 py-4 sm:px-5">
+          <div className="border-b px-4 py-4 sm:px-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Infrastructure · Client API</p>
+                <h1 className="mt-1 text-xl font-semibold tracking-tight">Mes serveurs</h1>
+                <p className="mt-1 text-xs text-muted-foreground">État et ressources de vos serveurs WISP et Pterodactyl.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={()=>setShowLogs(true)}><ScrollText className="size-4" /> Journal API</Button>
+                <Button size="sm" variant="outline" onClick={()=>void refresh()} disabled={servers.isFetching || loadingResources}>
+                  <RefreshCw className={servers.isFetching || loadingResources ? "size-4 animate-spin" : "size-4"}/> Actualiser
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Server className="size-5" aria-hidden="true" />
@@ -280,10 +290,10 @@ export default function PanelServersPage() {
                 <h2 className="truncate font-semibold">{panel.name}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {servers.data ? `${servers.data.length} serveurs` : panel.provider.toUpperCase()}
-                  {resourceQueries.length > 0 && (
+                  {resourceRequests.length > 0 && (
                     observedStates > 0
                       ? <> · {liveOnlineCount} en ligne / {observedStates} états connus sur cette page</>
-                      : <> · {failedStates > 0 ? "États API indisponibles" : "Chargement des états…"}</>
+                      : <> · {failedStates > 0 || resourcesQuery.isError ? "États API indisponibles" : loadingResources ? "Chargement des états…" : "Aucun état exploitable"}</>
                   )}
                 </p>
               </div>
@@ -300,6 +310,7 @@ export default function PanelServersPage() {
                 />
               </div>
             )}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
@@ -322,13 +333,14 @@ export default function PanelServersPage() {
               <EmptyState message={servers.data?.length ? "Aucun serveur ne correspond à votre recherche." : "Aucun serveur n’est associé à ce compte panel."} />
             ) : (
               <div className="grid gap-3.5 xl:grid-cols-2 2xl:grid-cols-3">
-                {visibleServers.map((server, index) => (
+                {visibleServers.map((server) => (
                   <ServerCard
-                    key={server.identifier}
+                    key={server.id}
                     server={server}
-                    resources={resourceQueries[index]?.data}
-                    loading={resourceQueries[index]?.isPending ?? true}
-                    failed={resourceQueries[index]?.isError ?? false}
+                    resources={resourcesByKey.get(server.id)?.resources ?? undefined}
+                    loading={loadingResources}
+                    failed={Boolean(resourcesByKey.get(server.id)?.error_code || resourcesQuery.isError)}
+                    errorCode={resourcesByKey.get(server.id)?.error_code ?? (resourcesQuery.isError ? "batch_failed" : undefined)}
                   />
                 ))}
               </div>

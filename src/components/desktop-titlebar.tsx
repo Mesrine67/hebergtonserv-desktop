@@ -5,7 +5,6 @@ import { isTauri } from "@tauri-apps/api/core";
 import { Copy, Minus, Moon, Square, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { version as buildVersion } from "../../package.json";
-import appIcon from "../../src-tauri/icons/128x128.png";
 import { Button } from "@/components/ui/button";
 import { AppUpdaterAction } from "@/components/app-updater-action";
 import { DiscussionAction } from "@/components/discussion-action";
@@ -106,10 +105,7 @@ export function DesktopTitlebar({ navigation = false, welcome = false }: Props) 
         <TitlebarSidebarRail />
       )}
 
-      <div className="hts-titlebar-brand flex h-full shrink-0 items-center px-1.5">
-        <img src={appIcon} alt="HébergTonServ" className="size-6 shrink-0 object-contain" />
-        <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
-      </div>
+      <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
       {navigation && <DesktopMenubar />}
       <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />
 

@@ -1,0 +1,42 @@
+/* Runtime design recipes mapped to the official shadcn/ui registry's
+ * Vega, Nova, Maia, Lyra, Mira, Luma, Sera and Rhea component geometry.
+ * Source: shadcn-ui/ui/apps/v4/registry/styles/style-*.css.
+ * Existing application remains on radix-mira. These recipes change runtime
+ * spacing/typography/geometry, not component source or accessibility behavior. */
+:root[data-hts-style="vega"] { --hts-ui-radius: .45rem; --hts-ui-card-radius: .75rem; --hts-ui-height: 36px; --hts-ui-font-size: .875rem; --hts-ui-card-padding: 20px; --hts-ui-shadow: 0 1px 3px #00000013; }
+:root[data-hts-style="nova"] { --hts-ui-radius: .55rem; --hts-ui-card-radius: .75rem; --hts-ui-height: 32px; --hts-ui-font-size: .875rem; --hts-ui-card-padding: 16px; --hts-ui-shadow: none; }
+:root[data-hts-style="maia"] { --hts-ui-radius: 9999px; --hts-ui-card-radius: 1rem; --hts-ui-height: 40px; --hts-ui-font-size: .875rem; --hts-ui-card-padding: 24px; --hts-ui-shadow: 0 6px 20px #00000008; }
+:root[data-hts-style="lyra"] { --hts-ui-radius: 0px; --hts-ui-card-radius: 0px; --hts-ui-height: 32px; --hts-ui-font-size: .75rem; --hts-ui-card-padding: 16px; --hts-ui-shadow: none; }
+:root[data-hts-style="mira"] { --hts-ui-radius: .375rem; --hts-ui-card-radius: .5rem; --hts-ui-height: 28px; --hts-ui-font-size: .75rem; --hts-ui-card-padding: 16px; --hts-ui-shadow: none; }
+:root[data-hts-style="luma"] { --hts-ui-radius: 9999px; --hts-ui-card-radius: 1.5rem; --hts-ui-height: 36px; --hts-ui-font-size: .875rem; --hts-ui-card-padding: 24px; --hts-ui-shadow: 0 8px 24px #00000018; }
+:root[data-hts-style="sera"] { --hts-ui-radius: 0px; --hts-ui-card-radius: 0px; --hts-ui-height: 40px; --hts-ui-font-size: .75rem; --hts-ui-card-padding: 28px; --hts-ui-shadow: 0 2px 6px #00000012; }
+:root[data-hts-style="rhea"] { --hts-ui-radius: .8rem; --hts-ui-card-radius: 1.3rem; --hts-ui-height: 32px; --hts-ui-font-size: .875rem; --hts-ui-card-padding: 20px; --hts-ui-shadow: 0 3px 14px #00000012; }
+:root[data-hts-style="hebergtonserv"] { --hts-ui-radius: .55rem; --hts-ui-card-radius: .75rem; --hts-ui-height: 34px; --hts-ui-font-size: .8125rem; --hts-ui-card-padding: 20px; --hts-ui-shadow: 0 3px 14px #2954b015; }
+:root[data-hts-style] [data-slot="button"] { border-radius: var(--hts-ui-radius); font-size: var(--hts-ui-font-size); }
+:root[data-hts-style] [data-slot="button"][data-size="default"] { height: var(--hts-ui-height); padding-inline: 12px; }
+:root[data-hts-style] [data-slot="button"][data-size="sm"] { height: calc(var(--hts-ui-height) - 4px); }
+:root[data-hts-style] [data-slot="button"][data-size="lg"] { height: calc(var(--hts-ui-height) + 4px); padding-inline: 16px; }
+:root[data-hts-style] [data-slot="input"] { height: var(--hts-ui-height); border-radius: var(--hts-ui-radius); font-size: var(--hts-ui-font-size); }
+:root[data-hts-style] [data-slot="select-trigger"],
+:root[data-hts-style] [data-slot="menubar-content"],
+:root[data-hts-style] [data-slot="popover-content"],
+:root[data-hts-style] [data-slot="dropdown-menu-content"] { border-radius: var(--hts-ui-radius); }
+:root[data-hts-style] .hts-workspace-panel section.rounded-xl,
+:root[data-hts-style] .hts-workspace-panel article.rounded-xl { border-radius: var(--hts-ui-card-radius); box-shadow: var(--hts-ui-shadow); }
+:root[data-hts-style] .hts-workspace-panel section.rounded-xl > div[class*="p-5"],
+:root[data-hts-style] .hts-workspace-panel section.rounded-xl > div[class*="px-5"] { padding-inline: var(--hts-ui-card-padding); }
+:root[data-hts-style] .hts-workspace-panel [data-slot="sidebar-menu-button"] { border-radius: var(--hts-ui-radius); }
+:root[data-hts-style="sera"] .hts-workspace-panel h1,
+:root[data-hts-style="sera"] .hts-workspace-panel h2 { font-family: Georgia, "Times New Roman", serif; letter-spacing: -.02em; }
+:root[data-hts-style="sera"] .hts-workspace-panel [data-slot="button"] { text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+:root[data-hts-style="lyra"] .hts-workspace-panel h1,
+:root[data-hts-style="lyra"] .hts-workspace-panel h2 { letter-spacing: -.04em; }
+:root[data-hts-style="luma"] [data-slot="input"] { background: color-mix(in oklch, var(--input) 56%, var(--background)); border-color: transparent; }
+:root[data-hts-style="rhea"] [data-slot="input"] { background: color-mix(in oklch, var(--input) 46%, var(--background)); border-color: transparent; }
+:root[data-hts-style="hebergtonserv"] .hts-workspace-panel article.rounded-xl { border-color: color-mix(in oklch, var(--primary) 17%, var(--border)); }
+/* Gray is an upstream base color and was missing from the previous settings screen. */
+:root[data-hts-base="gray"] { --background:oklch(.96 .003 255); --card:oklch(.983 .003 255); --popover:oklch(.982 .004 255); --secondary:oklch(.925 .005 255); --muted:oklch(.93 .005 255); --accent:oklch(.89 .008 255); --border:oklch(.865 .006 255); --input:var(--border); --sidebar:oklch(.93 .004 255); --sidebar-accent:oklch(.891 .009 255); --sidebar-border:var(--border); }
+.dark[data-hts-base="gray"] { --background:oklch(.166 .006 255); --card:oklch(.212 .007 255); --popover:oklch(.226 .007 255); --secondary:oklch(.268 .008 255); --muted:oklch(.272 .008 255); --accent:oklch(.312 .010 255); --border:oklch(.371 .009 255); --input:var(--border); --sidebar:oklch(.194 .008 255); --sidebar-accent:oklch(.281 .012 255); --sidebar-border:var(--border); }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-hts-style] [data-slot="button"],:root[data-hts-style] [data-slot="input"] { transition: none; }
+}

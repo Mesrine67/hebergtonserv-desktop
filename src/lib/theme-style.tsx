@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 export type StylePreset = "mira" | "ocean" | "jade" | "plum" | "sand" | "hebergtonserv";
 export type VisualStyle = "vega" | "nova" | "maia" | "lyra" | "mira" | "luma" | "sera" | "rhea" | "hebergtonserv";
-export type BaseColor = "neutral" | "stone" | "zinc" | "mauve" | "olive" | "mist" | "taupe";
+export type BaseColor = "neutral" | "stone" | "zinc" | "gray" | "mauve" | "olive" | "mist" | "taupe";
 export type AccentTheme = "original" | "neutral" | "amber" | "blue" | "cyan" | "emerald" | "fuchsia" | "green" | "indigo" | "lime" | "orange" | "pink" | "purple" | "red" | "rose" | "sky" | "teal" | "violet" | "yellow";
 export type WelcomeTransition = "float" | "curtain" | "halo";
 
@@ -17,7 +17,7 @@ export const visualStyles: ReadonlyArray<{id:VisualStyle;label:string;descriptio
  {id:"hebergtonserv",label:"HébergTonServ",description:"Surfaces sombres et bleu de la marque"},
 ];
 export const baseColors: ReadonlyArray<{id:BaseColor;label:string}> = [
- {id:"neutral",label:"Neutral"},{id:"stone",label:"Stone"},{id:"zinc",label:"Zinc"},
+ {id:"neutral",label:"Neutral"},{id:"stone",label:"Stone"},{id:"zinc",label:"Zinc"},{id:"gray",label:"Gray"},
  {id:"mauve",label:"Mauve"},{id:"olive",label:"Olive"},{id:"mist",label:"Mist"},{id:"taupe",label:"Taupe"}
 ];
 export const accentThemes: ReadonlyArray<{id:AccentTheme;label:string;swatch:string}> = [
