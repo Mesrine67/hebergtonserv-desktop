@@ -254,6 +254,7 @@ pub fn run() {
             commands::panels::get_panel_resources_batch,
             commands::panels::get_panel_console_credentials,
             diagnostics::list_panel_diagnostics,
+            diagnostics::record_console_connection_event,
             diagnostics::clear_panel_diagnostics,
             diagnostics::export_panel_diagnostics,
             commands::panels::create_panel_api_key,

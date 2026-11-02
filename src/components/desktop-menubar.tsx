@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { ArrowLeft, ArrowRight, BookOpen, Command, GitBranch, HelpCircle, Home, KeyRound, ListTree, Moon, PanelLeftClose, RefreshCw, Settings2, ShieldCheck, Sun } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Command, GitBranch, HelpCircle, Home, KeyRound, ListTree, Moon, PanelLeftClose, RefreshCw, ScrollText, Settings2, ShieldCheck, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
@@ -66,6 +66,7 @@ export function DesktopMenubar() {
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-discussion"))}><HelpCircle /> Discussion / assistance</MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-changelog"))}><ListTree /> Nouveautés / Changelog</MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-shortcuts"))}><Command /> Afficher les raccourcis clavier <MenubarShortcut>Ctrl+/</MenubarShortcut></MenubarItem>
+            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-api-journal"))}><ScrollText /> Journal des API</MenubarItem>
             <MenubarSeparator />
             <MenubarItem disabled={!isTauri()} onSelect={() => { void invoke("open_task_manager").catch(console.error); }}><ListTree /> Gestionnaire de tâches</MenubarItem>
             <MenubarSeparator />

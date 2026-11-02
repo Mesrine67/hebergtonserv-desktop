@@ -71,6 +71,27 @@ pub fn record_batch_summary(total: usize, failures: usize) {
     }
 }
 
+/// The webview can emit only fixed console lifecycle events; no arbitrary
+/// strings, server output, WebSocket tokens or URLs are accepted.
+#[tauri::command]
+pub fn record_console_connection_event(event: String) {
+    let (level, code, message) = match event.as_str() {
+        "ws_connected" => ("info", "ws_connected", "Connexion Wings établie"),
+        "ws_authenticated" => ("info", "ws_authenticated", "Authentification Wings réussie"),
+        "ws_closed" => ("warning", "ws_closed", "Connexion Wings fermée"),
+        "ws_connect_failed" => (
+            "error",
+            "ws_connect_failed",
+            "Impossible d'ouvrir le WebSocket Wings",
+        ),
+        "ws_auth_failed" => ("error", "ws_auth_failed", "Authentification Wings refusée"),
+        "ws_expired" => ("warning", "ws_expired", "Jeton Wings expiré"),
+        "ws_send_failed" => ("warning", "ws_send_failed", "Envoi WebSocket échoué"),
+        _ => return,
+    };
+    record(level, "console_websocket", code, message);
+}
+
 #[tauri::command]
 pub fn list_panel_diagnostics() -> Vec<DiagnosticEntry> {
     journal()
@@ -132,6 +153,18 @@ pub async fn export_panel_diagnostics(path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn console_events_are_whitelisted_without_untrusted_data() {
+        clear_panel_diagnostics();
+        record_console_connection_event("ws_connected".into());
+        record_console_connection_event("token=do-not-record".into());
+        let events = list_panel_diagnostics();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].operation, "console_websocket");
+        assert_eq!(events[0].code, "ws_connected");
+        clear_panel_diagnostics();
+    }
+
     #[test]
     fn ignores_untrusted_codes_and_bounds_history() {
         clear_panel_diagnostics();

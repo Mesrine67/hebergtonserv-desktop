@@ -18,6 +18,7 @@ import GitHubPage from "@/pages/GitHubPage";
 import HomePage from "@/pages/HomePage";
 import DocumentationPage from "@/pages/DocumentationPage";
 import { DesktopHelpPanels } from "@/components/desktop-help-panels";
+import { PanelDiagnostics } from "@/components/panel-diagnostics";
 import SshKeysPage from "./pages/SshKeysPage";
 import SshConfigPage from "./pages/SshConfigPage";
 import PanelsPage from "./pages/PanelsPage";
@@ -51,7 +52,13 @@ const routeLabels: Record<string, string> = {
 };
 
 function Workspace() {
+  const [apiJournalOpen, setApiJournalOpen] = useState(false);
   const location = useLocation();
+  useEffect(() => {
+    const openJournal = () => setApiJournalOpen(true);
+    window.addEventListener("hts:open-api-journal", openJournal);
+    return () => window.removeEventListener("hts:open-api-journal", openJournal);
+  }, []);
   useEffect(() => { document.getElementById("workspace-scroll")?.scrollTo({ top: 0 }); }, [location.pathname]);
   const current = routeLabels[location.pathname] ?? (location.pathname.startsWith("/panel/servers/") ? "Console serveur" : "Clés SSH");
   return (
@@ -59,6 +66,7 @@ function Workspace() {
       <WorkspaceNavigationProvider>
       <DesktopTitlebar navigation title={current} />
       <DesktopHelpPanels />
+      <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
       <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 overflow-hidden bg-background">

@@ -495,6 +495,13 @@ pub async fn get_panel_server_resources(
     result
 }
 
+/// Normalize only the two documented response keys; never log the URL or token.
+fn console_socket_url(data: &serde_json::Value) -> Option<&str> {
+    data.get("socket")
+        .or_else(|| data.get("url"))
+        .and_then(serde_json::Value::as_str)
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ConsoleCredentials {
     pub socket: String,
@@ -504,6 +511,29 @@ pub struct ConsoleCredentials {
 /// Ephemeral Wings credentials: never persist, print, cache or send to diagnostics.
 #[tauri::command]
 pub async fn get_panel_console_credentials(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+) -> Result<ConsoleCredentials> {
+    let result = get_panel_console_credentials_inner(state, id, identifier).await;
+    match &result {
+        Ok(_) => crate::diagnostics::record(
+            "info",
+            "console_credentials",
+            "credentials_ok",
+            "Accès à la console autorisé",
+        ),
+        Err(error) => crate::diagnostics::record(
+            "error",
+            "console_credentials",
+            error.code(),
+            "Accès à la console impossible",
+        ),
+    }
+    result
+}
+
+async fn get_panel_console_credentials_inner(
     state: tauri::State<'_, AppState>,
     id: String,
     identifier: String,
@@ -530,7 +560,11 @@ pub async fn get_panel_console_credentials(
         .get_password()
         .map_err(|_| app_error("api_token", "Clé Client API indisponible."))?;
     let accept = if panel.provider == "wisp" {
-        "application/vnd.wisp.v1+json"
+        if panel.pterodactyl_version == "wisp-v2-experimental" {
+            "application/vnd.wisp.v2+json"
+        } else {
+            "application/vnd.wisp.v1+json"
+        }
     } else {
         "application/json"
     };
@@ -543,9 +577,9 @@ pub async fn get_panel_console_credentials(
         )
         .await?;
     let data = response.get("data").unwrap_or(&response);
-    let socket = data
-        .get("socket")
-        .and_then(serde_json::Value::as_str)
+    // WISP legacy returns {url, token}; Pterodactyl uses {data:{socket, token}}.
+    // Both endpoint shapes are read-only; the resulting URL is validated below.
+    let socket = console_socket_url(data)
         .ok_or_else(|| app_error("api_invalid_response", "Adresse WebSocket manquante."))?;
     let ephemeral = data
         .get("token")
@@ -693,4 +727,28 @@ pub async fn get_panel_resources_batch(
         );
     }
     Ok(results)
+}
+
+#[cfg(test)]
+mod console_credentials_tests {
+    use super::*;
+
+    #[test]
+    fn accepts_wisp_url_and_pterodactyl_socket_responses() {
+        let wisp = serde_json::json!({"url": "wss://node.example.test/ws", "token": "test"});
+        let pterodactyl =
+            serde_json::json!({"data": {"socket": "wss://node.example.test/ws", "token": "test"}});
+        assert_eq!(
+            console_socket_url(&wisp),
+            Some("wss://node.example.test/ws")
+        );
+        assert_eq!(
+            console_socket_url(&pterodactyl["data"]),
+            Some("wss://node.example.test/ws")
+        );
+        assert_eq!(
+            console_socket_url(&serde_json::json!({"token": "test"})),
+            None
+        );
+    }
 }
