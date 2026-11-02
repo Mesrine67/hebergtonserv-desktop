@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import WebSocket from "@tauri-apps/plugin-websocket";
@@ -7,15 +7,18 @@ import { ArrowLeft, RefreshCw, TerminalSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { commands } from "@/lib/tauri";
+import { resolvePanel, serverListRoute } from "@/lib/panel-navigation";
 
 type Credentials = { socket: string; token: string };
 type WingsEvent = { event?: string; args?: unknown[] };
 const MAX_LINES = 1000;
 export default function ServerConsolePage() {
   const { identifier } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestedPanel = searchParams.get("panel");
   const navigate = useNavigate();
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
-  const panel = panels.data?.find(p => p.status === "ok") ?? panels.data?.[0];
+  const panel = resolvePanel(panels.data, requestedPanel);
   const servers = useQuery({
     queryKey: ["panel-servers", panel?.id],
     queryFn: () => commands.listPanelServers(panel!.id),
@@ -101,11 +104,12 @@ export default function ServerConsolePage() {
 
   return <section className="overflow-hidden rounded-xl border bg-card">
     <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
-      <Button variant="ghost" size="icon" aria-label="Retour aux serveurs" onClick={() => navigate("/panel/servers")}><ArrowLeft /></Button>
+      <Button variant="ghost" size="icon" aria-label="Retour aux serveurs" onClick={() => navigate(serverListRoute(requestedPanel ?? panel?.id ?? null))}><ArrowLeft /></Button>
       <TerminalSquare className="size-5 text-primary" />
       <div className="min-w-0 flex-1"><h1 className="truncate font-semibold">Console · {server?.name ?? "Serveur"}</h1><p className="text-xs text-muted-foreground">{status} · session éphémère, aucune clé sauvegardée</p></div>
-      <Button variant="outline" size="sm" onClick={() => setConnectionId(i => i + 1)}><RefreshCw className="size-4" /> Reconnecter</Button>
+      <Button variant="outline" size="sm" disabled={!panel || !server} onClick={() => setConnectionId(i => i + 1)}><RefreshCw className="size-4" /> Reconnecter</Button>
     </div>
+    {panels.isSuccess && !panel && <p role="alert" className="border-b px-4 py-3 text-sm text-destructive">Le panel demandé n'existe pas ou n'est plus configuré. Revenez à la liste des serveurs pour choisir un compte.</p>}
     <div ref={output} role="log" aria-label="Sortie console du serveur" className="h-[min(60vh,600px)] overflow-auto bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100">
       {lines.length ? lines.map((line, i) => <div key={i} className="whitespace-pre-wrap break-all">{line}</div>) : <p className="text-zinc-400">Les sorties de la console apparaîtront ici après authentification.</p>}
     </div>
