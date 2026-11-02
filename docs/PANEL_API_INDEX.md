@@ -26,9 +26,11 @@ La présence de **WISP Panel v2.10.x** dans un changelog ne prouve **pas** qu'un
 | Créer / révoquer clé API | Non activé (contrat non vérifié) | Présent | `providers/*.rs` |
 | Liste des clés SSH | Selon prise en charge du panel | Présent si endpoint exposé | `providers/*.rs` |
 | Créer / supprimer clés SSH | Non activé (contrat non vérifié) | Présent si endpoint exposé | `providers/*.rs` |
-| Console interactive, commandes, websocket | Pas dans la couche API partagée auditée | Pas dans la couche API partagée auditée | À implémenter séparément |
+| Console interactive, commandes, websocket | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon le panel | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon la version | `commands/panels.rs`, `pages/ServerConsolePage.tsx` (PR #79) |
 | Fichiers, sauvegardes, bases, tâches, subusers, allocations | Non implémenté dans `PanelProvider` | Non implémenté dans `PanelProvider` | À traiter par capacités incrémentales |
 | Opérations Admin / Application | Non implémenté | Non implémenté | Ne pas mélanger les droits Client / Admin |
+
+La console intégrée (#79) récupère à la demande des identifiants temporaires via `GET /api/client/servers/{identifier}/websocket`, puis établit une connexion WSS côté client Tauri. L'API Client ne fournit pas de droits administrateur ; l'accès dépend du panel et des permissions. Cette implémentation ne garantit pas encore une compatibilité exhaustive WISP/Pterodactyl ni un test sur toutes leurs versions. Aucun jeton éphémère ne doit être conservé dans les journaux.
 
 Les méthodes de test réseau appellent les endpoints réels **uniquement** quand l'utilisateur vérifie un panel configuré ; les tests unitaires utilisent des valeurs fictives et n'utilisent pas d'identifiants.
 
