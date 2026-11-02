@@ -119,7 +119,7 @@ pub fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
                 });
             }
         }
-        tasks.sort_by(|a, b| b.memory_kib.cmp(&a.memory_kib));
+        tasks.sort_by_key(|task| std::cmp::Reverse(task.memory_kib));
         Ok(tasks)
     }
     #[cfg(not(target_os = "windows"))]
