@@ -85,6 +85,7 @@ fn greet(name: &str) -> String {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_websocket::init())
         .plugin(
             tauri_plugin_single_instance::Builder::default()
                 .callback(|app, _args, _cwd| {
@@ -249,6 +250,7 @@ pub fn run() {
             commands::panels::list_panel_servers,
             commands::panels::get_panel_server_resources,
             commands::panels::get_panel_resources_batch,
+            commands::panels::get_panel_console_credentials,
             diagnostics::list_panel_diagnostics,
             diagnostics::clear_panel_diagnostics,
             diagnostics::export_panel_diagnostics,

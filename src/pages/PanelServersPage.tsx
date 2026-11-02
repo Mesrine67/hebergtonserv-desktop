@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { isTauri } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -118,10 +117,10 @@ function ServerCard({
   loading,
   failed,
   errorCode,
-  panelUrl,
+  onOpenConsole,
 }: {
   server: PanelServer;
-  panelUrl: string;
+  onOpenConsole: () => void;
   resources?: PanelServerResources;
   loading: boolean;
   failed: boolean;
@@ -138,18 +137,6 @@ function ServerCard({
   const diskPercent = usagePercent(stats?.disk_used_bytes, diskLimit);
   const address = stats?.connect_address ?? server.connect_address;
   const shortId = server.identifier || server.id.slice(0, 8);
-  const openConsole = () => {
-    try {
-      const url = new URL(panelUrl);
-      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return;
-      // The client console uses the short identifier, not the admin numeric ID.
-      url.pathname = `/server/${encodeURIComponent(server.identifier)}`;
-      url.search = "";
-      url.hash = "";
-      if (isTauri()) void openUrl(url.toString());
-      else window.open(url.toString(), "_blank", "noopener,noreferrer");
-    } catch { /* Invalid saved panel URL: do not open. */ }
-  };
 
   const stateIcon = state === "online"
     ? <CircleCheck className="size-4 text-emerald-500" aria-hidden="true" />
@@ -178,7 +165,7 @@ function ServerCard({
             <span>{stateText}</span>
           </div>
         </div>
-        <button type="button" onClick={openConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
+        <button type="button" onClick={onOpenConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
           <ExternalLink className="size-3.5" aria-hidden="true" /> Ouvrir la console
         </button>
         {server.egg && (
@@ -236,6 +223,7 @@ function ServerCard({
 }
 
 export default function PanelServersPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showLogs, setShowLogs] = useState(false);
@@ -359,7 +347,7 @@ export default function PanelServersPage() {
                   <ServerCard
                     key={server.id}
                     server={server}
-                    panelUrl={panel.base_url}
+                    onOpenConsole={() => navigate(`/panel/servers/${encodeURIComponent(server.identifier)}`)}
                     resources={resourcesByKey.get(server.id)?.resources ?? undefined}
                     loading={loadingResources}
                     failed={Boolean(resourcesByKey.get(server.id)?.error_code || resourcesQuery.isError)}

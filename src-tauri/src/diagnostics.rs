@@ -94,6 +94,18 @@ fn formatted_log() -> String {
             "{} [{}] {} {}: {}\n",
             entry.timestamp, entry.level, entry.operation, entry.code, entry.message
         ));
+        let hint = match entry.code.as_str() {
+            "api_validation_error" => {
+                "HTTP 400/422 : paramètres invalides ou état incompatible, vérifier la suspension et les droits."
+            }
+            "api_auth_failed" => "HTTP 401 : authentification Client API refusée.",
+            "api_forbidden" => "HTTP 403 : autorisation Client API insuffisante.",
+            "api_not_found" => "HTTP 404 : serveur ou endpoint inconnu.",
+            "api_rate_limited" => "HTTP 429 : limitation de fréquence.",
+            "batch_partial" => "Une ou plusieurs requêtes du lot ont échoué.",
+            _ => "Consulter les permissions, le statut et les journaux du panel.",
+        };
+        contents.push_str(&format!("  Diagnostic : {hint}\n"));
     }
     contents
 }
