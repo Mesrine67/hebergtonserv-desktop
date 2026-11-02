@@ -364,15 +364,16 @@ pub async fn check_panel(
             "Configurez le jeton API du panneau dans les paramètres.",
         )
     })?;
-    let detected = ApiClient::new(
-        &panel.base_url,
-        &token,
-        "application/vnd.wisp.v1+json",
-        panel.allow_local,
-    )?
-    .get_account_with_api()
-    .await?
-    .1;
+    let detection_accept =
+        if panel.provider == "wisp" && panel.pterodactyl_version == "wisp-v2-experimental" {
+            "application/vnd.wisp.v2+json"
+        } else {
+            "application/vnd.wisp.v1+json"
+        };
+    let detected = ApiClient::new(&panel.base_url, &token, detection_accept, panel.allow_local)?
+        .get_account_with_api()
+        .await?
+        .1;
     let detected_provider = match detected {
         AccountApi::Wisp => ProviderKind::Wisp.as_str(),
         AccountApi::Pterodactyl => ProviderKind::Pterodactyl.as_str(),

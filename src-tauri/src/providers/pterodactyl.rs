@@ -48,7 +48,13 @@ impl PterodactylProvider {
     }
 
     fn accept(&self) -> &'static str {
-        "application/vnd.pterodactyl.v1+json"
+        // Pterodactyl 2.x documents application/json. Legacy and auto stay
+        // on the existing v1 media type for backward compatibility.
+        if matches!(self.version.as_str(), "2" | "2.0" | "v2") {
+            "application/json"
+        } else {
+            "application/vnd.pterodactyl.v1+json"
+        }
     }
 
     fn help_url(&self, page: &str) -> String {
@@ -260,6 +266,29 @@ impl PanelProvider for PterodactylProvider {
                 }
                 Err(error)
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::PterodactylProvider;
+
+    #[test]
+    fn pterodactyl_v2_uses_json_without_changing_legacy_profiles() {
+        for version in ["2", "2.0", "v2"] {
+            assert_eq!(
+                PterodactylProvider::new("https://panel.example.test", "token", false, version)
+                    .accept(),
+                "application/json"
+            );
+        }
+        for version in ["auto", "1", "1.x"] {
+            assert_eq!(
+                PterodactylProvider::new("https://panel.example.test", "token", false, version)
+                    .accept(),
+                "application/vnd.pterodactyl.v1+json"
+            );
         }
     }
 }

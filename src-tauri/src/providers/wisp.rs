@@ -24,7 +24,13 @@ impl WispProvider {
     }
 
     fn accept(&self) -> &'static str {
-        "application/vnd.wisp.v1+json"
+        // WISP Panel 2.x is a product version, not proof of an API v2 contract.
+        // Only send the undocumented MIME variant after explicit user opt-in.
+        if self.version == "wisp-v2-experimental" {
+            "application/vnd.wisp.v2+json"
+        } else {
+            "application/vnd.wisp.v1+json"
+        }
     }
 
     fn help_url(&self, page: &str) -> String {
@@ -141,5 +147,30 @@ impl PanelProvider for WispProvider {
             Some(self.help_url("account/ssh-keys")),
             false,
         ))
+    }
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::WispProvider;
+
+    #[test]
+    fn wisp_v1_is_default_and_v2_requires_explicit_opt_in() {
+        for version in ["auto", "1", "2", "v2", "unknown"] {
+            assert_eq!(
+                WispProvider::new("https://panel.example.test", "token", false, version).accept(),
+                "application/vnd.wisp.v1+json"
+            );
+        }
+        assert_eq!(
+            WispProvider::new(
+                "https://panel.example.test",
+                "token",
+                false,
+                "wisp-v2-experimental"
+            )
+            .accept(),
+            "application/vnd.wisp.v2+json"
+        );
     }
 }

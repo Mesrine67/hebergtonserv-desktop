@@ -8,6 +8,28 @@ use std::time::Duration;
 
 const MAX_RESPONSE_BYTES: usize = 1_048_576;
 
+/// Use the same documented JSON headers on GET, POST and DELETE.
+/// The bearer token is attached only by ApiClient::send_json, never logged.
+fn standard_panel_headers(accept: &str) -> Result<reqwest::header::HeaderMap> {
+    use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+    let mime = HeaderValue::from_str(accept).map_err(|_| {
+        app_error(
+            "api_config",
+            "Le type de réponse attendu pour ce panel est invalide.",
+        )
+    })?;
+    let agent = HeaderValue::from_str(&format!(
+        "HebergTonServ-Desktop/{}",
+        env!("CARGO_PKG_VERSION")
+    ))
+    .map_err(|_| app_error("api_config", "User-Agent invalide."))?;
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, mime);
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    headers.insert(USER_AGENT, agent);
+    Ok(headers)
+}
+
 fn append_bounded_response_chunk(out: &mut Vec<u8>, chunk: &[u8]) -> Result<()> {
     if chunk.len() > MAX_RESPONSE_BYTES.saturating_sub(out.len()) {
         return Err(app_error(
@@ -448,11 +470,7 @@ impl ApiClient {
         let mut builder = client
             .request(method, &url)
             .bearer_auth(&self.token)
-            .header(reqwest::header::ACCEPT, self.accept.clone())
-            .header(
-                reqwest::header::USER_AGENT,
-                format!("HebergTonServ-Desktop/{}", env!("CARGO_PKG_VERSION")),
-            );
+            .headers(standard_panel_headers(&self.accept)?);
         if let Some(b) = body {
             let payload = serde_json::to_vec(b)
                 .map_err(|_| app_error("api_invalid_request", "Requête API invalide."))?;
@@ -462,9 +480,7 @@ impl ApiClient {
                     "Requête du panneau trop volumineuse.",
                 ));
             }
-            builder = builder
-                .header(reqwest::header::CONTENT_TYPE, "application/json")
-                .body(payload);
+            builder = builder.body(payload);
         }
         let mut response = builder
             .send()
@@ -656,6 +672,27 @@ impl ApiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sends_documented_json_headers_and_versioned_user_agent() {
+        use reqwest::header::{ACCEPT, CONTENT_TYPE, USER_AGENT};
+        for accept in [
+            "application/vnd.wisp.v1+json",
+            "application/vnd.wisp.v2+json",
+            "application/vnd.pterodactyl.v1+json",
+            "application/json",
+        ] {
+            let headers = super::standard_panel_headers(accept).unwrap();
+            assert_eq!(headers.get(ACCEPT).unwrap(), accept);
+            assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
+            assert_eq!(
+                headers.get(USER_AGENT).unwrap(),
+                format!("HebergTonServ-Desktop/{}", env!("CARGO_PKG_VERSION")).as_str()
+            );
+            assert_eq!(headers.len(), 3);
+        }
+        assert!(super::standard_panel_headers("bad\naccept").is_err());
+    }
 
     #[test]
 
