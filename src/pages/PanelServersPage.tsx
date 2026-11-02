@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,9 +19,10 @@ import {
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, selectStyles } from "@/components/page-shell";
 import { PanelDiagnostics } from "@/components/panel-diagnostics";
 import { commands, type PanelServer, type PanelServerResources } from "@/lib/tauri";
+import { consoleRoute, resolvePanel } from "@/lib/panel-navigation";
 
 const PAGE_SIZE = 12;
 const RESOURCE_REFRESH_MS = 60_000;
@@ -224,11 +225,12 @@ function ServerCard({
 
 export default function PanelServersPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showLogs, setShowLogs] = useState(false);
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
-  const panel = panels.data?.find((item) => item.status === "ok") ?? panels.data?.[0];
+  const panel = resolvePanel(panels.data, searchParams.get("panel"));
   const servers = useQuery({
     queryKey: ["panel-servers", panel?.id],
     queryFn: () => commands.listPanelServers(panel!.id),
@@ -285,6 +287,12 @@ export default function PanelServersPage() {
                 <p className="mt-1 text-xs text-muted-foreground">État et ressources de vos serveurs WISP et Pterodactyl.</p>
               </div>
               <div className="flex items-center gap-2">
+                {(panels.data?.length ?? 0) > 1 && (
+                  <select className={selectStyles} aria-label="Choisir un panel" value={panel?.id ?? ""}
+                    onChange={(event) => { setSearchParams({ panel: event.target.value }); setSearch(""); setPage(1); }}>
+                    {panels.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                )}
                 <Button size="sm" variant="outline" onClick={()=>setShowLogs(true)}><ScrollText className="size-4" /> Journal API</Button>
                 <Button size="sm" variant="outline" onClick={()=>void refresh()} disabled={servers.isFetching || loadingResources}>
                   <RefreshCw className={servers.isFetching || loadingResources ? "size-4 animate-spin" : "size-4"}/> Actualiser
@@ -347,7 +355,7 @@ export default function PanelServersPage() {
                   <ServerCard
                     key={server.id}
                     server={server}
-                    onOpenConsole={() => navigate(`/panel/servers/${encodeURIComponent(server.identifier)}`)}
+                    onOpenConsole={() => { if (panel) navigate(consoleRoute(panel.id, server.identifier)); }}
                     resources={resourcesByKey.get(server.id)?.resources ?? undefined}
                     loading={loadingResources}
                     failed={Boolean(resourcesByKey.get(server.id)?.error_code || resourcesQuery.isError)}
