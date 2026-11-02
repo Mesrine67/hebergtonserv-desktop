@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import StartupWelcome from "@/components/startup-welcome";
 import WispLoginPage from "@/pages/WispLoginPage";
 import { commands } from "@/lib/tauri";
+import { version as buildVersion } from "../package.json";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { DesktopTitlebar } from "@/components/desktop-titlebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -114,11 +115,16 @@ export default function App() {
     return () => window.removeEventListener("hts:request-close", requestClose);
   }, []);
   const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
-  const onAuthenticated = useCallback(() => setAuthenticated(true), []);
+  const onAuthenticated = useCallback(() => {
+    try { window.localStorage.setItem("hts-last-authenticated-version", buildVersion); } catch { /* private storage unavailable */ }
+    setAuthenticated(true);
+  }, []);
   useEffect(() => {
     void commands.listPanels().then(async (panels) => {
       const saved = panels.find((panel) => panel.status === "ok");
-      if (saved && await commands.panelTokenConfigured(saved.id)) setAuthenticated(true);
+      // A new installed version requires explicit user reauthentication.
+      const validatedVersion = (() => { try { return window.localStorage.getItem("hts-last-authenticated-version"); } catch { return null; } })();
+      if (validatedVersion === buildVersion && saved && await commands.panelTokenConfigured(saved.id)) setAuthenticated(true);
     }).catch(() => undefined);
   }, []);
 

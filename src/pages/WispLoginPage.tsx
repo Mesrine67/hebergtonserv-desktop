@@ -35,7 +35,7 @@ export default function WispLoginPage({ onAuthenticated }: Props) {
         <div className="hts-auth-icon"><KeyRound className="size-5" /></div>
         <p className="hts-auth-eyebrow">Connexion sécurisée</p>
         <h1>Accédez à votre panel</h1>
-        <p className="hts-auth-description">Connectez votre compte avec un jeton API Client. WISP est détecté automatiquement, avec compatibilité Pterodactyl v2.</p>
+        <p className="hts-auth-description">Connectez votre compte avec votre clé Client API. Après chaque mise à jour installée, une nouvelle validation de connexion est requise.</p>
         <form onSubmit={submit} className="mt-7 space-y-5">
           <label className="block space-y-2 text-sm font-medium" htmlFor="wisp-url">Adresse du panel
             <span className="relative block"><Server className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" /><Input id="wisp-url" type="url" className="h-10 pl-10" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} autoComplete="url" required /></span>
