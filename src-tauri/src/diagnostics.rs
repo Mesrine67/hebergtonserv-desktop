@@ -46,6 +46,31 @@ pub fn record(level: &'static str, operation: &'static str, code: &str, message:
     }
 }
 
+/// Aggregate counts only: no server identity or response data leaves this function.
+pub fn record_batch_summary(total: usize, failures: usize) {
+    if total > 16 || failures > total {
+        return;
+    }
+    let message = format!(
+        "Lot de ressources : {} réussies, {} échecs sur {}.",
+        total - failures,
+        failures,
+        total
+    );
+    if let Ok(mut entries) = journal().lock() {
+        if entries.len() == CAPACITY {
+            entries.pop_front();
+        }
+        entries.push_back(DiagnosticEntry {
+            timestamp: Utc::now().to_rfc3339(),
+            level: if failures == 0 { "info" } else { "warning" },
+            operation: "panel_resources".into(),
+            code: "batch_summary".into(),
+            message,
+        });
+    }
+}
+
 #[tauri::command]
 pub fn list_panel_diagnostics() -> Vec<DiagnosticEntry> {
     journal()

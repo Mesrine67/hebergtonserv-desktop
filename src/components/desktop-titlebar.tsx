@@ -130,13 +130,13 @@ export function DesktopTitlebar({ navigation = false, welcome = false }: Props) 
 
       {appWindow && (
         <div className="ml-1 flex h-full items-center pl-1">
-          <Button type="button" variant="ghost" size="icon" className="hts-window-control size-8 rounded-lg" onClick={() => runWindowAction("minimize")} aria-label="Réduire la fenêtre">
+          <Button type="button" variant="ghost" size="icon" className="hts-window-control size-8" onClick={() => runWindowAction("minimize")} aria-label="Réduire la fenêtre">
             <Minus className="size-4" />
           </Button>
-          <Button id="snap-btn" type="button" variant="ghost" size="icon" className="hts-window-control size-8 rounded-lg" onClick={() => runWindowAction("toggleMaximize")} aria-label={isMaximized ? "Restaurer la fenêtre" : "Agrandir la fenêtre"} title={isMaximized ? "Restaurer" : "Agrandir"}>
+          <Button id="snap-btn" type="button" variant="ghost" size="icon" className="hts-window-control size-8" onClick={() => runWindowAction("toggleMaximize")} aria-label={isMaximized ? "Restaurer la fenêtre" : "Agrandir la fenêtre"} title={isMaximized ? "Restaurer" : "Agrandir"}>
             {isMaximized ? <Copy className="size-3.5" aria-hidden="true" /> : <Square className="size-3.5" aria-hidden="true" />}
           </Button>
-          <Button type="button" variant="ghost" size="icon" className="hts-window-control size-8 rounded-lg hover:bg-destructive/80 hover:text-destructive-foreground" onClick={() => runWindowAction("close")} aria-label="Fermer la fenêtre">
+          <Button type="button" variant="ghost" size="icon" className="hts-window-control size-8 hover:bg-destructive/80 hover:text-destructive-foreground" onClick={() => runWindowAction("close")} aria-label="Fermer la fenêtre">
             <X className="size-4" />
           </Button>
         </div>
