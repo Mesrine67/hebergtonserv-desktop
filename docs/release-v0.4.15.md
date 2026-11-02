@@ -4,7 +4,7 @@
 
 - **Git local en lecture seule (PR #82)** : détection de Git et de GitHub CLI, sélection explicite d'un dossier, consultation de la branche, des fichiers suivis modifiés et des derniers commits. Aucun fetch, pull, push ni modification de dépôt depuis cette vue.
 - **Console multi-panel (PR #83)** : conserve le compte panel sélectionné lors de la navigation et de l'ouverture de la console WebSocket. Refuse une bascule silencieuse vers un autre compte en cas de panel manquant.
-- **Préparation du scanner Windows (PR #84, sous réserve de fusion)** : initialisation de Node.js avant pnpm pour éviter le runtime Node temporaire incomplet du scanner GitHub. Cette évolution ne désactive pas les contrôles de sécurité.
+- **Préparation du scanner Windows (PR #84)** : initialisation de Node.js avant pnpm pour éviter le runtime Node temporaire incomplet du scanner GitHub. Cette évolution ne désactive pas les contrôles de sécurité.
 
 ## Installation Windows x64
 
