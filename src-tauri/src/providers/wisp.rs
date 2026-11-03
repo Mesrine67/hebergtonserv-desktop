@@ -233,10 +233,7 @@ impl PanelProvider for WispProvider {
                             let identifier = attributes
                                 .get("identifier")
                                 .or_else(|| attributes.get("id"));
-                            let Some(identifier) = identifier.and_then(serde_json::Value::as_str)
-                            else {
-                                return None;
-                            };
+                            let identifier = identifier.and_then(serde_json::Value::as_str)?;
                             let description = attributes
                                 .get("description")
                                 .and_then(serde_json::Value::as_str)
