@@ -3,7 +3,9 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import WebSocket from "@tauri-apps/plugin-websocket";
-import { ArrowLeft, RefreshCw, TerminalSquare } from "lucide-react";
+import { ArrowDown, ArrowLeft, Copy, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
+import { toast } from "sonner";
+import { AnsiLine, plainTerminalLine } from "@/lib/ansi-terminal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { commands } from "@/lib/tauri";
@@ -48,6 +50,8 @@ export default function ServerConsolePage() {
   const [status, setStatus] = useState("Non connecté");
   const [command, setCommand] = useState("");
   const [connectionId, setConnectionId] = useState(0);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [wrapLines, setWrapLines] = useState(true);
   const connection = useRef<WebSocket | null>(null);
   const output = useRef<HTMLDivElement>(null);
   const connected = status === "Connecté";
@@ -136,7 +140,14 @@ export default function ServerConsolePage() {
     void run();
     return () => { active = false; removeListener?.(); connection.current = null; if (ws) void ws.disconnect(); };
   }, [panel, server, connectionId]);
-  useEffect(() => { output.current?.scrollTo({ top: output.current.scrollHeight }); }, [lines]);
+  useEffect(() => { if (autoScroll) output.current?.scrollTo({ top: output.current.scrollHeight }); }, [lines, autoScroll]);
+
+  async function copyOutput() {
+    try {
+      await navigator.clipboard.writeText(lines.map(plainTerminalLine).join("\n"));
+      toast.success("Sortie de console copiée");
+    } catch { toast.error("Copie indisponible sur cet appareil"); }
+  }
 
   async function submit() {
     const value = command.trim();
@@ -147,20 +158,28 @@ export default function ServerConsolePage() {
     } catch { append("Commande non transmise : connexion indisponible."); void invoke("record_console_connection_event", {event: "ws_send_failed"}).catch(() => undefined); }
   }
 
-  return <section className="overflow-hidden rounded-xl border bg-card">
+  return <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
     <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
       <Button variant="ghost" size="icon" aria-label="Retour aux serveurs" onClick={() => navigate(serverListRoute(requestedPanel ?? panel?.id ?? null))}><ArrowLeft /></Button>
       <TerminalSquare className="size-5 text-primary" />
-      <div className="min-w-0 flex-1"><h1 className="truncate font-semibold">Console · {server?.name ?? "Serveur"}</h1><p className="text-xs text-muted-foreground">{status} · session éphémère, aucune clé sauvegardée</p></div>
+      <div className="min-w-0 flex-1"><h1 className="truncate font-semibold">Console · {server?.name ?? "Serveur"}</h1><p className="text-xs text-muted-foreground">Flux Wings en temps réel · session éphémère</p></div>
+      <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${connected ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : status.includes("Connexion") ? "border-amber-500/25 bg-amber-500/10 text-amber-500" : "border-border bg-secondary text-muted-foreground"}`}><span className={`size-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-current"}`} />{status}</span>
       <Button variant="outline" size="sm" disabled={!panel || !server} onClick={() => setConnectionId(i => i + 1)}><RefreshCw className="size-4" /> Reconnecter</Button>
     </div>
     {panels.isSuccess && !panel && <p role="alert" className="border-b px-4 py-3 text-sm text-destructive">Le panel demandé n'existe pas ou n'est plus configuré. Revenez à la liste des serveurs pour choisir un compte.</p>}
-    <div ref={output} role="log" aria-label="Sortie console du serveur" className="h-[min(60vh,600px)] overflow-auto bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100">
-      {lines.length ? lines.map((line, i) => <div key={i} className="whitespace-pre-wrap break-all">{line}</div>) : <p className="text-zinc-400">Les sorties de la console apparaîtront ici après authentification.</p>}
+    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/25 px-4 py-2">
+      <span className="mr-auto font-mono text-[11px] text-muted-foreground">Wings · {lines.length} entrée(s)</span>
+      <Button size="sm" variant={autoScroll ? "secondary" : "ghost"} className="h-8 gap-1.5 text-xs" onClick={() => setAutoScroll(value => !value)} aria-pressed={autoScroll}><ArrowDown className="size-3.5" /> Défilement {autoScroll ? "actif" : "arrêté"}</Button>
+      <Button size="sm" variant={wrapLines ? "secondary" : "ghost"} className="h-8 gap-1.5 text-xs" onClick={() => setWrapLines(value => !value)} aria-pressed={wrapLines}><WrapText className="size-3.5" /> Retour ligne</Button>
+      <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={() => void copyOutput()} disabled={!lines.length}><Copy className="size-3.5" /> Copier</Button>
+      <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={() => setLines([])} disabled={!lines.length}><Trash2 className="size-3.5" /> Effacer</Button>
+    </div>
+    <div ref={output} role="log" aria-live="off" aria-label="Sortie console du serveur" className="h-[min(62vh,650px)] overflow-auto bg-zinc-950 px-4 py-3 font-mono text-[12px] leading-[1.65] text-zinc-100" onScroll={event => { const element = event.currentTarget; if (element.scrollHeight - element.scrollTop - element.clientHeight > 60 && autoScroll) setAutoScroll(false); }}>
+      {lines.length ? lines.map((line, i) => <div key={i} className={wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre w-max min-w-full"}><AnsiLine value={line} /></div>) : <p className="text-zinc-400">Les sorties de la console apparaîtront ici après authentification.</p>}
     </div>
     <form className="flex gap-2 border-t p-3" onSubmit={event => {event.preventDefault();void submit();}}>
       <Input value={command} onChange={event => setCommand(event.target.value)} placeholder="Commande du serveur…" aria-label="Commande console" maxLength={4096} disabled={!connected || server?.suspended} />
-      <Button type="submit" disabled={!connected || server?.suspended || !command.trim()}>Envoyer</Button>
+      <Button type="submit" className="gap-2" disabled={!connected || server?.suspended || !command.trim()}><Send className="size-4" /> Envoyer</Button>
     </form>
     <p className="px-4 pb-3 text-xs text-muted-foreground">Connexion via Wings WebSocket avec les permissions du compte Client API. Les serveurs suspendus ou les fournisseurs sans endpoint compatible peuvent refuser la connexion.</p>
   </section>;
