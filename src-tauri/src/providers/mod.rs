@@ -6,6 +6,7 @@ pub mod wisp;
 use crate::errors::Result;
 use crate::providers::models::{
     CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServer, PanelServerResources, PanelSshKey,
+    PanelSubuser,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -89,4 +90,7 @@ pub trait PanelProvider: Send + Sync + 'static {
     ) -> Result<Capability<PanelSshKey>>;
 
     async fn delete_ssh_key(&self, _fingerprint: &str) -> Result<Capability<()>>;
+
+    async fn list_server_subusers(&self, identifier: &str)
+    -> Result<Capability<Vec<PanelSubuser>>>;
 }

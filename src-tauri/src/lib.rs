@@ -242,6 +242,7 @@ pub fn run() {
             commands::panels::check_panel,
             commands::panels::get_panel_account,
             commands::panels::list_panel_servers,
+            commands::panels::list_panel_server_subusers,
             commands::panels::get_panel_server_resources,
             commands::panels::get_panel_resources_batch,
             commands::panels::get_panel_console_credentials,
