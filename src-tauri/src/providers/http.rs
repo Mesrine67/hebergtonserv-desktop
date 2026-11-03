@@ -110,7 +110,11 @@ fn server_connect_address(attrs: &Value) -> Option<String> {
         .find(|allocation| {
             allocation
                 .get("attributes")
-                .and_then(|attributes| attributes.get("is_default"))
+                .and_then(|attributes| {
+                    attributes
+                        .get("is_default")
+                        .or_else(|| attributes.get("primary"))
+                })
                 .and_then(Value::as_bool)
                 == Some(true)
         })
@@ -125,7 +129,7 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
     let attrs = value.get("attributes").unwrap_or(&value);
     // Wisp uses status/proc/query; Pterodactyl uses attributes.current_state/resources.
     // An unknown successful payload must not silently become an all-empty "unknown" card.
-    let is_wisp = ["proc", "status", "query"]
+    let is_wisp = ["proc", "process", "status", "query"]
         .iter()
         .any(|key| attrs.get(key).is_some());
     let is_pterodactyl = ["current_state", "resources", "is_suspended"]
@@ -138,6 +142,7 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
         ));
     }
     let proc = attrs.get("proc").unwrap_or(&Value::Null);
+    let process = attrs.get("process").unwrap_or(&Value::Null);
     let memory = proc.get("memory").unwrap_or(&Value::Null);
     let cpu = proc.get("cpu").unwrap_or(&Value::Null);
     let disk = proc.get("disk").unwrap_or(&Value::Null);
@@ -181,17 +186,29 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
             )
         });
     let interfaces = proc.get("network").and_then(Value::as_object);
-    let network_rx = interfaces.and_then(|interfaces| {
-        interfaces
-            .values()
-            .filter_map(|iface| value_u64(iface, &["rx_bytes"]))
-            .reduce(u64::saturating_add)
+    let network_rx = value_u64(
+        process.get("network").unwrap_or(&Value::Null),
+        &["rx_bytes"],
+    )
+    .or_else(|| {
+        interfaces.and_then(|interfaces| {
+            interfaces
+                .values()
+                .filter_map(|iface| value_u64(iface, &["rx_bytes"]))
+                .reduce(u64::saturating_add)
+        })
     });
-    let network_tx = interfaces.and_then(|interfaces| {
-        interfaces
-            .values()
-            .filter_map(|iface| value_u64(iface, &["tx_bytes"]))
-            .reduce(u64::saturating_add)
+    let network_tx = value_u64(
+        process.get("network").unwrap_or(&Value::Null),
+        &["tx_bytes"],
+    )
+    .or_else(|| {
+        interfaces.and_then(|interfaces| {
+            interfaces
+                .values()
+                .filter_map(|iface| value_u64(iface, &["tx_bytes"]))
+                .reduce(u64::saturating_add)
+        })
     });
     let connect_address = server_string(query, &["connect"]).or_else(|| {
         let host = server_string(query, &["hostip", "ip"])?;
@@ -207,13 +224,16 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
             .and_then(Value::as_bool)
             .unwrap_or(false),
         memory_used_bytes: value_u64(resources, &["memory_bytes"])
-            .or_else(|| value_u64(memory, &["total", "used"])),
+            .or_else(|| value_u64(memory, &["total", "used"]))
+            .or_else(|| value_u64(process, &["memory_used"])),
         memory_limit_bytes: value_u64(memory, &["limit"]),
         cpu_percent: value_f64(resources, &["cpu_absolute"])
-            .or_else(|| value_f64(cpu, &["total", "used"])),
+            .or_else(|| value_f64(cpu, &["total", "used"]))
+            .or_else(|| value_f64(process, &["cpu_used"])),
         cpu_limit_percent: value_f64(cpu, &["limit"]),
         disk_used_bytes: value_u64(resources, &["disk_bytes"])
-            .or_else(|| value_u64(disk, &["used", "total"])),
+            .or_else(|| value_u64(disk, &["used", "total"]))
+            .or_else(|| value_u64(process, &["disk_used"])),
         disk_limit_bytes: value_u64(resources, &["disk_limit_bytes"]).or_else(|| {
             value_u64(disk, &["limit"]).map(|limit_mib| limit_mib.saturating_mul(1024 * 1024))
         }),
@@ -716,18 +736,30 @@ impl ApiClient {
         let mut servers = Vec::new();
         for page in 1..=MAX_PAGES {
             let path = match provider {
-                // WISP documents the base list and page/per_page parameters.
-                // Includes are optional and not implemented by every compatible
-                // panel, so keep the list request on the documented baseline.
-                "wisp" => format!("/api/client/servers?per_page={PAGE_SIZE}&page={page}"),
+                // Includes expose the address, node and software on compatible panels.
+                "wisp" => format!(
+                    "/api/client/servers?per_page={PAGE_SIZE}&page={page}&include=allocations,node,egg"
+                ),
                 "pterodactyl" => {
                     format!("/api/client?per_page={PAGE_SIZE}&page={page}&include=egg")
                 }
                 _ => return Err(app_error("api_config", "Fournisseur de panel inconnu.")),
             };
-            let response = client
+            let response = match client
                 .send_json::<Value>(reqwest::Method::GET, &path, None)
-                .await?;
+                .await
+            {
+                Ok(response) => response,
+                // Some WISP-compatible panels reject optional includes. Retry only a
+                // read on a validation error; never retry authentication failures.
+                Err(error) if provider == "wisp" && error.code() == "api_validation_error" => {
+                    let baseline = format!("/api/client/servers?per_page={PAGE_SIZE}&page={page}");
+                    client
+                        .send_json::<Value>(reqwest::Method::GET, &baseline, None)
+                        .await?
+                }
+                Err(error) => return Err(error),
+            };
             let data = response
                 .get("data")
                 .and_then(Value::as_array)
@@ -1048,12 +1080,33 @@ mod tests {
     }
 
     #[test]
-    fn wisp_server_list_uses_documented_pagination_without_optional_includes() {
-        let path = format!("/api/client/servers?per_page={}&page=1", 25);
-        assert!(path.starts_with("/api/client/servers?"));
-        assert!(path.contains("per_page=25"));
-        assert!(path.contains("page=1"));
-        assert!(!path.contains("include="));
+    fn parses_current_wisp_process_resource_shape() {
+        let value = serde_json::json!({
+            "status": "running",
+            "process": {"cpu_used": 1.5, "memory_used": 48959488, "disk_used": 481333948,
+                        "network": {"rx_bytes": 123, "tx_bytes": 456}}
+        });
+        let parsed = parse_server_resources(value).unwrap();
+        assert_eq!(parsed.cpu_percent, Some(1.5));
+        assert_eq!(parsed.memory_used_bytes, Some(48959488));
+        assert_eq!(parsed.disk_used_bytes, Some(481333948));
+        assert_eq!(parsed.network_rx_bytes, Some(123));
+        assert_eq!(parsed.network_tx_bytes, Some(456));
+    }
+
+    #[test]
+    fn wisp_allocation_primary_is_selected() {
+        let server = serde_json::json!({
+            "uuid": "uuid-123", "uuid_short": "abcd1234", "name": "server",
+            "relationships": {"allocations": {"data": [
+                {"attributes": {"primary": false, "ip": "192.0.2.1", "port": 1111}},
+                {"attributes": {"primary": true, "ip": "192.0.2.2", "port": 2222}}
+            ]}}
+        });
+        assert_eq!(
+            parse_server(server).unwrap().connect_address.as_deref(),
+            Some("192.0.2.2:2222")
+        );
     }
 
     #[test]
