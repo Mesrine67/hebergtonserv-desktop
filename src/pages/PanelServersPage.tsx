@@ -3,10 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleOff, ExternalLink, Cpu, Database, File, HardDrive, MemoryStick, MoreHorizontal, RefreshCw, Search, Server, Users, } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/page-shell";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { commands, type PanelCapability, type PanelServer, type PanelServerResources, type PanelSubuser } from "@/lib/tauri";
 import { consoleRoute, resolvePanel, serverSectionRoute } from "@/lib/panel-navigation";
@@ -92,26 +96,14 @@ function Stat({icon: Icon, label, value, percent}: {
   percent?: number;
 }) {
   return (
-    <div className="min-w-0 rounded-lg bg-muted/55 px-3 py-2.5">
+    <div className="flex min-w-0 flex-col gap-2 rounded-md border bg-muted/25 px-3 py-2.5">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="size-4 shrink-0" aria-hidden="true" />
-        <span className="truncate text-xs">{label}</span>
+        <Icon data-icon="inline-start" aria-hidden="true" />
+        <span className="truncate text-[0.6875rem] font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className="mt-1.5 truncate text-sm font-semibold tabular-nums">{value}</p>
+      <p className="truncate text-xs font-semibold tabular-nums text-card-foreground" title={value}>{value}</p>
       {percent != null && (
-        <div
-          className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/80"
-          role="progressbar"
-          aria-label={`${label} utilisé`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(percent)}
-        >
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-500"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
+        <Progress value={percent} aria-label={`${label} utilisé`} className="h-1" />
       )}
     </div>
   );
@@ -142,52 +134,54 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
   const diskPercent = usagePercent(stats?.disk_used_bytes, diskLimit);
   const address = stats?.connect_address ?? server.connect_address;
   const shortId = server.identifier || server.id.slice(0, 8);
-  const stateIcon = state === "online" ? <CircleCheck className="size-4 text-emerald-500" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff className="size-4 text-muted-foreground" aria-hidden="true" /> : <CircleAlert className="size-4 text-amber-500" aria-hidden="true" />;
+  const stateIcon = state === "online" ? <CircleCheck data-icon="inline-start" className="text-primary" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff data-icon="inline-start" aria-hidden="true" /> : <CircleAlert data-icon="inline-start" aria-hidden="true" />;
+  const stateVariant = state === "online" && !failed ? "secondary" : state === "offline" || state === "suspended" || failed ? "destructive" : "outline";
   return (
-    <article className="group overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/35">
-      <div className="relative border-b bg-gradient-to-br from-primary/[0.09] via-card to-card px-4 py-4 sm:px-5">
+    <Card role="article" className="group/card transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
+      <CardHeader className="border-b bg-muted/15">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-background/70 text-primary shadow-sm">
-            <Server className="size-5" aria-hidden="true" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Server aria-hidden="true" />
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h2 className="max-w-full truncate font-semibold">{server.name}</h2>
-              <span className="font-mono text-xs text-muted-foreground">{shortId}</span>
-            </div>
-            <p className="mt-1 truncate text-xs text-muted-foreground">
-              {address ? <><span className="font-medium text-foreground/80">{address}</span>{server.node && <> sur {server.node}</>}</> : server.node ?? server.egg ?? "Adresse de connexion indisponible"}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full border bg-background/75 px-2.5 py-1 text-xs font-medium">
-            {stateIcon}
-            <span>{stateText}</span>
+          <div className="grid min-w-0 flex-1 gap-1">
+            <CardTitle role="heading" aria-level={2} className="truncate text-base font-semibold">{server.name}</CardTitle>
+            <CardDescription className="truncate font-mono">{address ?? server.node ?? "Adresse indisponible"}{address && server.node ? ` · ${server.node}` : ""}</CardDescription>
+            <span className="font-mono text-[0.6875rem] text-muted-foreground">ID {shortId}</span>
           </div>
         </div>
-        <button type="button" onClick={onOpenConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
-          <ExternalLink className="size-3.5" aria-hidden="true" /> Ouvrir la console
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" className="ml-2 mt-3 size-8" aria-label={`Options du serveur ${server.name}`}><MoreHorizontal className="size-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={onOpenFiles}><File className="size-4" /> Fichiers</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onOpenDatabases}><Database className="size-4" /> Bases de données</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setSubusersOpen(value => !value)}><Users className="size-4" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {server.egg && (
-          <div className="mt-3 flex items-center gap-2 pl-[52px] text-xs text-muted-foreground">
-            <span className="max-w-full truncate rounded-md border bg-background/60 px-2 py-1">{server.egg}</span>
-            {server.installing && <span>Installation en cours</span>}
-          </div>
-        )}
-      </div>
-      {subusersOpen && <div className="border-t px-4 py-3" aria-live="polite">
+        <CardAction>
+          <Badge variant={stateVariant} className={cn(state === "online" && !failed && "text-primary")}>
+            {stateIcon}{stateText}
+          </Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {server.egg && <div className="flex min-w-0 items-center gap-2">
+          <Badge variant="outline" className="max-w-full truncate">{server.egg}</Badge>
+          {server.installing && <CardDescription>Installation en cours</CardDescription>}
+        </div>}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" onClick={onOpenConsole} aria-label={`Ouvrir la console du serveur ${server.name}`}>
+            <ExternalLink data-icon="inline-start" /> Console
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" aria-label={`Options du serveur ${server.name}`}><MoreHorizontal data-icon="inline-start" /> Gérer</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={onOpenFiles}><File data-icon="inline-start" /> Fichiers</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onOpenDatabases}><Database data-icon="inline-start" /> Bases de données</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSubusersOpen(value => !value)}><Users data-icon="inline-start" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}</DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardContent>
+      {subusersOpen && <CardContent className="border-t pt-3" aria-live="polite">
         {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p> : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p> : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p> : <SubuserList capability={subusers.data} />}
-      </div>}
-      <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-4 sm:p-4">
+      </CardContent>}
+      <CardContent className="grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-4">
         <Stat
           icon={Cpu}
           label="CPU"
@@ -213,23 +207,23 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
             value={`${stats.players ?? 0} / ${stats.max_players ?? "—"}`}
           />
         ) : (
-          <div className="flex min-w-0 items-center gap-2 rounded-lg bg-muted/55 px-3 py-2.5 text-muted-foreground">
-            <Users className="size-4 shrink-0" aria-hidden="true" />
+          <div className="flex min-w-0 flex-col justify-center gap-2 rounded-md border bg-muted/25 px-3 py-2.5 text-muted-foreground">
+            <span className="flex items-center gap-2 text-[0.6875rem] font-medium uppercase tracking-wide"><Users data-icon="inline-start" aria-hidden="true" /> Joueurs</span>
             <span className="truncate text-xs">{failed ? "Stats indisponibles" : loading ? "Chargement…" : "Jeu sans requête"}</span>
           </div>
         )}
-      </div>
+      </CardContent>
       {stats && (stats.network_rx_bytes != null || stats.network_tx_bytes != null) && (
-        <p className="px-4 pb-3 text-xs text-muted-foreground tabular-nums">
+        <CardFooter className="justify-start gap-1 border-t text-xs text-muted-foreground tabular-nums">
           Réseau : ↓ {formatBytes(stats.network_rx_bytes)} · ↑ {formatBytes(stats.network_tx_bytes)}
-        </p>
+        </CardFooter>
       )}
       {failed && (
-        <p className="border-t px-4 py-2 text-xs text-amber-500" role="status">
+        <CardFooter className="justify-start border-t text-xs text-amber-500" role="status">
           Ressources indisponibles ({errorCode ?? "api_network"}). Ouvrez Aide → Journal des API pour diagnostiquer les permissions et les limites de requêtes.
-        </p>
+        </CardFooter>
       )}
-    </article>
+    </Card>
   );
 }
 
@@ -265,9 +259,6 @@ export default function PanelServersPage() {
   const resourceRequests = visibleServers.map(server => ({key: server.id, identifier: isPterodactyl2 ? server.id : server.identifier}));
   const resourcesQuery = useQuery({queryKey: ["panel-server-resources-batch", panel?.id, resourceRequests.map(x=>x.identifier).join(",")], queryFn: () => commands.getPanelResourcesBatch(panel!.id, resourceRequests), enabled: Boolean(panel && resourceRequests.length), staleTime: RESOURCE_REFRESH_MS, refetchInterval: RESOURCE_REFRESH_MS, retry: 0});
   const resourcesByKey = new Map((resourcesQuery.data ?? []).map(item=>[item.key,item]));
-  const observedStates = (resourcesQuery.data ?? []).filter(item => item.resources?.state).length;
-  const liveOnlineCount = (resourcesQuery.data ?? []).filter(item => item.resources?.state && ["running","online","started"].includes(item.resources.state.toLowerCase())).length;
-  const failedStates = (resourcesQuery.data ?? []).filter(item=>item.error_code).length;
   const loadingResources = resourcesQuery.isFetching;
   const refresh = async () => {
     await servers.refetch();
@@ -278,50 +269,23 @@ export default function PanelServersPage() {
       {!panel ? (
         <EmptyState message="Aucun panel configuré. Ajoutez un panel puis connectez-vous." />
       ) : (
-        <section className="space-y-3">
+        <section className="flex flex-col gap-4">
           <div className="flex items-center gap-2 px-1" aria-label="Actions des serveurs">
             <ServerSearch servers={servers.data ?? []} onOpen={server => navigate(consoleRoute(panel.id, server.identifier))}/>
+            <div className="ml-auto flex items-center gap-2">
+              {(panels.data?.length ?? 0) > 1 && (
+                <Select value={panel.id} onValueChange={(value) => { setSearchParams({ panel: value }); setPage(1); }}>
+                  <SelectTrigger className="w-48" aria-label="Choisir un panel"><SelectValue placeholder="Choisir un panel"/></SelectTrigger>
+                  <SelectContent><SelectGroup>{panels.data?.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
+                </Select>
+              )}
             <Button size="icon" variant="outline" className="size-8" aria-label="Actualiser les serveurs" title="Actualiser les serveurs" onClick={()=>void refresh()} disabled={servers.isFetching || loadingResources}>
-              <RefreshCw className={servers.isFetching || loadingResources ? "size-4 animate-spin" : "size-4"}/>
+              <RefreshCw data-icon="inline-start" className={cn((servers.isFetching || loadingResources) && "animate-spin")}/>
             </Button>
           </div>
-          <div className="rounded-xl border bg-card/45 px-4 py-3 sm:px-5">
-            {(panels.data?.length ?? 0) > 1 && (
-              <div className="mb-3 flex justify-end">
-                  <Select value={panel.id} onValueChange={(value) => { setSearchParams({ panel: value }); setPage(1); }}>
-                    <SelectTrigger className="w-48" aria-label="Choisir un panel"><SelectValue placeholder="Choisir un panel"/></SelectTrigger>
-                    <SelectContent>{panels.data?.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
-                  </Select>
-              </div>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Server className="size-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="truncate font-semibold">{panel.name}</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {servers.data ? `${servers.data.length} serveurs` : panel.provider.toUpperCase()}
-                  {resourceRequests.length > 0 && (
-                    observedStates > 0
-                      ? <> · {liveOnlineCount} en ligne / {observedStates} états connus sur cette page</>
-                      : <> · {failedStates > 0 || resourcesQuery.isError ? "États API indisponibles" : loadingResources ? "Chargement des états…" : "Aucun état exploitable"}</>
-                  )}
-                </p>
-              </div>
-            </div>
-            </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
-            <p className="text-xs text-muted-foreground">Ressources actualisées automatiquement chaque minute</p>
-            <p className="text-xs text-muted-foreground" aria-live="polite">
-              {servers.data ? `${matchingServers.length} résultat${matchingServers.length > 1 ? "s" : ""}` : "Lecture de la liste du panel…"}
-            </p>
-          </div>
-
-          <div className="px-0.5 py-1">
+          <div className="px-0.5">
             {servers.isPending ? (
               <p className="py-12 text-center text-sm text-muted-foreground">Chargement des serveurs depuis le panel…</p>
             ) : servers.isError ? (
