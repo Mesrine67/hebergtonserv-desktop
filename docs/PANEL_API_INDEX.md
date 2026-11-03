@@ -27,7 +27,8 @@ La présence de **WISP Panel v2.10.x** dans un changelog ne prouve **pas** qu'un
 | Liste des clés SSH | Selon prise en charge du panel | Présent si endpoint exposé | `providers/*.rs` |
 | Créer / supprimer clés SSH | Non activé (contrat non vérifié) | Présent si endpoint exposé | `providers/*.rs` |
 | Console interactive, commandes, websocket | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon le panel | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon la version | `commands/panels.rs`, `pages/ServerConsolePage.tsx` (PR #79) |
-| Fichiers, sauvegardes, bases, tâches, subusers, allocations | Non implémenté dans `PanelProvider` | Non implémenté dans `PanelProvider` | À traiter par capacités incrémentales |
+| Liste des sous-utilisateurs d’un serveur | Non documentée dans l’API Client publique consultée | GET `/api/client/servers/{identifier}/users` (1.x, identifiant court) et GET `/api/client/servers/{server_uuid}/users` (2.x, UUID), lecture seule | `providers/pterodactyl.rs`, `commands/panels.rs`, `PanelServersPage.tsx` |
+| Fichiers, sauvegardes, bases, tâches, allocations | Non implémenté dans `PanelProvider` | Endpoints Client documentés, pas encore intégrés | À traiter par capacités incrémentales |
 | Opérations Admin / Application | Non implémenté | Non implémenté | Ne pas mélanger les droits Client / Admin |
 
 La console intégrée (#79) récupère à la demande des identifiants temporaires via `GET /api/client/servers/{identifier}/websocket`, puis établit une connexion WSS côté client Tauri. L'API Client ne fournit pas de droits administrateur ; l'accès dépend du panel et des permissions. Cette implémentation ne garantit pas encore une compatibilité exhaustive WISP/Pterodactyl ni un test sur toutes leurs versions. Aucun jeton éphémère ne doit être conservé dans les journaux.
@@ -50,7 +51,7 @@ Racine : [API Client WISP](https://gamepanel.notion.site/Client-API-b76f787c2cbb
 | FastDL / File manager | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
 | Modpacks / Mods | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
 | Schedules / Scheduled tasks / Startup | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
-| Subusers / Error codes | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
+| Sous-utilisateurs | Non trouvé dans l’index officiel Client API consulté ; aucune route devinée n’est appelée |
 | Évolutions produit | [WISP Changelog](https://gamepanel.notion.site/WISP-Changelog-201ec094c23d8019a02bef6a5ba872a2) | Version du produit, pas version MIME |
 | IP WISP / infra | [WISP IP's](https://gamepanel.notion.site/WISP-IP-s-0ad3628fb72d43029639d8caad7dea8d), [ips.txt](https://wisp.gg/ips.txt) | Référence réseau ; ne pas en déduire automatiquement une allowlist |
 
@@ -60,6 +61,8 @@ Ne pas réutiliser l'exemple `wisp_session` figurant dans certaines anciennes pa
 
 - [Version 2 / API Overview](https://docs.pterodactyl.io/v2/api), [liste Client API](https://docs.pterodactyl.io/v2/api/client-api/clientListClientServers), [compte](https://docs.pterodactyl.io/v2/api/client-api/clientGetAccount), [ressources](https://docs.pterodactyl.io/v2/api/client-api/clientGetServerResources), [websocket](https://docs.pterodactyl.io/v2/api/client-api/clientGetWebsocketCredentials).
 - [API v1](https://docs.pterodactyl.io/v1/api) pour les panels 1.x et compatibilité historique.
+- Sous-utilisateurs Client : [v1 — List Users](https://docs.pterodactyl.io/v1/api/client-server-users/get-list-users) avec l’identifiant court; [v2 — List server subusers](https://docs.pterodactyl.io/v2/api/client-api/clientListServerSubusers) avec UUID complet. La route HTTP est similaire mais le paramètre d’identification diffère.
+- Permissions Client : [v1 — Show permissions](https://docs.pterodactyl.io/v1/api/client-general/get-show-permissions), [v2 — List server permissions](https://docs.pterodactyl.io/v2/api/client-api/clientListServerPermissions). Ce dernier renvoie la taxonomie des permissions disponibles, pas les permissions d’un sous-utilisateur.
 - [Authentification v2](https://docs.pterodactyl.io/v2/api/authentication/authLogin) : flux de session **distinct** de la clé Bearer Client ; pas utilisé par l'app.
 - [Clés API Client](https://docs.pterodactyl.io/v2/api/client-api/clientListAccountAPIKeys), [création](https://docs.pterodactyl.io/v2/api/client-api/clientCreateAccountAPIKey), [permissions](https://docs.pterodactyl.io/v2/api/client-api/clientListServerPermissions).
 - [Source de la documentation](https://github.com/pterodactyl/documentation) et [LLMS](https://docs.pterodactyl.io/llms.txt), [LLMS complet](https://docs.pterodactyl.io/llms-full.txt).

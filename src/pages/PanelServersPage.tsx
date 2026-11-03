@@ -19,7 +19,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, selectStyles } from "@/components/page-shell";
-import { commands, type PanelServer, type PanelServerResources } from "@/lib/tauri";
+import { errorMessage } from "@/lib/error-message";
+import { commands, type PanelCapability, type PanelServer, type PanelServerResources, type PanelSubuser } from "@/lib/tauri";
 import { consoleRoute, resolvePanel } from "@/lib/panel-navigation";
 
 const PAGE_SIZE = 12;
@@ -117,14 +118,25 @@ function ServerCard({
   failed,
   errorCode,
   onOpenConsole,
+  panelId,
+  subuserIdentifier,
 }: {
   server: PanelServer;
+  panelId: string;
+  subuserIdentifier: string;
   onOpenConsole: () => void;
   resources?: PanelServerResources;
   loading: boolean;
   failed: boolean;
   errorCode?: string;
 }) {
+  const [subusersOpen, setSubusersOpen] = useState(false);
+  const subusers = useQuery({
+    queryKey: ["panel-server-subusers", panelId, subuserIdentifier],
+    queryFn: () => commands.listPanelServerSubusers(panelId, subuserIdentifier),
+    enabled: subusersOpen,
+    retry: 0,
+  });
   const state = stateFor(server, stats);
   // The list endpoint can report a suspended server even when its resources endpoint rejects the request.
   const stateText = state === "suspended" ? stateLabel(state) : failed ? "API indisponible" : stateLabel(state);
@@ -167,6 +179,9 @@ function ServerCard({
         <button type="button" onClick={onOpenConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
           <ExternalLink className="size-3.5" aria-hidden="true" /> Ouvrir la console
         </button>
+        <button type="button" onClick={() => setSubusersOpen(value => !value)} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-expanded={subusersOpen}>
+          <Users className="size-3.5" aria-hidden="true" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}
+        </button>
         {server.egg && (
           <div className="mt-3 flex items-center gap-2 pl-[52px] text-xs text-muted-foreground">
             <span className="max-w-full truncate rounded-md border bg-background/60 px-2 py-1">{server.egg}</span>
@@ -174,6 +189,12 @@ function ServerCard({
           </div>
         )}
       </div>
+      {subusersOpen && <div className="border-t px-4 py-3" aria-live="polite">
+        {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p>
+          : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p>
+          : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p>
+          : <SubuserList capability={subusers.data} />}
+      </div>}
 
       <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-4 sm:p-4">
         <Stat
@@ -219,6 +240,18 @@ function ServerCard({
       )}
     </article>
   );
+}
+
+function SubuserList({ capability }: { capability: PanelCapability<PanelSubuser[]> }) {
+  const users = capability.value ?? [];
+  if (!users.length) return <p className="text-xs text-muted-foreground">Aucun sous-utilisateur sur ce serveur.</p>;
+  return <ul className="space-y-2">
+    {users.map(user => <li key={user.uuid} className="rounded-lg bg-muted/45 px-3 py-2">
+      <p className="truncate text-sm font-medium">{user.username || user.email || user.identifier || user.uuid}</p>
+      {user.email && user.username && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+      <p className="mt-1 text-xs text-muted-foreground">Permissions : {user.permissions.length ? user.permissions.join(", ") : "aucune communiquée"}</p>
+    </li>)}
+  </ul>;
 }
 
 export default function PanelServersPage() {
@@ -349,6 +382,8 @@ export default function PanelServersPage() {
                 {visibleServers.map((server) => (
                   <ServerCard
                     key={server.id}
+                    panelId={panel.id}
+                    subuserIdentifier={isPterodactyl2 ? server.id : server.identifier}
                     server={server}
                     onOpenConsole={() => { if (panel) navigate(consoleRoute(panel.id, server.identifier)); }}
                     resources={resourcesByKey.get(server.id)?.resources ?? undefined}

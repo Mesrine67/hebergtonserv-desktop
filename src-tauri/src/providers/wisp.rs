@@ -1,7 +1,7 @@
 use crate::errors::Result;
 use crate::providers::http::ApiClient;
 use crate::providers::models::{
-    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServerResources, PanelSshKey,
+    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServerResources, PanelSshKey, PanelSubuser,
 };
 use crate::providers::{Capability, PanelProvider, ProviderKind};
 use async_trait::async_trait;
@@ -145,6 +145,17 @@ impl PanelProvider for WispProvider {
         Ok(Capability::unsupported(
             "La révocation de clés SSH via l'API n'est pas disponible sur cette instance.",
             Some(self.help_url("account/ssh-keys")),
+            false,
+        ))
+    }
+
+    async fn list_server_subusers(
+        &self,
+        _identifier: &str,
+    ) -> Result<Capability<Vec<PanelSubuser>>> {
+        Ok(Capability::unsupported(
+            "La documentation publique WISP consultée ne décrit pas d’endpoint Client API pour les sous-utilisateurs.",
+            Some(self.help_url("")),
             false,
         ))
     }

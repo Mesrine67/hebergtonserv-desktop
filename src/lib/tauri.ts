@@ -100,6 +100,24 @@ export interface PanelCheckResult {
   ssh_keys_supported: boolean;
 }
 
+export interface PanelSubuser {
+  uuid: string;
+  identifier?: string | null;
+  username?: string | null;
+  email?: string | null;
+  two_factor_enabled?: boolean | null;
+  created_at?: string | null;
+  permissions: string[];
+}
+
+export interface PanelCapability<T> {
+  supported: boolean;
+  value?: T | null;
+  message?: string | null;
+  help_url?: string | null;
+  verified: boolean;
+}
+
 export interface PanelServer {
   id: string;
   identifier: string;
@@ -255,6 +273,8 @@ export const commands = {
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
   getPanelAccount: (id: string) => invoke<PanelAccountSummary>("get_panel_account", { id }),
   listPanelServers: (id: string) => invoke<PanelServer[]>("list_panel_servers", { id }),
+  listPanelServerSubusers: (id: string, identifier: string) =>
+    invoke<PanelCapability<PanelSubuser[]>>("list_panel_server_subusers", { id, identifier }),
   getPanelResourcesBatch: (id: string, requests: { key: string; identifier: string }[]) => invoke<PanelResourceBatchItem[]>("get_panel_resources_batch", { id, requests }),
   getPanelServerResources: (id: string, identifier: string) =>
     invoke<PanelServerResources>("get_panel_server_resources", { id, identifier }),
