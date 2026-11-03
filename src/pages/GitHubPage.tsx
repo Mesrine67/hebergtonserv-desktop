@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, GitBranch, GitCommitHorizontal, GitPullRequest, LockKeyhole, RefreshCw, ShieldCheck } from "lucide-react";
@@ -15,6 +15,7 @@ export default function GitHubPage() {
   const [loading, setLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubError, setGithubError] = useState("");
+  const selectionVersion = useRef(0);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -46,6 +47,7 @@ export default function GitHubPage() {
     try {
       const selected = await open({ directory: true, multiple: false, title: "Sélectionner un dépôt Git local" });
       if (typeof selected !== "string") return;
+      selectionVersion.current += 1;
       setRoot(selected);
       setActivity(null);
       setGithubError("");
@@ -57,16 +59,20 @@ export default function GitHubPage() {
 
   async function loadGitHubActivity() {
     if (!root || !isTauri()) return;
+    const requestVersion = ++selectionVersion.current;
     setGithubLoading(true);
     setGithubError("");
     setActivity(null);
     try {
-      setActivity(await commands.getGitHubActivity(root));
+      const result = await commands.getGitHubActivity(root);
+      if (requestVersion === selectionVersion.current) setActivity(result);
     } catch (cause) {
-      setGithubError(typeof cause === "object" && cause !== null && "message" in cause
-        ? String(cause.message) : "Impossible de lire les informations GitHub.");
+      if (requestVersion === selectionVersion.current) {
+        setGithubError(typeof cause === "object" && cause !== null && "message" in cause
+          ? String(cause.message) : "Impossible de lire les informations GitHub.");
+      }
     } finally {
-      setGithubLoading(false);
+      if (requestVersion === selectionVersion.current) setGithubLoading(false);
     }
   }
 

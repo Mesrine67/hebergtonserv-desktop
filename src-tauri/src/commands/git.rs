@@ -209,7 +209,7 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
     let repository = parse_github_repository(&remote)?;
     let auth = timeout(EXECUTION_LIMIT, async {
         Command::new("gh")
-            .args(["auth", "status", "--hostname", "github.com"])
+            .args(["auth", "status", "--hostname", "github.com", "--active"])
             .env("GH_PROMPT_DISABLED", "1")
             .env("GH_NO_UPDATE_NOTIFIER", "1")
             .env("GH_PAGER", "cat")
@@ -239,7 +239,7 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
         "pr",
         "list",
         "--repo",
-        &repository,
+        &format!("github.com/{repository}"),
         "--state",
         "all",
         "--limit",
@@ -252,7 +252,7 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
         "issue",
         "list",
         "--repo",
-        &repository,
+        &format!("github.com/{repository}"),
         "--state",
         "all",
         "--limit",
