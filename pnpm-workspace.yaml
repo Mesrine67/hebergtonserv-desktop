@@ -4,3 +4,6 @@ packages:
 minimumReleaseAgeExclude:
   - eslint@10.14.0
   - lucide-react@1.65.0
+
+overrides:
+  minimatch: 11.0.1
