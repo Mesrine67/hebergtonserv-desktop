@@ -6,12 +6,11 @@ Mise à jour : 2026-11-03. Cet index distingue **la version du logiciel Panel** 
 
 | Fournisseur | Sélection dans l'app | `Accept` | Niveau de preuve |
 | --- | --- | --- | --- |
-| WISP | « API v1 » (par défaut) | `application/vnd.wisp.v1+json` | Documenté dans WISP Client API |
-| WISP | « API v2 » (option manuelle) | `application/vnd.wisp.v2+json` | **Expérimental / non confirmé par la documentation fournie** |
-| Pterodactyl | « Auto / 1.x » (historique) | `application/vnd.pterodactyl.v1+json` | Compatibilité héritée de l'app |
-| Pterodactyl | « 2.x » (option explicite) | `application/json` | Documenté dans Pterodactyl API 2.0 |
+| WISP | Détection automatique; v1 documentée par défaut | `application/vnd.wisp.v1+json` | Documenté dans WISP Client API |
+| WISP | v2 expérimentale, jamais choisie automatiquement | `application/vnd.wisp.v2+json` | **Contrat non confirmé par la documentation fournie** |
+| Pterodactyl | Détection automatique par essai v1, puis JSON/v2 si nécessaire | `application/vnd.pterodactyl.v1+json` puis `application/json` | Compatibilité v1 historique et contrat v2 documenté |
 
-Les requêtes du client Rust ont les en-têtes `Authorization: Bearer <jeton>`, `User-Agent: HebergTonServ-Desktop/<version>`, `Content-Type: application/json` et `Accept` selon le contrat choisi. Le cookie d'exemple WISP des documentations **n'est pas un mécanisme d'authentification de l'application** : seuls les jetons Client API sont employés, et ils restent dans Windows Credential Manager.
+Les requêtes Client API utilisent `Authorization: Bearer <jeton>`, `User-Agent: HebergTonServ-Desktop/<version>`, `Content-Type: application/json` et le `Accept` détecté. La documentation WISP autorise aussi le cookie `wisp_session`, mais son endpoint API Login montre lui-même un en-tête `Authorization: Bearer APITOKEN`; il ne s'agit donc pas d'un bootstrap documenté par e-mail/mot de passe seul. L'application ne lit aucun cookie du navigateur et ne prétend pas créer une clé sans accès Client API préalable.
 
 La présence de **WISP Panel v2.10.x** dans un changelog ne prouve **pas** qu'un contrat `vnd.wisp.v2+json` existe. Ne pas activer cette option automatiquement. Elle doit être testée sur une instance dont la compatibilité est confirmée, sans exposer de jetons ni de cookies. Pterodactyl API 2.0 conserve le préfixe `/api/client` : **v2 n'est pas un segment de route**.
 
@@ -19,6 +18,8 @@ La présence de **WISP Panel v2.10.x** dans un changelog ne prouve **pas** qu'un
 
 | Fonction | WISP | Pterodactyl 1.x / 2.x | Code |
 | --- | --- | --- | --- |
+| Connexion avec e-mail/mot de passe | Le point de terminaison WISP Login est documenté avec un Bearer API existant; pas de bootstrap documenté sans jeton | L'API publique ne fournit pas d'échange identifiants → clé Client; connexion navigateur + clé Client API nécessaire (2FA/CAPTCHA inclus) | `commands/panels.rs`, `pages/WispLoginPage.tsx` |
+| Détection du fournisseur et du contrat | Détection WISP puis repli Pterodactyl v1 / JSON v2 sur erreurs de route/format; jamais sur 401/403 | Version mémorisée après réponse compte valide | `providers/http.rs`, `commands/panels.rs` |
 | Connexion par jeton, compte | Présent via `/api/client/auth/@me` | Présent via `/api/client/account` | `providers/http.rs`, `commands/panels.rs` |
 | Liste des serveurs avec pagination | Présent | Présent | `providers/http.rs` |
 | Statistiques des serveurs | Présent | Présent | `providers/http.rs` |
@@ -48,7 +49,7 @@ Racine : [API Client WISP](https://gamepanel.notion.site/Client-API-b76f787c2cbb
 | Compte / clés API | [Account](https://gamepanel.notion.site/Account-79d8bd9c92884be4ab6faeff86660881) | Partiel |
 | Liste serveurs / ressources / alimentation | [Servers](https://gamepanel.notion.site/Servers-2ec8bc84533d44db86d7cdae037c7d7a) | Liste et ressources |
 | Monitoring / mise à jour / réinstallation | [Advanced](https://gamepanel.notion.site/Advanced-4db1ce99142e47b2bcafdaf19365c6f9) | À faire |
-| Connexion | [Authentication](https://gamepanel.notion.site/Authentication-6a851a0788294a64b336164f3ac25054) | Bearer sans cookies |
+| Connexion | [Authentication](https://gamepanel.notion.site/Authentication-6a851a0788294a64b336164f3ac25054) | Login API documenté avec Bearer préexistant |
 | Admin | [Admin API](https://gamepanel.notion.site/Admin-API-8485ff969253496592ee0f289e9f525c) | À faire ; la page publique est un stub |
 | Allocations / Audit Logs | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
 | Backups / Databases / Database Host | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
@@ -67,7 +68,7 @@ Ne pas réutiliser l'exemple `wisp_session` figurant dans certaines anciennes pa
 - [API v1](https://docs.pterodactyl.io/v1/api) pour les panels 1.x et compatibilité historique.
 - Sous-utilisateurs Client : [v1 — List Users](https://docs.pterodactyl.io/v1/api/client-server-users/get-list-users) avec l’identifiant court; [v2 — List server subusers](https://docs.pterodactyl.io/v2/api/client-api/clientListServerSubusers) avec UUID complet. La route HTTP est similaire mais le paramètre d’identification diffère.
 - Permissions Client : [v1 — Show permissions](https://docs.pterodactyl.io/v1/api/client-general/get-show-permissions), [v2 — List server permissions](https://docs.pterodactyl.io/v2/api/client-api/clientListServerPermissions). Ce dernier renvoie la taxonomie des permissions disponibles, pas les permissions d’un sous-utilisateur.
-- [Authentification v2](https://docs.pterodactyl.io/v2/api/authentication/authLogin) : flux de session **distinct** de la clé Bearer Client ; pas utilisé par l'app.
+- [Authentification v2](https://docs.pterodactyl.io/v2/api/authentication/authLogin) : flux de session **distinct** de la clé Bearer Client; le mot de passe n'est pas transformé par l'API publique en clé Client. L'application guide vers le navigateur et détecte le contrat après validation de la clé.
 - [Clés API Client](https://docs.pterodactyl.io/v2/api/client-api/clientListAccountAPIKeys), [création](https://docs.pterodactyl.io/v2/api/client-api/clientCreateAccountAPIKey), [permissions](https://docs.pterodactyl.io/v2/api/client-api/clientListServerPermissions).
 - [Source de la documentation](https://github.com/pterodactyl/documentation) et [LLMS](https://docs.pterodactyl.io/llms.txt), [LLMS complet](https://docs.pterodactyl.io/llms-full.txt).
 
