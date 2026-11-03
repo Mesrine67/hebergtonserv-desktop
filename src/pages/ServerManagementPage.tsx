@@ -97,18 +97,21 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       {databases.isLoading && <p className="p-6 text-sm text-muted-foreground">Chargement des bases…</p>}
       {databases.isError && <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(databases.error)}</p>}
       {databases.data?.length ? <div className="divide-y">{databases.data.map(database => {
-        const revealed = revealedPasswords.includes(database.id);
-        const detail = (label: string, value?: string | null, secret = false) => <div className="min-w-0 rounded-lg border bg-background/50 p-3">
+        const detail = (label: string, value?: string | null, secret = false) => {
+          const secretId = `${database.id}:${label}`;
+          const revealed = revealedPasswords.includes(secretId);
+          return <div className="min-w-0 rounded-lg border bg-background/50 p-3">
           <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
           <dd className="mt-1 flex min-w-0 items-start gap-2">
             <span className="min-w-0 flex-1 break-all font-mono text-xs leading-5">{!value ? <span className="text-muted-foreground">Non exposé par l’API</span> : secret && !revealed ? "••••••••••••••••" : value}</span>
-            {secret && value && <button type="button" aria-label={revealed ? "Masquer le mot de passe" : "Afficher le mot de passe"} onClick={() => setRevealedPasswords(current => revealed ? current.filter(id => id !== database.id) : [...current, database.id])} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground">{revealed ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}</button>}
+            {secret && value && <button type="button" aria-label={`${revealed ? "Masquer" : "Afficher"} ${label.toLocaleLowerCase()}`} onClick={() => setRevealedPasswords(current => revealed ? current.filter(id => id !== secretId) : [...current, secretId])} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground">{revealed ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}</button>}
             {value && !secret && <button type="button" aria-label={`Copier ${label.toLocaleLowerCase()}`} onClick={() => void copyValue(value, label)} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"><Copy className="size-3.5"/></button>}
           </dd>
         </div>;
+        };
         return <article key={database.id} className="space-y-4 px-4 py-4 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-all font-semibold">{database.name}</p><p className="mt-1 break-all font-mono text-xs text-muted-foreground">ID · {database.id}</p></div>{database.phpmyadmin_url && <Button variant="outline" size="sm" asChild><a href={database.phpmyadmin_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 size-4"/>PHPMyAdmin</a></Button>}</div>
-          <dl className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">{detail("Utilisateur", database.username)}{detail("Mot de passe", database.password, true)}{detail("Connexion", database.host)}{detail("Connexions autorisées", database.connections_from)}{detail("Chaîne JDBC", database.jdbc_connection_string)}</dl>
+          <dl className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">{detail("Utilisateur", database.username)}{detail("Mot de passe", database.password, true)}{detail("Connexion", database.host)}{detail("Connexions autorisées", database.connections_from)}{detail("Chaîne JDBC", database.jdbc_connection_string, true)}</dl>
         </article>;
       })}</div> : databases.data && <div className="grid min-h-72 place-content-center px-5 text-center"><Database className="mx-auto mb-3 size-8 text-muted-foreground"/><p className="font-medium">Aucune base de données</p><p className="mt-1 text-sm text-muted-foreground">Les informations de quota restent liées à ce serveur.</p></div>}
       <p className="border-t px-5 py-3 text-xs text-muted-foreground">Les champs marqués « Non exposé par l’API » ne sont pas retournés par le panel. Création, suppression et rotation seront activées après validation du contrat WISP compatible.</p>
