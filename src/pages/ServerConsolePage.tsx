@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import WebSocket from "@tauri-apps/plugin-websocket";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { ArrowDown, ArrowLeft, Copy, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
 import { toast } from "sonner";
 import { AnsiLine, plainTerminalLine } from "@/lib/ansi-terminal";
@@ -144,7 +145,9 @@ export default function ServerConsolePage() {
 
   async function copyOutput() {
     try {
-      await navigator.clipboard.writeText(lines.map(plainTerminalLine).join("\n"));
+      const plain = lines.map(plainTerminalLine).join("\n");
+      if (isTauri()) await writeText(plain);
+      else await navigator.clipboard.writeText(plain);
       toast.success("Sortie de console copiée");
     } catch { toast.error("Copie indisponible sur cet appareil"); }
   }
