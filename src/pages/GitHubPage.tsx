@@ -48,6 +48,7 @@ export default function GitHubPage() {
       const selected = await open({ directory: true, multiple: false, title: "Sélectionner un dépôt Git local" });
       if (typeof selected !== "string") return;
       selectionVersion.current += 1;
+      setGithubLoading(false);
       setRoot(selected);
       setActivity(null);
       setGithubError("");
@@ -137,7 +138,9 @@ export default function GitHubPage() {
                 ? <p className="text-xs text-muted-foreground">Connectez gh avec <code>gh auth login</code>, puis rechargez. Aucun jeton n'est lu ni affiché par l'application.</p>
                 : <>
                   <GitHubList title="Pull requests" entries={activity.pull_requests} />
-                  <GitHubList title="Issues" entries={activity.issues} />
+                  {activity.issues_available
+                    ? <GitHubList title="Issues" entries={activity.issues} />
+                    : <p className="text-xs text-muted-foreground">Les issues sont désactivées pour ce dépôt GitHub.</p>}
                 </>}
             </div>}
             <p className="flex items-start gap-2 text-xs text-muted-foreground"><LockKeyhole className="mt-0.5 size-4 shrink-0" />

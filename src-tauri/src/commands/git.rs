@@ -37,6 +37,7 @@ pub struct GitHubActivity {
     pub authenticated: bool,
     pub pull_requests: Vec<GitHubEntry>,
     pub issues: Vec<GitHubEntry>,
+    pub issues_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -159,6 +160,10 @@ fn validate_github_entry(entry: GhEntry, pull_request: bool) -> Result<GitHubEnt
     })
 }
 
+fn issues_disabled(stderr: &[u8]) -> bool {
+    String::from_utf8_lossy(stderr).contains("has disabled issues")
+}
+
 async fn gh_output<T: for<'de> Deserialize<'de>>(args: &[&str]) -> Result<T> {
     let output = timeout(EXECUTION_LIMIT, async {
         Command::new("gh")
@@ -179,10 +184,22 @@ async fn gh_output<T: for<'de> Deserialize<'de>>(args: &[&str]) -> Result<T> {
         )
     })?
     .map_err(|_| app_error("gh_unavailable", "GitHub CLI gh est introuvable."))?;
-    if !output.status.success() || output.stdout.len() > OUTPUT_LIMIT {
+    if !output.status.success() {
+        if issues_disabled(&output.stderr) {
+            return Err(app_error(
+                "github_issues_disabled",
+                "Les issues sont désactivées pour ce dépôt GitHub.",
+            ));
+        }
         return Err(app_error(
             "github_query",
             "Impossible de lire les données GitHub du dépôt sélectionné.",
+        ));
+    }
+    if output.stdout.len() > OUTPUT_LIMIT {
+        return Err(app_error(
+            "github_query",
+            "La réponse GitHub dépasse la taille autorisée.",
         ));
     }
     serde_json::from_slice(&output.stdout).map_err(|_| {
@@ -232,6 +249,7 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
             authenticated: false,
             pull_requests: Vec::new(),
             issues: Vec::new(),
+            issues_available: false,
         });
     }
 
@@ -248,7 +266,7 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
         "number,title,state,url,updatedAt,headRefName,baseRefName",
     ])
     .await?;
-    let issues: Vec<GhEntry> = gh_output(&[
+    let issue_result: Result<Vec<GhEntry>> = gh_output(&[
         "issue",
         "list",
         "--repo",
@@ -260,7 +278,12 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
         "--json",
         "number,title,state,url,updatedAt,labels",
     ])
-    .await?;
+    .await;
+    let (issues, issues_available) = match issue_result {
+        Ok(issues) => (issues, true),
+        Err(error) if error.code() == "github_issues_disabled" => (Vec::new(), false),
+        Err(error) => return Err(error),
+    };
     Ok(GitHubActivity {
         repository,
         authenticated: true,
@@ -272,6 +295,7 @@ pub async fn get_github_activity(path: String) -> Result<GitHubActivity> {
             .into_iter()
             .map(|entry| validate_github_entry(entry, false))
             .collect::<Result<Vec<_>>>()?,
+        issues_available,
     })
 }
 
@@ -433,6 +457,14 @@ mod tests {
         }))
         .unwrap();
         assert!(validate_github_entry(entry, false).is_err());
+    }
+
+    #[test]
+    fn detects_issues_disabled_without_exposing_command_output() {
+        assert!(issues_disabled(
+            b"GraphQL: The acme/private repository has disabled issues (repository.issue)"
+        ));
+        assert!(!issues_disabled(b"authentication failed"));
     }
 
     #[test]

@@ -230,6 +230,7 @@ export interface GitHubActivity {
   authenticated: boolean;
   pull_requests: GitHubEntry[];
   issues: GitHubEntry[];
+  issues_available: boolean;
 }
 
 export const commands = {
