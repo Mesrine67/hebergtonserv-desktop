@@ -1,7 +1,7 @@
 use crate::errors::Result;
 use crate::providers::http::ApiClient;
 use crate::providers::models::{
-    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServerResources, PanelSshKey,
+    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServerResources, PanelSshKey, PanelSubuser,
 };
 use crate::providers::{Capability, PanelProvider, ProviderKind};
 use async_trait::async_trait;
@@ -35,6 +35,17 @@ pub struct ApiKeyCreateResponse {
 pub struct SshKeyListResponse {
     #[serde(default)]
     pub data: Vec<PanelSshKey>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubuserListResponse {
+    #[serde(default)]
+    pub data: Vec<SubuserResource>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubuserResource {
+    pub attributes: PanelSubuser,
 }
 
 impl PterodactylProvider {
@@ -268,6 +279,46 @@ impl PanelProvider for PterodactylProvider {
             }
         }
     }
+
+    async fn list_server_subusers(
+        &self,
+        identifier: &str,
+    ) -> Result<Capability<Vec<PanelSubuser>>> {
+        if identifier.is_empty()
+            || identifier.len() > 128
+            || !identifier
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(crate::errors::app_error(
+                "api_config",
+                "Identifiant serveur invalide.",
+            ));
+        }
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let result = client
+            .send_json::<SubuserListResponse>(
+                reqwest::Method::GET,
+                &format!("/api/client/servers/{identifier}/users"),
+                None,
+            )
+            .await;
+        match result {
+            Ok(response) => Ok(Capability::supported(
+                response
+                    .data
+                    .into_iter()
+                    .map(|item| item.attributes)
+                    .collect(),
+            )),
+            Err(error) if error.code() == "api_not_found" => Ok(Capability::unsupported(
+                "La gestion des sous-utilisateurs n’est pas exposée par cette version du panel.",
+                Some(self.help_url("")),
+                false,
+            )),
+            Err(error) => Err(error),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -290,5 +341,22 @@ mod compatibility_tests {
                 "application/vnd.pterodactyl.v1+json"
             );
         }
+    }
+
+    #[test]
+    fn parses_documented_subuser_response_with_permissions() {
+        let response: super::SubuserListResponse = serde_json::from_value(serde_json::json!({
+            "object": "list",
+            "data": [{"object": "server_subuser", "attributes": {
+                "uuid": "user-uuid", "identifier": "user_123", "username": "tester",
+                "email": "tester@example.test", "2fa_enabled": false,
+                "created_at": "2026-11-03T00:00:00Z", "permissions": ["websocket.connect", "control.console"]
+            }}]
+        })).unwrap();
+        let user = response.data.into_iter().next().unwrap().attributes;
+        assert_eq!(user.uuid, "user-uuid");
+        assert_eq!(user.identifier.as_deref(), Some("user_123"));
+        assert_eq!(user.two_factor_enabled, Some(false));
+        assert_eq!(user.permissions, ["websocket.connect", "control.console"]);
     }
 }

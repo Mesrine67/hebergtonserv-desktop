@@ -123,6 +123,24 @@ pub struct PanelSshKey {
     pub created_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PanelSubuser {
+    #[serde(alias = "id")]
+    pub uuid: String,
+    #[serde(default)]
+    pub identifier: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default, rename = "2fa_enabled")]
+    pub two_factor_enabled: Option<bool>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub permissions: Vec<String>,
+}
+
 impl PanelSshKey {
     pub fn new(name: String, public_key: String) -> Self {
         Self {

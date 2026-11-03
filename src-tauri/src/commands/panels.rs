@@ -470,6 +470,35 @@ pub async fn list_panel_servers(
 }
 
 #[tauri::command]
+pub async fn list_panel_server_subusers(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+) -> Result<crate::providers::Capability<Vec<crate::providers::models::PanelSubuser>>> {
+    if identifier.is_empty()
+        || identifier.len() > 128
+        || !identifier
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(app_error("api_config", "Identifiant serveur invalide."));
+    }
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let url = url::validate_panel_url(&panel.base_url, panel.allow_local)?;
+    url::verify_resolved_host(&url, panel.allow_local).await?;
+    provider_for(&panel)?
+        .list_server_subusers(&identifier)
+        .await
+}
+
+#[tauri::command]
 pub async fn get_panel_server_resources(
     state: tauri::State<'_, AppState>,
     id: String,

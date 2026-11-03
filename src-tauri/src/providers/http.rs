@@ -855,6 +855,18 @@ mod tests {
     }
 
     #[test]
+    fn keeps_wisp_validation_errors_per_server_without_auth_fallback() {
+        for status in [
+            reqwest::StatusCode::BAD_REQUEST,
+            reqwest::StatusCode::UNPROCESSABLE_ENTITY,
+        ] {
+            let code = http_error_code(status);
+            assert_eq!(code, "api_validation_error");
+            assert!(!fallback_to_pterodactyl(code));
+        }
+    }
+
+    #[test]
     fn parses_documented_wisp_account_envelope_and_name_fields() {
         let value: Value = serde_json::from_str(
             r#"{"user":{"object":"user","attributes":{"id":3,"email":"client@example.test","name_first":"Ada","name_last":"Lovelace","root_admin":true}}}"#,
