@@ -39,6 +39,7 @@ const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const PanelAccountPage = lazy(() => import("./pages/PanelAccountPage"));
 const PanelServersPage = lazy(() => import("./pages/PanelServersPage"));
 const ServerConsolePage = lazy(() => import("./pages/ServerConsolePage"));
+const ServerManagementPage = lazy(() => import("./pages/ServerManagementPage"));
 
 const queryClient = new QueryClient();
 
@@ -68,7 +69,7 @@ function Workspace() {
     document.getElementById("workspace-scroll")?.scrollTo({ top: 0 });
     recordAppEvent("navigation", "route_changed");
   }, [location.pathname]);
-  const current = routeLabels[location.pathname] ?? (location.pathname.startsWith("/panel/servers/") ? "Console serveur" : "Clés SSH");
+  const current = routeLabels[location.pathname] ?? (location.pathname.endsWith("/files") ? "Fichiers du serveur" : location.pathname.endsWith("/databases") ? "Bases de données du serveur" : location.pathname.startsWith("/panel/servers/") ? "Console serveur" : "Clés SSH");
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
@@ -80,7 +81,7 @@ function Workspace() {
       <AppSidebar />
       <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 overflow-hidden bg-background">
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
-          <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
+          <div className={`mx-auto w-full ${["/panel/servers", "/panel/account"].includes(location.pathname) ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <div key={location.pathname} className="hts-route-scene">
             <Suspense fallback={<p role="status" className="px-4 py-6 text-sm text-muted-foreground">Chargement de la page…</p>}>
             <Routes>
@@ -94,6 +95,8 @@ function Workspace() {
               <Route path="/panel/account" element={<PanelAccountPage />} />
               <Route path="/panel/servers" element={<PanelServersPage />} />
               <Route path="/panel/servers/:identifier" element={<ServerConsolePage />} />
+              <Route path="/panel/servers/:identifier/files" element={<ServerManagementPage section="files" />} />
+              <Route path="/panel/servers/:identifier/databases" element={<ServerManagementPage section="databases" />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/security" element={<SecurityPage />} />
               <Route path="/git" element={<GitHubPage />} />

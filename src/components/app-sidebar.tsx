@@ -1,5 +1,5 @@
 import {
-  GitBranch, House, KeyRound, ServerCog, Settings2,
+  GitBranch, KeyRound, ServerCog, Settings2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -67,7 +67,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="HébergTonServ Desktop">
               <Link to="/home">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-data-[collapsible=icon]:size-7"><House className="size-5" aria-hidden="true" /></span>
+                <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar group-data-[collapsible=icon]:size-7"><img src="/hebergtonserv-mark.png" alt="" className="size-full object-contain" /></span>
                 <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">HébergTonServ</span>
                   <span className="truncate text-xs text-sidebar-foreground/60">Desktop · Gestionnaire</span>

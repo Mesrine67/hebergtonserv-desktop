@@ -11,6 +11,11 @@ export function consoleRoute(panelId: string, serverIdentifier: string): string 
   return `/panel/servers/${encodeURIComponent(serverIdentifier)}?panel=${encodeURIComponent(panelId)}`;
 }
 
+export function serverSectionRoute(panelId: string, serverIdentifier: string, section: "console" | "files" | "databases"): string {
+  const suffix = section === "console" ? "" : `/${section}`;
+  return `${consoleRoute(panelId, serverIdentifier).split("?")[0]}${suffix}?panel=${encodeURIComponent(panelId)}`;
+}
+
 export function serverListRoute(panelId: string | null): string {
   return panelId ? `/panel/servers?panel=${encodeURIComponent(panelId)}` : "/panel/servers";
 }

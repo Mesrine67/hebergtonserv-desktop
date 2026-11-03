@@ -382,16 +382,19 @@ pub async fn check_panel(
     effective_panel.provider = detected_provider.to_string();
     let provider = provider_for(&effective_panel)?;
     let account = provider.account().await?;
-    let api_keys = provider.list_api_keys().await?;
-    let ssh_keys = provider.list_ssh_keys().await?;
+    // Key-management endpoints are optional in WISP-compatible panels. An
+    // unsupported or incompatible payload must not invalidate a verified
+    // Client API identity and server access.
+    let api_keys = provider.list_api_keys().await;
+    let ssh_keys = provider.list_ssh_keys().await;
     let result = PanelCheckResult {
         panel_id: panel.id.clone(),
         status: "ok".to_string(),
         message: format!("Compte vérifié : {}", account.display_name),
         provider: detected_provider.to_string(),
         account_label: Some(account.display_name.clone()),
-        api_keys_supported: api_keys.supported,
-        ssh_keys_supported: ssh_keys.supported,
+        api_keys_supported: api_keys.is_ok_and(|capability| capability.supported),
+        ssh_keys_supported: ssh_keys.is_ok_and(|capability| capability.supported),
     };
     let mut updated = document;
     if let Some(existing) = updated.data.panels.iter_mut().find(|panel| panel.id == id) {
@@ -495,6 +498,91 @@ pub async fn list_panel_server_subusers(
     url::verify_resolved_host(&url, panel.allow_local).await?;
     provider_for(&panel)?
         .list_server_subusers(&identifier)
+        .await
+}
+
+fn validate_server_path(identifier: &str, path: &str) -> Result<()> {
+    if identifier.is_empty()
+        || identifier.len() > 128
+        || !identifier
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        || path.len() > 2048
+        || !path.starts_with('/')
+        || path.contains('\\')
+        || path.split('/').any(|part| part == "..")
+    {
+        return Err(app_error(
+            "api_invalid_request",
+            "Chemin ou identifiant serveur invalide.",
+        ));
+    }
+    Ok(())
+}
+
+async fn server_provider(
+    state: &tauri::State<'_, AppState>,
+    id: &str,
+) -> Result<Box<dyn PanelProvider>> {
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .cloned()
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    provider_for(&panel)
+}
+
+#[tauri::command]
+pub async fn list_panel_server_files(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+    path: String,
+) -> Result<Vec<crate::providers::models::PanelFileEntry>> {
+    validate_server_path(&identifier, &path)?;
+    server_provider(&state, &id)
+        .await?
+        .list_server_files(&identifier, &path)
+        .await
+}
+
+#[tauri::command]
+pub async fn read_panel_server_file(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+    path: String,
+) -> Result<String> {
+    validate_server_path(&identifier, &path)?;
+    server_provider(&state, &id)
+        .await?
+        .read_server_file(&identifier, &path)
+        .await
+}
+
+#[tauri::command]
+pub async fn list_panel_server_databases(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+) -> Result<Vec<crate::providers::models::PanelDatabase>> {
+    if identifier.is_empty()
+        || identifier.len() > 128
+        || !identifier
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(app_error(
+            "api_invalid_request",
+            "Identifiant serveur invalide.",
+        ));
+    }
+    server_provider(&state, &id)
+        .await?
+        .list_server_databases(&identifier)
         .await
 }
 

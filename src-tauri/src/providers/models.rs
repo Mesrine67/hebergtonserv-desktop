@@ -84,6 +84,27 @@ pub struct PanelServerResources {
     pub connect_address: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PanelFileEntry {
+    pub name: String,
+    pub path: String,
+    pub kind: String,
+    pub size: Option<u64>,
+    pub modified_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PanelDatabase {
+    pub id: String,
+    pub name: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub host: Option<String>,
+    pub connections_from: Option<String>,
+    pub jdbc_connection_string: Option<String>,
+    pub phpmyadmin_url: Option<String>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PanelServerLimits {
     pub memory: Option<u64>,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consoleRoute, resolvePanel, serverListRoute } from "@/lib/panel-navigation";
+import { consoleRoute, resolvePanel, serverListRoute, serverSectionRoute } from "@/lib/panel-navigation";
 import type { PanelConfig } from "@/lib/tauri";
 
 const panels = [
@@ -21,5 +21,11 @@ describe("panel console routing", () => {
   it("encodes server and account identifiers in URLs", () => {
     expect(consoleRoute("a & b", "server/special")).toBe("/panel/servers/server%2Fspecial?panel=a%20%26%20b");
     expect(serverListRoute("a & b")).toBe("/panel/servers?panel=a%20%26%20b");
+  });
+
+  it("keeps console, files, and databases scoped to the selected panel and server", () => {
+    expect(serverSectionRoute("ptero-two", "server-abc", "files")).toBe("/panel/servers/server-abc/files?panel=ptero-two");
+    expect(serverSectionRoute("ptero-two", "server-abc", "databases")).toBe("/panel/servers/server-abc/databases?panel=ptero-two");
+    expect(serverSectionRoute("ptero-two", "server-abc", "console")).toBe(consoleRoute("ptero-two", "server-abc"));
   });
 });

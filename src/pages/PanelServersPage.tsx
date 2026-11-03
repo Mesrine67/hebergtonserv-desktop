@@ -1,27 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  CircleCheck,
-  CircleOff,
-  ExternalLink,
-  Cpu,
-  HardDrive,
-  MemoryStick,
-  RefreshCw,
-  Search,
-  Server,
-  Users,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleOff, ExternalLink, Cpu, Database, File, HardDrive, MemoryStick, RefreshCw, Search, Server, Users, } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, selectStyles } from "@/components/page-shell";
 import { errorMessage } from "@/lib/error-message";
 import { commands, type PanelCapability, type PanelServer, type PanelServerResources, type PanelSubuser } from "@/lib/tauri";
-import { consoleRoute, resolvePanel } from "@/lib/panel-navigation";
+import { consoleRoute, resolvePanel, serverSectionRoute } from "@/lib/panel-navigation";
 
 const PAGE_SIZE = 12;
 const RESOURCE_REFRESH_MS = 60_000;
@@ -36,15 +22,11 @@ function formatBytes(bytes?: number | null) {
 }
 
 function memoryBytes(server: PanelServer, resources?: PanelServerResources) {
-  return resources?.memory_limit_bytes ?? (server.limits.memory != null && server.limits.memory >= 0
-    ? server.limits.memory * 1024 * 1024
-    : undefined);
+  return resources?.memory_limit_bytes ?? (server.limits.memory != null && server.limits.memory >= 0 ? server.limits.memory * 1024 * 1024 : undefined);
 }
 
 function diskBytes(server: PanelServer, resources?: PanelServerResources) {
-  return resources?.disk_limit_bytes ?? (server.limits.disk != null && server.limits.disk >= 0
-    ? server.limits.disk * 1024 * 1024
-    : undefined);
+  return resources?.disk_limit_bytes ?? (server.limits.disk != null && server.limits.disk >= 0 ? server.limits.disk * 1024 * 1024 : undefined);
 }
 
 function usagePercent(used?: number | null, limit?: number | null) {
@@ -74,12 +56,7 @@ function stateLabel(state: string) {
   }
 }
 
-function Stat({
-  icon: Icon,
-  label,
-  value,
-  percent,
-}: {
+function Stat({icon: Icon, label, value, percent}: {
   icon: typeof Cpu;
   label: string;
   value: string;
@@ -111,32 +88,20 @@ function Stat({
   );
 }
 
-function ServerCard({
-  server,
-  resources: stats,
-  loading,
-  failed,
-  errorCode,
-  onOpenConsole,
-  panelId,
-  subuserIdentifier,
-}: {
+function ServerCard({server, resources: stats, loading, failed, errorCode, onOpenConsole, onOpenFiles, onOpenDatabases, panelId, subuserIdentifier}: {
   server: PanelServer;
   panelId: string;
   subuserIdentifier: string;
   onOpenConsole: () => void;
+  onOpenFiles: () => void;
+  onOpenDatabases: () => void;
   resources?: PanelServerResources;
   loading: boolean;
   failed: boolean;
   errorCode?: string;
 }) {
   const [subusersOpen, setSubusersOpen] = useState(false);
-  const subusers = useQuery({
-    queryKey: ["panel-server-subusers", panelId, subuserIdentifier],
-    queryFn: () => commands.listPanelServerSubusers(panelId, subuserIdentifier),
-    enabled: subusersOpen,
-    retry: 0,
-  });
+  const subusers = useQuery({queryKey: ["panel-server-subusers", panelId, subuserIdentifier], queryFn: () => commands.listPanelServerSubusers(panelId, subuserIdentifier), enabled: subusersOpen, retry: 0});
   const state = stateFor(server, stats);
   // The list endpoint can report a suspended server even when its resources endpoint rejects the request.
   const stateText = state === "suspended" ? stateLabel(state) : failed ? "API indisponible" : stateLabel(state);
@@ -148,13 +113,7 @@ function ServerCard({
   const diskPercent = usagePercent(stats?.disk_used_bytes, diskLimit);
   const address = stats?.connect_address ?? server.connect_address;
   const shortId = server.identifier || server.id.slice(0, 8);
-
-  const stateIcon = state === "online"
-    ? <CircleCheck className="size-4 text-emerald-500" aria-hidden="true" />
-    : state === "offline" || state === "suspended"
-      ? <CircleOff className="size-4 text-muted-foreground" aria-hidden="true" />
-      : <CircleAlert className="size-4 text-amber-500" aria-hidden="true" />;
-
+  const stateIcon = state === "online" ? <CircleCheck className="size-4 text-emerald-500" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff className="size-4 text-muted-foreground" aria-hidden="true" /> : <CircleAlert className="size-4 text-amber-500" aria-hidden="true" />;
   return (
     <article className="group overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/35">
       <div className="relative border-b bg-gradient-to-br from-primary/[0.09] via-card to-card px-4 py-4 sm:px-5">
@@ -179,6 +138,12 @@ function ServerCard({
         <button type="button" onClick={onOpenConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
           <ExternalLink className="size-3.5" aria-hidden="true" /> Ouvrir la console
         </button>
+        <button type="button" onClick={onOpenFiles} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Parcourir les fichiers du serveur ${server.name}`}>
+          <File className="size-3.5" aria-hidden="true" /> Fichiers
+        </button>
+        <button type="button" onClick={onOpenDatabases} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Voir les bases de données du serveur ${server.name}`}>
+          <Database className="size-3.5" aria-hidden="true" /> Bases
+        </button>
         <button type="button" onClick={() => setSubusersOpen(value => !value)} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-expanded={subusersOpen}>
           <Users className="size-3.5" aria-hidden="true" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}
         </button>
@@ -190,12 +155,8 @@ function ServerCard({
         )}
       </div>
       {subusersOpen && <div className="border-t px-4 py-3" aria-live="polite">
-        {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p>
-          : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p>
-          : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p>
-          : <SubuserList capability={subusers.data} />}
+        {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p> : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p> : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p> : <SubuserList capability={subusers.data} />}
       </div>}
-
       <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-4 sm:p-4">
         <Stat
           icon={Cpu}
@@ -249,14 +210,12 @@ function SubuserList({ capability }: { capability: PanelCapability<PanelSubuser[
     {users.map(user => <li key={user.uuid} className="rounded-lg bg-muted/45 px-3 py-2">
       <p className="truncate text-sm font-medium">{user.username || user.email || user.identifier || user.uuid}</p>
       {user.email && user.username && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
-      {user.permissions.length > 0
-        ? <details className="mt-1 text-xs text-muted-foreground">
+      {user.permissions.length > 0 ? <details className="mt-1 text-xs text-muted-foreground">
           <summary className="cursor-pointer">{user.permissions.length} permissions</summary>
           <ul className="mt-1 max-h-32 list-inside list-disc overflow-auto pl-1">
             {user.permissions.map(permission => <li key={permission} className="break-all">{permission}</li>)}
           </ul>
-        </details>
-        : <p className="mt-1 text-xs text-muted-foreground">Aucune permission communiquée par le panel.</p>}
+        </details> : <p className="mt-1 text-xs text-muted-foreground">Aucune permission communiquée par le panel.</p>}
     </li>)}
   </ul>;
 }
@@ -268,12 +227,7 @@ export default function PanelServersPage() {
   const [page, setPage] = useState(1);
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const panel = resolvePanel(panels.data, searchParams.get("panel"));
-  const servers = useQuery({
-    queryKey: ["panel-servers", panel?.id],
-    queryFn: () => commands.listPanelServers(panel!.id),
-    enabled: Boolean(panel),
-  });
-
+  const servers = useQuery({queryKey: ["panel-servers", panel?.id], queryFn: () => commands.listPanelServers(panel!.id), enabled: Boolean(panel)});
   const matchingServers = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase();
     return (servers.data ?? []).filter((server) => {
@@ -281,24 +235,12 @@ export default function PanelServersPage() {
       return matchesSearch;
     });
   }, [search, servers.data]);
-
   const pageCount = Math.max(1, Math.ceil(matchingServers.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const visibleServers = matchingServers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const isPterodactyl2 = panel?.provider.toLowerCase() === "pterodactyl" &&
-    /^v?2(\.|$)/.test(panel.pterodactyl_version);
-  const resourceRequests = visibleServers.map(server => ({
-    key: server.id,
-    identifier: isPterodactyl2 ? server.id : server.identifier,
-  }));
-  const resourcesQuery = useQuery({
-    queryKey: ["panel-server-resources-batch", panel?.id, resourceRequests.map(x=>x.identifier).join(",")],
-    queryFn: () => commands.getPanelResourcesBatch(panel!.id, resourceRequests),
-    enabled: Boolean(panel && resourceRequests.length),
-    staleTime: RESOURCE_REFRESH_MS,
-    refetchInterval: RESOURCE_REFRESH_MS,
-    retry: 0,
-  });
+  const isPterodactyl2 = panel?.provider.toLowerCase() === "pterodactyl" && /^v?2(\.|$)/.test(panel.pterodactyl_version);
+  const resourceRequests = visibleServers.map(server => ({key: server.id, identifier: isPterodactyl2 ? server.id : server.identifier}));
+  const resourcesQuery = useQuery({queryKey: ["panel-server-resources-batch", panel?.id, resourceRequests.map(x=>x.identifier).join(",")], queryFn: () => commands.getPanelResourcesBatch(panel!.id, resourceRequests), enabled: Boolean(panel && resourceRequests.length), staleTime: RESOURCE_REFRESH_MS, refetchInterval: RESOURCE_REFRESH_MS, retry: 0});
   const resourcesByKey = new Map((resourcesQuery.data ?? []).map(item=>[item.key,item]));
   const observedStates = (resourcesQuery.data ?? []).filter(item => item.resources?.state).length;
   const liveOnlineCount = (resourcesQuery.data ?? []).filter(item => item.resources?.state && ["running","online","started"].includes(item.resources.state.toLowerCase())).length;
@@ -308,20 +250,26 @@ export default function PanelServersPage() {
     await servers.refetch();
     await resourcesQuery.refetch();
   };
-
   return (
     <div className="flex flex-col gap-3">
       {!panel ? (
         <EmptyState message="Aucun panel configuré. Ajoutez un panel puis connectez-vous." />
       ) : (
-        <section className="overflow-hidden rounded-xl border bg-card">
-          <div className="border-b px-4 py-4 sm:px-5">
+        <section className="space-y-3">
+          <div className="rounded-xl border bg-card/45 px-4 py-3 sm:px-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Infrastructure · Client API</p>
-                <h1 className="mt-1 text-xl font-semibold tracking-tight">Mes serveurs</h1>
-                <p className="mt-1 text-xs text-muted-foreground">État et ressources de vos serveurs WISP et Pterodactyl.</p>
-              </div>
+              {servers.data && servers.data.length > 0 && (
+                <div className="relative w-full sm:max-w-sm">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    className="pl-9"
+                    value={search}
+                    onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+                    placeholder="Rechercher un serveur…"
+                    aria-label="Rechercher un serveur"
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 {(panels.data?.length ?? 0) > 1 && (
                   <select className={selectStyles} aria-label="Choisir un panel" value={panel?.id ?? ""}
@@ -351,35 +299,23 @@ export default function PanelServersPage() {
                 </p>
               </div>
             </div>
-            {servers.data && servers.data.length > 0 && (
-              <div className="relative w-full sm:max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  className="pl-9"
-                  value={search}
-                  onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-                  placeholder="Rechercher un serveur…"
-                  aria-label="Rechercher un serveur"
-                />
-              </div>
-            )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
             <p className="text-xs text-muted-foreground">Ressources actualisées automatiquement chaque minute</p>
             <p className="text-xs text-muted-foreground" aria-live="polite">
               {servers.data ? `${matchingServers.length} résultat${matchingServers.length > 1 ? "s" : ""}` : "Lecture de la liste du panel…"}
             </p>
           </div>
 
-          <div className="p-4 sm:p-5">
+          <div className="px-0.5 py-1">
             {servers.isPending ? (
               <p className="py-12 text-center text-sm text-muted-foreground">Chargement des serveurs depuis le panel…</p>
             ) : servers.isError ? (
               <div role="alert" className="flex flex-col items-center gap-3 py-12 text-center">
                 <CircleAlert className="size-8 text-destructive" aria-hidden="true" />
-                <p className="text-sm text-destructive">{String(servers.error)}</p>
+                <p className="text-sm text-destructive">{errorMessage(servers.error)}</p>
                 <Button variant="outline" onClick={() => void servers.refetch()}>Réessayer</Button>
               </div>
             ) : matchingServers.length === 0 ? (
@@ -393,6 +329,8 @@ export default function PanelServersPage() {
                     subuserIdentifier={isPterodactyl2 ? server.id : server.identifier}
                     server={server}
                     onOpenConsole={() => { if (panel) navigate(consoleRoute(panel.id, server.identifier)); }}
+                    onOpenFiles={() => { if (panel) navigate(serverSectionRoute(panel.id, server.identifier, "files")); }}
+                    onOpenDatabases={() => { if (panel) navigate(serverSectionRoute(panel.id, server.identifier, "databases")); }}
                     resources={resourcesByKey.get(server.id)?.resources ?? undefined}
                     loading={loadingResources}
                     failed={Boolean(resourcesByKey.get(server.id)?.error_code || resourcesQuery.isError)}
@@ -404,7 +342,7 @@ export default function PanelServersPage() {
           </div>
 
           {matchingServers.length > PAGE_SIZE && (
-            <nav className="flex items-center justify-between gap-3 border-t px-4 py-3 sm:px-5" aria-label="Pages de serveurs">
+            <nav className="flex items-center justify-between gap-3 border-t pt-3" aria-label="Pages de serveurs">
               <p className="text-xs text-muted-foreground">
                 {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, matchingServers.length)} sur {matchingServers.length}
               </p>

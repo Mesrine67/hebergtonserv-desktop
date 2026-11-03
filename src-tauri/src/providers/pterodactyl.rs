@@ -1,7 +1,8 @@
 use crate::errors::Result;
 use crate::providers::http::ApiClient;
 use crate::providers::models::{
-    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServerResources, PanelSshKey, PanelSubuser,
+    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelDatabase, PanelFileEntry,
+    PanelServerResources, PanelSshKey, PanelSubuser,
 };
 use crate::providers::{Capability, PanelProvider, ProviderKind};
 use async_trait::async_trait;
@@ -113,6 +114,138 @@ impl PanelProvider for PterodactylProvider {
         ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?
             .get_server_resources(self.accept(), identifier)
             .await
+    }
+
+    async fn list_server_files(&self, identifier: &str, path: &str) -> Result<Vec<PanelFileEntry>> {
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("directory", path)
+            .finish();
+        let response = client
+            .send_json::<Value>(
+                reqwest::Method::GET,
+                &format!("/api/client/servers/{identifier}/files/list?{query}"),
+                None,
+            )
+            .await?;
+        let rows = response
+            .get("data")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                crate::errors::app_error(
+                    "api_invalid_response",
+                    "Liste de fichiers Pterodactyl invalide.",
+                )
+            })?;
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let attrs = row.get("attributes").unwrap_or(row);
+                let name = attrs.get("name")?.as_str()?.to_string();
+                let kind = if attrs.get("is_file").and_then(Value::as_bool) == Some(false) {
+                    "directory"
+                } else {
+                    "file"
+                }
+                .to_string();
+                let child_path = if path == "/" {
+                    format!("/{name}")
+                } else {
+                    format!("{}/{name}", path.trim_end_matches('/'))
+                };
+                Some(PanelFileEntry {
+                    name,
+                    path: child_path,
+                    kind,
+                    size: attrs.get("size").and_then(Value::as_u64),
+                    modified_at: attrs
+                        .get("modified_at")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                })
+            })
+            .collect())
+    }
+
+    async fn read_server_file(&self, identifier: &str, path: &str) -> Result<String> {
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("file", path)
+            .finish();
+        let response = client
+            .send_json::<Value>(
+                reqwest::Method::GET,
+                &format!("/api/client/servers/{identifier}/files/contents?{query}"),
+                None,
+            )
+            .await?;
+        response
+            .as_str()
+            .map(str::to_string)
+            .or_else(|| {
+                response
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .ok_or_else(|| {
+                crate::errors::app_error(
+                    "api_invalid_response",
+                    "Contenu de fichier Pterodactyl invalide.",
+                )
+            })
+    }
+
+    async fn list_server_databases(&self, identifier: &str) -> Result<Vec<PanelDatabase>> {
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let response = client
+            .send_json::<Value>(
+                reqwest::Method::GET,
+                &format!("/api/client/servers/{identifier}/databases"),
+                None,
+            )
+            .await?;
+        let rows = response
+            .get("data")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                crate::errors::app_error(
+                    "api_invalid_response",
+                    "Liste de bases Pterodactyl invalide.",
+                )
+            })?;
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let attrs = row.get("attributes").unwrap_or(row);
+                let id = attrs
+                    .get("id")?
+                    .as_str()
+                    .map(str::to_string)
+                    .or_else(|| attrs.get("id")?.as_u64().map(|v| v.to_string()))?;
+                Some(PanelDatabase {
+                    id,
+                    name: attrs.get("name")?.as_str()?.to_string(),
+                    username: attrs
+                        .get("username")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    password: None,
+                    host: attrs.get("host").and_then(|v| {
+                        v.get("address")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                            .or_else(|| v.as_str().map(str::to_string))
+                    }),
+                    connections_from: attrs
+                        .get("connections_from")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    jdbc_connection_string: None,
+                    phpmyadmin_url: None,
+                })
+            })
+            .collect())
     }
 
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>> {
