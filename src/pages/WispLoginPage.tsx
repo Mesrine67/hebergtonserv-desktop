@@ -45,7 +45,7 @@ export default function WispLoginPage({ onAuthenticated }: Props) {
           <label className="block space-y-2 text-sm font-medium" htmlFor="panel-token">Clé Client API
             <Input id="panel-token" type="password" className="h-10 font-mono" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Collez la clé du panel" autoComplete="off" required />
           </label>
-          <div className="flex gap-2 rounded-lg border border-border bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>L’API Client WISP exige une clé Bearer, y compris pour son endpoint de connexion. L’application ne peut donc pas créer le premier accès avec le mot de passe seul. La clé ne sera ni affichée ni enregistrée dans un fichier JSON.</span></div>
+          <div className="flex gap-2 rounded-lg border border-border bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>La connexion par clé Client API est disponible. La connexion par e-mail et mot de passe reste en cours de validation. La clé est conservée dans le coffre Windows.</span></div>
           {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
           <Button className="h-10 w-full" type="submit" disabled={busy || !baseUrl.trim() || !token.trim()}>{busy ? <><LoaderCircle className="mr-2 size-4 animate-spin" />Détection et vérification…</> : "Enregistrer et vérifier"}</Button>
         </form>
