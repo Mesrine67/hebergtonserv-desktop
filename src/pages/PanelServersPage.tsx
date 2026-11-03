@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleOff, ExternalLink, Cpu, Database, File, HardDrive, MemoryStick, RefreshCw, Search, Server, Users, } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleOff, ExternalLink, Cpu, Database, File, HardDrive, MemoryStick, MoreHorizontal, RefreshCw, Search, Server, Users, } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/page-shell";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -166,15 +167,16 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
         <button type="button" onClick={onOpenConsole} className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Ouvrir la console du serveur ${server.name}`}>
           <ExternalLink className="size-3.5" aria-hidden="true" /> Ouvrir la console
         </button>
-        <button type="button" onClick={onOpenFiles} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Parcourir les fichiers du serveur ${server.name}`}>
-          <File className="size-3.5" aria-hidden="true" /> Fichiers
-        </button>
-        <button type="button" onClick={onOpenDatabases} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`Voir les bases de données du serveur ${server.name}`}>
-          <Database className="size-3.5" aria-hidden="true" /> Bases
-        </button>
-        <button type="button" onClick={() => setSubusersOpen(value => !value)} className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-expanded={subusersOpen}>
-          <Users className="size-3.5" aria-hidden="true" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="icon" className="ml-2 mt-3 size-8" aria-label={`Options du serveur ${server.name}`}><MoreHorizontal className="size-4" /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onSelect={onOpenFiles}><File className="size-4" /> Fichiers</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onOpenDatabases}><Database className="size-4" /> Bases de données</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setSubusersOpen(value => !value)}><Users className="size-4" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {server.egg && (
           <div className="mt-3 flex items-center gap-2 pl-[52px] text-xs text-muted-foreground">
             <span className="max-w-full truncate rounded-md border bg-background/60 px-2 py-1">{server.egg}</span>
