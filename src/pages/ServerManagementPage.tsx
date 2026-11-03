@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownAZ, ArrowLeft, ChevronRight, Copy, Database, Eye, EyeOff, ExternalLink, File, RefreshCw, Search, TerminalSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PanelFileTree } from "@/components/panel-file-tree";
@@ -32,7 +32,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   const [selected, setSelected] = useState<string | null>(null);
   const [fileFilter, setFileFilter] = useState("");
   const [showHidden, setShowHidden] = useState(false);
-  const files = useQuery({ queryKey: ["panel-server-files", panel?.id, requestId, path], queryFn: () => commands.listPanelServerFiles(panel!.id, requestId, path), enabled: Boolean(panel && requestId && section === "files"), staleTime: 15_000 });
+  const filesFetching = useIsFetching({ queryKey: ["panel-server-files", panel?.id, requestId] }) > 0;
   const content = useQuery({ queryKey: ["panel-server-file", panel?.id, requestId, selected], queryFn: () => commands.readPanelServerFile(panel!.id, requestId, selected!), enabled: Boolean(panel && requestId && selected && section === "files"), staleTime: 0 });
   const databases = useQuery({ queryKey: ["panel-server-databases", panel?.id, requestId], queryFn: () => commands.listPanelServerDatabases(panel!.id, requestId), enabled: Boolean(panel && requestId && section === "databases"), staleTime: 15_000 });
   const breadcrumbs = useMemo(() => path.split("/").filter(Boolean), [path]);
@@ -50,7 +50,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     <header className="flex flex-wrap items-center gap-3">
       <Button variant="ghost" size="icon" asChild><Link to={serverListRoute(requestedPanel ?? panel?.id ?? null)} aria-label="Retour aux serveurs"><ArrowLeft /></Link></Button>
       <div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wide text-muted-foreground">{panel?.name ?? "Panel"} · {server?.name ?? "Serveur"}</p><h1 className="text-2xl font-semibold">{title}</h1></div>
-      {section === "files" && <Button variant="outline" size="sm" onClick={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })} disabled={files.isFetching}><RefreshCw className={`mr-2 size-4 ${files.isFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
+      {section === "files" && <Button variant="outline" size="sm" onClick={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })} disabled={filesFetching}><RefreshCw className={`mr-2 size-4 ${filesFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
       {section === "databases" && <Button variant="outline" size="sm" onClick={() => void databases.refetch()} disabled={databases.isFetching}><RefreshCw className={`mr-2 size-4 ${databases.isFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
     </header>
 
