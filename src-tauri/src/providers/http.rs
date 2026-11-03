@@ -110,7 +110,11 @@ fn server_connect_address(attrs: &Value) -> Option<String> {
         .find(|allocation| {
             allocation
                 .get("attributes")
-                .and_then(|attributes| attributes.get("is_default"))
+                .and_then(|attributes| {
+                    attributes
+                        .get("is_default")
+                        .or_else(|| attributes.get("primary"))
+                })
                 .and_then(Value::as_bool)
                 == Some(true)
         })
@@ -716,18 +720,30 @@ impl ApiClient {
         let mut servers = Vec::new();
         for page in 1..=MAX_PAGES {
             let path = match provider {
-                // WISP documents the base list and page/per_page parameters.
-                // Includes are optional and not implemented by every compatible
-                // panel, so keep the list request on the documented baseline.
-                "wisp" => format!("/api/client/servers?per_page={PAGE_SIZE}&page={page}"),
+                // Includes expose the address, node and software on compatible panels.
+                "wisp" => format!(
+                    "/api/client/servers?per_page={PAGE_SIZE}&page={page}&include=allocations,node,egg"
+                ),
                 "pterodactyl" => {
                     format!("/api/client?per_page={PAGE_SIZE}&page={page}&include=egg")
                 }
                 _ => return Err(app_error("api_config", "Fournisseur de panel inconnu.")),
             };
-            let response = client
+            let response = match client
                 .send_json::<Value>(reqwest::Method::GET, &path, None)
-                .await?;
+                .await
+            {
+                Ok(response) => response,
+                // Some WISP-compatible panels reject optional includes. Retry only a
+                // read on a validation error; never retry authentication failures.
+                Err(error) if provider == "wisp" && error.code() == "api_validation_error" => {
+                    let baseline = format!("/api/client/servers?per_page={PAGE_SIZE}&page={page}");
+                    client
+                        .send_json::<Value>(reqwest::Method::GET, &baseline, None)
+                        .await?
+                }
+                Err(error) => return Err(error),
+            };
             let data = response
                 .get("data")
                 .and_then(Value::as_array)
@@ -1048,12 +1064,18 @@ mod tests {
     }
 
     #[test]
-    fn wisp_server_list_uses_documented_pagination_without_optional_includes() {
-        let path = format!("/api/client/servers?per_page={}&page=1", 25);
-        assert!(path.starts_with("/api/client/servers?"));
-        assert!(path.contains("per_page=25"));
-        assert!(path.contains("page=1"));
-        assert!(!path.contains("include="));
+    fn wisp_allocation_primary_is_selected() {
+        let server = serde_json::json!({
+            "uuid": "uuid-123", "uuid_short": "abcd1234", "name": "server",
+            "relationships": {"allocations": {"data": [
+                {"attributes": {"primary": false, "ip": "192.0.2.1", "port": 1111}},
+                {"attributes": {"primary": true, "ip": "192.0.2.2", "port": 2222}}
+            ]}}
+        });
+        assert_eq!(
+            parse_server(server).unwrap().connect_address.as_deref(),
+            Some("192.0.2.2:2222")
+        );
     }
 
     #[test]
