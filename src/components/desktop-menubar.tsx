@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/menubar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWorkspaceNavigation } from "@/lib/workspace-navigation";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 
 export function DesktopMenubar() {
   const navigate = useNavigate();
@@ -68,7 +68,7 @@ export function DesktopMenubar() {
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-shortcuts"))}><Command /> Afficher les raccourcis clavier <MenubarShortcut>Ctrl+/</MenubarShortcut></MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-api-journal"))}><ScrollText /> Journal des API</MenubarItem>
             <MenubarSeparator />
-            <MenubarItem disabled={!isTauri()} onSelect={() => { void invoke("open_task_manager").catch(console.error); }}><ListTree /> Gestionnaire de tâches</MenubarItem>
+            <MenubarItem disabled={!isTauri()} onSelect={() => window.dispatchEvent(new Event("hts:open-task-manager"))}><ListTree /> Gestionnaire de tâches</MenubarItem>
             <MenubarSeparator />
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:check-for-updates"))}><RefreshCw /> Rechercher des mises à jour</MenubarItem>
             <MenubarItem onSelect={() => navigate("/security")}><ShieldCheck /> Sécurité</MenubarItem>

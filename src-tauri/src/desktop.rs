@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Serialize)]
 pub struct ReleaseInfo {
@@ -87,40 +87,62 @@ fn csv_fields(line: &str) -> Vec<String> {
 
 /// Read-only process overview. No arbitrary program termination is exposed.
 #[tauri::command]
-pub fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
+pub async fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        let output = std::process::Command::new("tasklist.exe")
-            .args(["/FO", "CSV", "/NH"])
-            .creation_flags(0x08000000)
-            .output()
-            .map_err(|e| format!("Lecture des processus Windows impossible : {e}"))?;
-        if !output.status.success() {
-            return Err("Windows n'a pas pu fournir la liste des processus.".into());
-        }
-        let mut tasks = Vec::new();
-        for line in String::from_utf8_lossy(&output.stdout).lines() {
-            let fields = csv_fields(line);
-            if fields.len() < 5 {
-                continue;
+        let task = tauri::async_runtime::spawn_blocking(|| {
+            use std::os::windows::process::CommandExt;
+            let output = std::process::Command::new("tasklist.exe")
+                .args(["/FO", "CSV", "/NH"])
+                .creation_flags(0x08000000)
+                .output()
+                .map_err(|e| format!("Lecture des processus Windows impossible : {e}"))?;
+            if !output.status.success() {
+                return Err("Windows n'a pas pu fournir la liste des processus.".into());
             }
-            if let Ok(pid) = fields[1].trim().parse::<u32>() {
-                let memory_kib = fields[4]
-                    .chars()
-                    .filter(|c| c.is_ascii_digit())
-                    .collect::<String>()
-                    .parse()
-                    .unwrap_or(0);
-                tasks.push(DesktopTask {
-                    name: fields[0].clone(),
-                    pid,
-                    memory_kib,
-                });
+            let mut tasks = Vec::new();
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let fields = csv_fields(line);
+                if fields.len() < 5 {
+                    continue;
+                }
+                if let Ok(pid) = fields[1].trim().parse::<u32>() {
+                    let memory_kib = fields[4]
+                        .chars()
+                        .filter(|c| c.is_ascii_digit())
+                        .collect::<String>()
+                        .parse()
+                        .unwrap_or(0);
+                    tasks.push(DesktopTask {
+                        name: fields[0].clone(),
+                        pid,
+                        memory_kib,
+                    });
+                }
             }
+            tasks.sort_by_key(|task| std::cmp::Reverse(task.memory_kib));
+            Ok::<Vec<DesktopTask>, String>(tasks)
+        });
+        let result = tokio::time::timeout(std::time::Duration::from_secs(8), task)
+            .await
+            .map_err(|_| "Lecture des processus Windows trop longue (8 s).".to_string())?
+            .map_err(|_| "Lecture des processus Windows interrompue.".to_string())?;
+        if result.is_ok() {
+            crate::diagnostics::record(
+                "info",
+                "windows_tasks",
+                "snapshot_ok",
+                "Liste des processus Windows récupérée",
+            );
+        } else {
+            crate::diagnostics::record(
+                "warning",
+                "windows_tasks",
+                "snapshot_failed",
+                "Lecture de la liste des processus impossible",
+            );
         }
-        tasks.sort_by_key(|task| std::cmp::Reverse(task.memory_kib));
-        Ok(tasks)
+        result
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -130,25 +152,12 @@ pub fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
 
 #[tauri::command]
 pub fn open_task_manager(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("task-manager") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-        return Ok(());
-    }
-    tauri::WebviewWindowBuilder::new(
-        &app,
-        "task-manager",
-        tauri::WebviewUrl::App("index.html?view=tasks".into()),
-    )
-    .title("Gestionnaire de tâches — HébergTonServ")
-    .inner_size(980.0, 630.0)
-    .min_inner_size(710.0, 470.0)
-    .resizable(true)
-    .decorations(false)
-    .center()
-    .build()
-    .map_err(|e| format!("Ouverture du gestionnaire de tâches impossible : {e}"))?;
-    Ok(())
+    // Reuse the existing main WebView instead of spawning an intermittently
+    // blank second WebView2 window. Keep the command for existing callers.
+    app.get_webview_window("main")
+        .ok_or_else(|| "Fenêtre principale introuvable".to_string())?
+        .emit("hts:open-task-manager", ())
+        .map_err(|_| "Ouverture du gestionnaire impossible.".to_string())
 }
 
 /// Show the main window only after the initial React frame is rendered.

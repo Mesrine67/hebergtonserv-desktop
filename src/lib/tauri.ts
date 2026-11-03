@@ -1,4 +1,24 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as nativeInvoke } from "@tauri-apps/api/core";
+
+/**
+ * Instrument every typed Desktop command without serializing arguments, API
+ * credentials, response bodies or exceptions into the diagnostic journal.
+ */
+async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  const started = performance.now();
+  const report = (outcome: "ok" | "error") => {
+    const durationMs = Math.min(60000, Math.max(0, Math.round(performance.now() - started)));
+    void nativeInvoke("record_command_event", { operation: command, outcome, durationMs }).catch(() => undefined);
+  };
+  try {
+    const result = await nativeInvoke<T>(command, args);
+    report("ok");
+    return result;
+  } catch (reason) {
+    report("error");
+    throw reason;
+  }
+}
 
 export interface SshKeySummary {
   id: string;

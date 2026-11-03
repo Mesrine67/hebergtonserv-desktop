@@ -9,6 +9,21 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(process.cwd(), "./src") } },
+  // Vite 8 / Rolldown: separate stable framework dependencies from the app.
+  // This is real code splitting, not an increased warning threshold.
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: "react-runtime", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: "radix-ui", test: /node_modules[\\/](@radix-ui|radix-ui)[\\/]/ },
+            { name: "tauri-runtime", test: /node_modules[\\/]@tauri-apps[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
