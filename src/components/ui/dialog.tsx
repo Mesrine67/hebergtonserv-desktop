@@ -15,9 +15,9 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
 function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return <DialogPrimitive.Description data-slot="dialog-description" className={cn("text-sm text-muted-foreground", className)} {...props} />
 }
-function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+function DialogContent({ className, overlayClassName, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content> & { overlayClassName?: string }) {
   return <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay data-slot="dialog-overlay" className="fixed inset-0 z-[10024] bg-black/65 data-[state=open]:animate-in data-[state=closed]:animate-out" />
+    <DialogPrimitive.Overlay data-slot="dialog-overlay" className={cn("fixed inset-0 z-[10024] bg-black/65 data-[state=open]:animate-in data-[state=closed]:animate-out", overlayClassName)} />
     <DialogPrimitive.Content data-slot="dialog-content" className={cn("fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-lg", className)} {...props}>
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring" aria-label="Fermer">
