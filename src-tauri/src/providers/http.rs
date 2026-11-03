@@ -129,7 +129,7 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
     let attrs = value.get("attributes").unwrap_or(&value);
     // Wisp uses status/proc/query; Pterodactyl uses attributes.current_state/resources.
     // An unknown successful payload must not silently become an all-empty "unknown" card.
-    let is_wisp = ["proc", "status", "query"]
+    let is_wisp = ["proc", "process", "status", "query"]
         .iter()
         .any(|key| attrs.get(key).is_some());
     let is_pterodactyl = ["current_state", "resources", "is_suspended"]
@@ -142,6 +142,7 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
         ));
     }
     let proc = attrs.get("proc").unwrap_or(&Value::Null);
+    let process = attrs.get("process").unwrap_or(&Value::Null);
     let memory = proc.get("memory").unwrap_or(&Value::Null);
     let cpu = proc.get("cpu").unwrap_or(&Value::Null);
     let disk = proc.get("disk").unwrap_or(&Value::Null);
@@ -185,17 +186,29 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
             )
         });
     let interfaces = proc.get("network").and_then(Value::as_object);
-    let network_rx = interfaces.and_then(|interfaces| {
-        interfaces
-            .values()
-            .filter_map(|iface| value_u64(iface, &["rx_bytes"]))
-            .reduce(u64::saturating_add)
+    let network_rx = value_u64(
+        process.get("network").unwrap_or(&Value::Null),
+        &["rx_bytes"],
+    )
+    .or_else(|| {
+        interfaces.and_then(|interfaces| {
+            interfaces
+                .values()
+                .filter_map(|iface| value_u64(iface, &["rx_bytes"]))
+                .reduce(u64::saturating_add)
+        })
     });
-    let network_tx = interfaces.and_then(|interfaces| {
-        interfaces
-            .values()
-            .filter_map(|iface| value_u64(iface, &["tx_bytes"]))
-            .reduce(u64::saturating_add)
+    let network_tx = value_u64(
+        process.get("network").unwrap_or(&Value::Null),
+        &["tx_bytes"],
+    )
+    .or_else(|| {
+        interfaces.and_then(|interfaces| {
+            interfaces
+                .values()
+                .filter_map(|iface| value_u64(iface, &["tx_bytes"]))
+                .reduce(u64::saturating_add)
+        })
     });
     let connect_address = server_string(query, &["connect"]).or_else(|| {
         let host = server_string(query, &["hostip", "ip"])?;
@@ -211,13 +224,16 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
             .and_then(Value::as_bool)
             .unwrap_or(false),
         memory_used_bytes: value_u64(resources, &["memory_bytes"])
-            .or_else(|| value_u64(memory, &["total", "used"])),
+            .or_else(|| value_u64(memory, &["total", "used"]))
+            .or_else(|| value_u64(process, &["memory_used"])),
         memory_limit_bytes: value_u64(memory, &["limit"]),
         cpu_percent: value_f64(resources, &["cpu_absolute"])
-            .or_else(|| value_f64(cpu, &["total", "used"])),
+            .or_else(|| value_f64(cpu, &["total", "used"]))
+            .or_else(|| value_f64(process, &["cpu_used"])),
         cpu_limit_percent: value_f64(cpu, &["limit"]),
         disk_used_bytes: value_u64(resources, &["disk_bytes"])
-            .or_else(|| value_u64(disk, &["used", "total"])),
+            .or_else(|| value_u64(disk, &["used", "total"]))
+            .or_else(|| value_u64(process, &["disk_used"])),
         disk_limit_bytes: value_u64(resources, &["disk_limit_bytes"]).or_else(|| {
             value_u64(disk, &["limit"]).map(|limit_mib| limit_mib.saturating_mul(1024 * 1024))
         }),
@@ -1061,6 +1077,21 @@ mod tests {
         let parsed = parse_server(pterodactyl).unwrap();
         assert_eq!(parsed.identifier, "def456");
         assert_eq!(parsed.node.as_deref(), Some("node-2"));
+    }
+
+    #[test]
+    fn parses_current_wisp_process_resource_shape() {
+        let value = serde_json::json!({
+            "status": "running",
+            "process": {"cpu_used": 1.5, "memory_used": 48959488, "disk_used": 481333948,
+                        "network": {"rx_bytes": 123, "tx_bytes": 456}}
+        });
+        let parsed = parse_server_resources(value).unwrap();
+        assert_eq!(parsed.cpu_percent, Some(1.5));
+        assert_eq!(parsed.memory_used_bytes, Some(48959488));
+        assert_eq!(parsed.disk_used_bytes, Some(481333948));
+        assert_eq!(parsed.network_rx_bytes, Some(123));
+        assert_eq!(parsed.network_tx_bytes, Some(456));
     }
 
     #[test]
