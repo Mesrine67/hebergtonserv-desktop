@@ -4,7 +4,8 @@ import { Import, Plus, Server, Trash2, Wifi } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState, Field, PageHeader, SectionCard, selectStyles } from "@/components/page-shell";
+import { EmptyState, Field, PageHeader, SectionCard } from "@/components/page-shell";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { commands, type SshProfile } from "@/lib/tauri";
 
 export default function ProfilesPage() {
@@ -55,7 +56,7 @@ export default function ProfilesPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Utilisateur" htmlFor="profile-user"><Input id="profile-user" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="root" required /></Field>
-              <Field label="Authentification" htmlFor="profile-auth"><select id="profile-auth" className={selectStyles} value={authMethod} onChange={(e) => setAuthMethod(e.target.value)}><option value="key">Clé SSH</option><option value="password">Mot de passe</option></select></Field>
+              <Field label="Authentification" htmlFor="profile-auth"><Select value={authMethod} onValueChange={setAuthMethod}><SelectTrigger id="profile-auth"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="key">Clé SSH</SelectItem><SelectItem value="password">Mot de passe</SelectItem></SelectContent></Select></Field>
             </div>
             {authMethod === "key" && <Field label="Nom de la clé" htmlFor="profile-key"><Input id="profile-key" value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="id_ed25519" /></Field>}
             <Field label="Groupe" htmlFor="profile-group"><Input id="profile-group" value={group} onChange={(e) => setGroup(e.target.value)} /></Field>

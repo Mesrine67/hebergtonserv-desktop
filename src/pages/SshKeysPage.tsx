@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { commands, type SshKeySummary } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState, Field, PageHeader, SectionCard, selectStyles, textareaStyles } from "@/components/page-shell";
+import { EmptyState, Field, PageHeader, SectionCard, textareaStyles } from "@/components/page-shell";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SshKeysPage() {
   const qc = useQueryClient();
@@ -48,13 +49,7 @@ export default function SshKeysPage() {
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); gen.mutate(); }}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Nom de la clé" htmlFor="ssh-name"><Input id="ssh-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. serveur-production" required /></Field>
-              <Field label="Algorithme" htmlFor="ssh-type">
-                <select id="ssh-type" className={selectStyles} value={keyType} onChange={(e) => setKeyType(e.target.value)}>
-                  <option value="ed25519">Ed25519 (recommandé)</option>
-                  <option value="rsa">RSA 4096</option>
-                  <option value="ecdsa">ECDSA</option>
-                </select>
-              </Field>
+              <Field label="Algorithme" htmlFor="ssh-type"><Select value={keyType} onValueChange={setKeyType}><SelectTrigger id="ssh-type"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="ed25519">Ed25519 (recommandé)</SelectItem><SelectItem value="rsa">RSA 4096</SelectItem><SelectItem value="ecdsa">ECDSA</SelectItem></SelectContent></Select></Field>
               <Field label="Phrase de passe" htmlFor="ssh-pass" hint="Facultative, recommandée pour les clés privées."><Input id="ssh-pass" type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} autoComplete="new-password" placeholder="Protéger la clé" /></Field>
               <Field label="Commentaire" htmlFor="ssh-comment"><Input id="ssh-comment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Étiquette facultative" /></Field>
             </div>

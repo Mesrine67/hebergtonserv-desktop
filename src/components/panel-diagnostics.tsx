@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, Clipboard, Download, RefreshCw, Trash2, Bot,
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { version as appVersion } from "../../package.json";
 
 export interface DiagnosticEntry {
@@ -123,7 +124,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
         <Button size="sm" variant="outline" disabled={busy || !isTauri()} onClick={()=>void exportFile()}><Download className="size-4"/> Enregistrer</Button>
         <Button size="sm" variant="outline" disabled={busy || !entries.length} onClick={()=>void clear()}><Trash2 className="size-4"/> Vider</Button>
       </div>
-      <div className="flex flex-wrap items-center gap-2 px-4"><Input className="max-w-sm" placeholder="Filtrer les événements…" aria-label="Filtrer les journaux" value={filter} onChange={e=>setFilter(e.target.value)}/><select className="rounded-md border bg-background px-3 py-2 text-xs" aria-label="Niveau des événements" value={severity} onChange={e=>setSeverity(e.target.value)}><option value="all">Tous les niveaux</option><option value="info">Informations</option><option value="warning">Avertissements</option><option value="error">Erreurs</option></select><span className="text-xs text-muted-foreground">{shown.length} / {entries.length} événements</span></div>
+      <div className="flex flex-wrap items-center gap-2 px-4"><Input className="max-w-sm" placeholder="Filtrer les événements…" aria-label="Filtrer les journaux" value={filter} onChange={e=>setFilter(e.target.value)}/><Select value={severity} onValueChange={setSeverity}><SelectTrigger className="w-44" aria-label="Niveau des événements"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">Tous les niveaux</SelectItem><SelectItem value="info">Informations</SelectItem><SelectItem value="warning">Avertissements</SelectItem><SelectItem value="error">Erreurs</SelectItem></SelectContent></Select><span className="text-xs text-muted-foreground">{shown.length} / {entries.length} événements</span></div>
       {feedback&&<p className="px-4 text-xs text-muted-foreground" role="status">{feedback}</p>}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-40 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-sidebar p-2 md:w-52" aria-label="Filtrer les composants">

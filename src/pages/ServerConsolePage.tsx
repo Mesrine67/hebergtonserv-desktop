@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import WebSocket from "@tauri-apps/plugin-websocket";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { ArrowDown, ArrowLeft, Copy, Database, File, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
+import { ArrowDown, ArrowLeft, Copy, Database, File, MoreHorizontal, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
 import { toast } from "sonner";
 import { AnsiLine, plainTerminalLine } from "@/lib/ansi-terminal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { commands } from "@/lib/tauri";
 import { resolvePanel, serverListRoute, serverSectionRoute } from "@/lib/panel-navigation";
 
@@ -39,6 +40,7 @@ export default function ServerConsolePage() {
   const [searchParams] = useSearchParams();
   const requestedPanel = searchParams.get("panel");
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const panel = resolvePanel(panels.data, requestedPanel);
   const servers = useQuery({
@@ -167,7 +169,19 @@ export default function ServerConsolePage() {
       <TerminalSquare className="size-5 text-primary" />
       <div className="min-w-0 flex-1"><h1 className="truncate font-semibold">Console · {server?.name ?? "Serveur"}</h1><p className="text-xs text-muted-foreground">Flux Wings en temps réel · session éphémère</p></div>
       <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${connected ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : status.includes("Connexion") ? "border-amber-500/25 bg-amber-500/10 text-amber-500" : "border-border bg-secondary text-muted-foreground"}`}><span className={`size-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-current"}`} />{status}</span>
-      <Button variant="outline" size="sm" disabled={!panel || !server} onClick={() => setConnectionId(i => i + 1)}><RefreshCw className="size-4" /> Reconnecter</Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!panel || !server} aria-label="Options du serveur"><MoreHorizontal className="size-4"/>Options</Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>{server?.name ?? "Serveur"}</DropdownMenuLabel>
+          <DropdownMenuSeparator/>
+          <DropdownMenuItem onSelect={() => setConnectionId(i => i + 1)}><RefreshCw/>Reconnecter la console</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => { void queryClient.invalidateQueries({ queryKey: ["panel-servers", panel?.id] }); }}><RefreshCw/>Actualiser les informations</DropdownMenuItem>
+          <DropdownMenuItem disabled={!server?.identifier} onSelect={() => { if (server?.identifier) void writeText(server.identifier).then(() => toast.success("Identifiant du serveur copié")).catch(() => toast.error("Copie indisponible")); }}><Copy/>Copier l’identifiant</DropdownMenuItem>
+          <DropdownMenuSeparator/>
+          <DropdownMenuItem disabled={!panel || !server} onSelect={() => { if (panel && server) navigate(serverSectionRoute(panel.id, server.identifier, "files")); }}><File/>Ouvrir les fichiers</DropdownMenuItem>
+          <DropdownMenuItem disabled={!panel || !server} onSelect={() => { if (panel && server) navigate(serverSectionRoute(panel.id, server.identifier, "databases")); }}><Database/>Bases de données</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
     {panels.isSuccess && !panel && <p role="alert" className="border-b px-4 py-3 text-sm text-destructive">Le panel demandé n'existe pas ou n'est plus configuré. Revenez à la liste des serveurs pour choisir un compte.</p>}
     <nav aria-label="Sections du serveur" className="flex gap-1 border-b px-3">
