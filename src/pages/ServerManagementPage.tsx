@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowDownAZ, ArrowLeft, ChevronRight, Copy, Database, Eye, EyeOff, ExternalLink, File, Folder, RefreshCw, Search, TerminalSquare } from "lucide-react";
+import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowDownAZ, ArrowLeft, ChevronRight, Copy, Database, Eye, EyeOff, ExternalLink, File, RefreshCw, Search, TerminalSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PanelFileTree } from "@/components/panel-file-tree";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ function apiIdentifier(provider: string, version: string, id: string, identifier
   return /^v?2(\.|$)/.test(version) ? id : identifier;
 }
 export default function ServerManagementPage({ section }: { section: Section }) {
+  const queryClient = useQueryClient();
   const { identifier = "" } = useParams();
   const [params] = useSearchParams();
   const requestedPanel = params.get("panel");
@@ -30,17 +32,10 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   const [selected, setSelected] = useState<string | null>(null);
   const [fileFilter, setFileFilter] = useState("");
   const [showHidden, setShowHidden] = useState(false);
-  const files = useQuery({ queryKey: ["panel-server-files", panel?.id, requestId, path], queryFn: () => commands.listPanelServerFiles(panel!.id, requestId, path), enabled: Boolean(panel && requestId && section === "files"), staleTime: 15_000 });
+  const filesFetching = useIsFetching({ queryKey: ["panel-server-files", panel?.id, requestId] }) > 0;
   const content = useQuery({ queryKey: ["panel-server-file", panel?.id, requestId, selected], queryFn: () => commands.readPanelServerFile(panel!.id, requestId, selected!), enabled: Boolean(panel && requestId && selected && section === "files"), staleTime: 0 });
   const databases = useQuery({ queryKey: ["panel-server-databases", panel?.id, requestId], queryFn: () => commands.listPanelServerDatabases(panel!.id, requestId), enabled: Boolean(panel && requestId && section === "databases"), staleTime: 15_000 });
   const breadcrumbs = useMemo(() => path.split("/").filter(Boolean), [path]);
-  const visibleFiles = useMemo(() => (files.data ?? [])
-    .filter(entry => showHidden || !entry.name.startsWith("."))
-    .filter(entry => entry.name.toLocaleLowerCase().includes(fileFilter.trim().toLocaleLowerCase()))
-    .sort((a, b) => {
-      const directoryOrder = Number(b.kind === "directory") - Number(a.kind === "directory");
-      return directoryOrder || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
-    }), [files.data, fileFilter, showHidden]);
   const title = section === "files" ? "Fichiers" : "Bases de données";
   const databaseCount = databases.data?.length ?? 0;
   const databaseLimit = server?.limits.databases;
@@ -55,7 +50,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     <header className="flex flex-wrap items-center gap-3">
       <Button variant="ghost" size="icon" asChild><Link to={serverListRoute(requestedPanel ?? panel?.id ?? null)} aria-label="Retour aux serveurs"><ArrowLeft /></Link></Button>
       <div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wide text-muted-foreground">{panel?.name ?? "Panel"} · {server?.name ?? "Serveur"}</p><h1 className="text-2xl font-semibold">{title}</h1></div>
-      {section === "files" && <Button variant="outline" size="sm" onClick={() => void files.refetch()} disabled={files.isFetching}><RefreshCw className={`mr-2 size-4 ${files.isFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
+      {section === "files" && <Button variant="outline" size="sm" onClick={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })} disabled={filesFetching}><RefreshCw className={`mr-2 size-4 ${filesFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
       {section === "databases" && <Button variant="outline" size="sm" onClick={() => void databases.refetch()} disabled={databases.isFetching}><RefreshCw className={`mr-2 size-4 ${databases.isFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
     </header>
 
@@ -70,24 +65,19 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       <aside className="overflow-hidden rounded-xl border bg-card">
         <div className="space-y-3 border-b px-4 py-3">
           <div><p className="text-sm font-semibold">Parcourir les fichiers</p><p className="mt-1 truncate font-mono text-xs text-muted-foreground">{path}</p></div>
-          <label className="relative block"><Search aria-hidden="true" className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"/><input value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrer ce dossier…" aria-label="Filtrer les fichiers du dossier courant" className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"/></label>
+          <label className="relative block"><Search aria-hidden="true" className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"/><input value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrer les dossiers ouverts…" aria-label="Filtrer les fichiers des dossiers ouverts" className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"/></label>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><ArrowDownAZ className="size-3.5"/>Dossiers puis nom</span>
             <button type="button" onClick={() => setShowHidden(value => !value)} aria-pressed={showHidden} className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-secondary hover:text-foreground">{showHidden ? <Eye className="size-3.5"/> : <EyeOff className="size-3.5"/>}{showHidden ? "Masqués visibles" : "Afficher les masqués"}</button>
           </div>
         </div>
         <div className="max-h-[62vh] overflow-y-auto p-2">
-          {path !== "/" && <button onClick={() => { const parent = path.split("/").slice(0,-1).join("/") || "/"; setPath(parent); setSelected(null); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-secondary">↰ Dossier parent</button>}
-          {files.isLoading && <p className="p-3 text-sm text-muted-foreground">Chargement du dossier…</p>}
-          {files.isError && <p role="alert" className="p-3 text-sm text-destructive">{errorMessage(files.error)}</p>}
-          {visibleFiles.map(entry => entry.kind === "directory" ? <button key={entry.path} onClick={() => { setPath(entry.path); setSelected(null); setFileFilter(""); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary"><Folder className="size-4 text-amber-500" /><span className="min-w-0 flex-1 truncate">{entry.name}</span><ChevronRight className="size-4 text-muted-foreground" /></button> : <button key={entry.path} onClick={() => setSelected(entry.path)} className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${selected === entry.path ? "bg-primary/10 text-primary" : "hover:bg-secondary"}`}><File className="size-4" /><span className="min-w-0 flex-1 truncate">{entry.name}</span><span className="text-xs text-muted-foreground">{entry.size == null ? "" : `${(entry.size / 1024).toFixed(1)} Ko`}</span></button>)}
-          {files.data?.length === 0 && <p className="p-4 text-sm text-muted-foreground">Ce dossier est vide.</p>}
-          {files.data && files.data.length > 0 && visibleFiles.length === 0 && <p className="p-4 text-sm text-muted-foreground">Aucun fichier ne correspond dans ce dossier.</p>}
+          {panel && requestId && <PanelFileTree key={`${panel.id}:${requestId}`} panelId={panel.id} serverId={requestId} path="/" selected={selected} filter={fileFilter} showHidden={showHidden} onSelect={entry => { setSelected(entry.path); setPath(entry.path.split("/").slice(0, -1).join("/") || "/"); }}/>}
         </div>
       </aside>
       <article className="min-h-[420px] overflow-hidden rounded-xl border bg-card">
-        <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><button className="truncate hover:underline" onClick={() => { setPath(`/${breadcrumbs.slice(0,index+1).join("/")}`); setSelected(null); }}>{part}</button>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
-        {selected ? <><div className="border-b px-4 py-2 font-mono text-xs text-muted-foreground">{selected}</div>{content.isLoading ? <p className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p> : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p> : <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-xs leading-5">{content.data}</pre>}</> : <div className="grid h-[min(60vh,620px)] place-content-center text-center"><File className="mx-auto mb-3 size-8 text-muted-foreground"/><p className="font-medium">Aucun fichier ouvert</p><p className="mt-1 text-sm text-muted-foreground">Choisissez un fichier lisible dans la liste.</p></div>}
+        <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><span className="truncate">{part}</span>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
+        {selected ? <><div className="border-b px-4 py-2 font-mono text-xs text-muted-foreground">{selected}</div>{content.isLoading ? <p className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p> : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p> : <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-xs leading-5">{content.data}</pre>}</> : <div className="grid h-[min(60vh,620px)] place-content-center text-center"><File className="mx-auto mb-3 size-8 text-muted-foreground"/><p className="font-medium">Aucun fichier ouvert</p><p className="mt-1 text-sm text-muted-foreground">Choisissez un fichier lisible dans l’arborescence.</p></div>}
       </article>
     </div>}
 
