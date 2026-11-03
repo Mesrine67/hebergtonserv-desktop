@@ -435,6 +435,37 @@ mod tests {
         assert!(validate_github_entry(entry, false).is_err());
     }
 
+    #[test]
+    fn parses_gh_pull_request_and_issue_json_fixtures() {
+        let prs: Vec<GhEntry> = serde_json::from_value(serde_json::json!([{
+            "number": 42,
+            "title": "Fixture PR",
+            "state": "OPEN",
+            "url": "https://github.com/owner/repo/pull/42",
+            "updatedAt": "2026-11-03T00:00:00Z",
+            "headRefName": "feature/test",
+            "baseRefName": "main"
+        }]))
+        .unwrap();
+        let pr = validate_github_entry(prs.into_iter().next().unwrap(), true).unwrap();
+        assert_eq!(pr.number, 42);
+        assert_eq!(pr.head_branch.as_deref(), Some("feature/test"));
+        assert_eq!(pr.base_branch.as_deref(), Some("main"));
+
+        let issues: Vec<GhEntry> = serde_json::from_value(serde_json::json!([{
+            "number": 7,
+            "title": "Fixture issue",
+            "state": "OPEN",
+            "url": "https://github.com/owner/repo/issues/7",
+            "updatedAt": "2026-11-03T00:00:00Z",
+            "labels": [{"name": "api"}]
+        }]))
+        .unwrap();
+        let issue = validate_github_entry(issues.into_iter().next().unwrap(), false).unwrap();
+        assert_eq!(issue.labels, ["api"]);
+        assert_eq!(issue.head_branch, None);
+    }
+
     #[tokio::test]
     async fn invalid_directory_is_rejected_without_scanning() {
         let result = inspect_repository(Path::new("Z:/hts-nonexistent-repo-for-test")).await;
