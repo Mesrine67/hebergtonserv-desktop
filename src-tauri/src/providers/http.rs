@@ -317,7 +317,8 @@ fn fallback_to_pterodactyl(error_code: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountApi {
     Wisp,
-    Pterodactyl,
+    PterodactylV1,
+    PterodactylV2,
 }
 
 fn parse_account_user(value: Value) -> Result<Option<PanelUser>> {
@@ -561,8 +562,8 @@ impl ApiClient {
         let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
         let mut builder = client
             .request(method, &url)
-            .bearer_auth(&self.token)
             .headers(standard_panel_headers(&self.accept)?);
+        builder = builder.bearer_auth(&self.token);
         if let Some(b) = body {
             let payload = serde_json::to_vec(b)
                 .map_err(|_| app_error("api_invalid_request", "Requête API invalide."))?;
@@ -702,13 +703,7 @@ impl ApiClient {
     }
 
     pub async fn get_account_pterodactyl(&self) -> Result<Option<PanelUser>> {
-        let client = ApiClient::new(
-            &self.base_url,
-            &self.token,
-            "application/json",
-            self.allow_local,
-        )?;
-        let response = client
+        let response = self
             .send_json::<Value>(reqwest::Method::GET, "/api/client/account", None)
             .await?;
         parse_account_user(response)
@@ -813,32 +808,47 @@ impl ApiClient {
         match self.get_account_wisp().await {
             Ok(Some(user)) => match account_from_user(user) {
                 Ok(account) => Ok((account, AccountApi::Wisp)),
-                Err(error) if fallback_to_pterodactyl(error.code()) => self
-                    .get_pterodactyl_account()
-                    .await
-                    .map(|account| (account, AccountApi::Pterodactyl)),
+                Err(error) if fallback_to_pterodactyl(error.code()) => {
+                    self.detect_pterodactyl_account().await
+                }
                 Err(error) => Err(error),
             },
-            Ok(None) => self
-                .get_pterodactyl_account()
-                .await
-                .map(|account| (account, AccountApi::Pterodactyl)),
-            Err(error) if fallback_to_pterodactyl(error.code()) => self
-                .get_pterodactyl_account()
-                .await
-                .map(|account| (account, AccountApi::Pterodactyl)),
+            Ok(None) => self.detect_pterodactyl_account().await,
+            Err(error) if fallback_to_pterodactyl(error.code()) => {
+                self.detect_pterodactyl_account().await
+            }
             Err(error) => Err(error),
         }
     }
 
-    async fn get_pterodactyl_account(&self) -> Result<PanelAccount> {
-        let user = self.get_account_pterodactyl().await?.ok_or_else(|| {
+    async fn detect_pterodactyl_account(&self) -> Result<(PanelAccount, AccountApi)> {
+        let mut last_error = None;
+        for (accept, version) in [
+            (
+                "application/vnd.pterodactyl.v1+json",
+                AccountApi::PterodactylV1,
+            ),
+            ("application/json", AccountApi::PterodactylV2),
+        ] {
+            let client = ApiClient::new(&self.base_url, &self.token, accept, self.allow_local)?;
+            match client.get_account_pterodactyl().await {
+                Ok(Some(user)) => return account_from_user(user).map(|account| (account, version)),
+                Ok(None) => {
+                    last_error = Some(app_error(
+                        "api_invalid_response",
+                        "L’API Pterodactyl n’a pas renvoyé de compte utilisateur.",
+                    ))
+                }
+                Err(error) if fallback_to_pterodactyl(error.code()) => last_error = Some(error),
+                Err(error) => return Err(error),
+            }
+        }
+        Err(last_error.unwrap_or_else(|| {
             app_error(
                 "api_invalid_response",
-                "Les API WISP et Pterodactyl n'ont pas renvoyé de compte utilisateur.",
+                "Les API WISP et Pterodactyl n’ont pas renvoyé de compte utilisateur.",
             )
-        })?;
-        account_from_user(user)
+        }))
     }
 }
 

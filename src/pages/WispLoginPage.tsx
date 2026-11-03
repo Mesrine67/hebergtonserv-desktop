@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { KeyRound, LoaderCircle, Server, ShieldCheck } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { isTauri } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { commands } from "@/lib/tauri";
@@ -34,21 +36,21 @@ export default function WispLoginPage({ onAuthenticated }: Props) {
         <div className="hts-auth-brand"><img src="/hebergtonserv-mark.png" alt="" /><span>HébergTonServ <span className="text-muted-foreground">Desktop</span></span></div>
         <div className="hts-auth-icon"><KeyRound className="size-5" /></div>
         <p className="hts-auth-eyebrow">Connexion sécurisée</p>
-        <h1>Accédez à votre panel</h1>
-        <p className="hts-auth-description">Connectez votre compte avec votre clé Client API. Après chaque mise à jour installée, une nouvelle validation de connexion est requise.</p>
-        <form onSubmit={submit} className="mt-7 space-y-5">
-          <label className="block space-y-2 text-sm font-medium" htmlFor="wisp-url">Adresse du panel
-            <span className="relative block"><Server className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" /><Input id="wisp-url" type="url" className="h-10 pl-10" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} autoComplete="url" required /></span>
+        <h1>Connectez votre panel</h1>
+        <p className="hts-auth-description">Entrez une clé Client API une seule fois. L’application détecte le fournisseur et son contrat, puis conserve la clé dans le coffre Windows.</p>
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          <label className="block space-y-2 text-sm font-medium" htmlFor="panel-url">Adresse du panel
+            <span className="relative block"><Server className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" /><Input id="panel-url" type="url" className="h-10 pl-10" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} autoComplete="url" required /></span>
           </label>
-          <label className="block space-y-2 text-sm font-medium" htmlFor="wisp-token">Jeton API Client
-            <Input id="wisp-token" type="password" className="h-10 font-mono" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Collez votre APITOKEN" autoComplete="off" required />
+          <label className="block space-y-2 text-sm font-medium" htmlFor="panel-token">Clé Client API
+            <Input id="panel-token" type="password" className="h-10 font-mono" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Collez la clé du panel" autoComplete="off" required />
           </label>
-          <div className="flex gap-2 rounded-lg border border-border bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>Créez un jeton API Client dans la sécurité de votre profil de panel. Il est conservé dans le coffre d’identifiants Windows et envoyé uniquement via HTTPS.</span></div>
+          <div className="flex gap-2 rounded-lg border border-border bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>L’API Client WISP exige une clé Bearer, y compris pour son endpoint de connexion. L’application ne peut donc pas créer le premier accès avec le mot de passe seul. La clé ne sera ni affichée ni enregistrée dans un fichier JSON.</span></div>
           {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-          <Button className="h-10 w-full" type="submit" disabled={busy || !baseUrl.trim() || !token.trim()}>{busy ? <><LoaderCircle className="mr-2 size-4 animate-spin" />Vérification…</> : "Se connecter"}</Button>
+          <Button className="h-10 w-full" type="submit" disabled={busy || !baseUrl.trim() || !token.trim()}>{busy ? <><LoaderCircle className="mr-2 size-4 animate-spin" />Détection et vérification…</> : "Enregistrer et vérifier"}</Button>
         </form>
-        <a className="hts-auth-help" href="https://manage.hebergtonserv.com/account/security" target="_blank" rel="noreferrer">Où trouver mon jeton API ?</a>
-        <p className="mt-6 text-center text-[11px] text-muted-foreground">WISP Client API puis fallback Pterodactyl v2 · Bearer HTTPS</p>
+        <button type="button" className="hts-auth-help mx-auto border-0 bg-transparent" onClick={() => { const url = `${baseUrl.replace(/\/+$/, "")}/account/api-keys`; if (isTauri()) void openUrl(url); else window.open(url, "_blank", "noopener,noreferrer"); }}>Ouvrir le gestionnaire des clés API</button>
+        <p className="mt-6 text-center text-[11px] text-muted-foreground">Détection WISP / Pterodactyl · stockage protégé par Windows Credential Manager</p>
       </section>
     </main>
   );

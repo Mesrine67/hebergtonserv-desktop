@@ -58,7 +58,12 @@ pub async fn login_wisp(
     let (account, detected_api) = client.get_account_with_api().await?;
     let provider_name = match detected_api {
         AccountApi::Wisp => "wisp",
-        AccountApi::Pterodactyl => "pterodactyl",
+        AccountApi::PterodactylV1 | AccountApi::PterodactylV2 => "pterodactyl",
+    };
+    let detected_version = match detected_api {
+        AccountApi::Wisp => "auto",
+        AccountApi::PterodactylV1 => "1",
+        AccountApi::PterodactylV2 => "2",
     };
     let mut document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
     let panel_id = document
@@ -81,7 +86,7 @@ pub async fn login_wisp(
         name,
         provider: provider_name.to_string(),
         base_url: base.as_str().trim_end_matches('/').to_string(),
-        pterodactyl_version: "auto".to_string(),
+        pterodactyl_version: detected_version.to_string(),
         allow_local: false,
         status: Some("ok".to_string()),
         account_label: Some(account.display_name.clone()),
@@ -374,12 +379,14 @@ pub async fn check_panel(
         .get_account_with_api()
         .await?
         .1;
-    let detected_provider = match detected {
-        AccountApi::Wisp => ProviderKind::Wisp.as_str(),
-        AccountApi::Pterodactyl => ProviderKind::Pterodactyl.as_str(),
+    let (detected_provider, detected_version) = match detected {
+        AccountApi::Wisp => (ProviderKind::Wisp.as_str(), "auto"),
+        AccountApi::PterodactylV1 => (ProviderKind::Pterodactyl.as_str(), "1"),
+        AccountApi::PterodactylV2 => (ProviderKind::Pterodactyl.as_str(), "2"),
     };
     let mut effective_panel = panel.clone();
     effective_panel.provider = detected_provider.to_string();
+    effective_panel.pterodactyl_version = detected_version.to_string();
     let provider = provider_for(&effective_panel)?;
     let account = provider.account().await?;
     // Key-management endpoints are optional in WISP-compatible panels. An
@@ -400,6 +407,7 @@ pub async fn check_panel(
     if let Some(existing) = updated.data.panels.iter_mut().find(|panel| panel.id == id) {
         existing.status = Some(result.status.clone());
         existing.provider = detected_provider.to_string();
+        existing.pterodactyl_version = detected_version.to_string();
         existing.account_label = result.account_label.clone();
         existing.last_checked_at = Some(chrono::Utc::now().to_rfc3339());
     }

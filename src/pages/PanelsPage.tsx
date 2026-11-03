@@ -1,21 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { CheckCircle2, ExternalLink, LockKeyhole, Plus, ServerCog, Trash2, ShieldCheck, Server, UserRound } from "lucide-react";
+import { CheckCircle2, ExternalLink, LockKeyhole, Plus, ServerCog, Trash2, ShieldCheck, Server, UserRound, WandSparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { errorMessage } from "@/lib/error-message";
 import { serverListRoute } from "@/lib/panel-navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState, Field, PageHeader, SectionCard, selectStyles } from "@/components/page-shell";
+import { EmptyState, Field, PageHeader, SectionCard } from "@/components/page-shell";
 import { commands, type PanelConfig } from "@/lib/tauri";
 
 export default function PanelsPage() {
   const qc = useQueryClient();
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const [name, setName] = useState("HébergTonServ");
-  const [provider, setProvider] = useState("wisp");
-  const [apiVersion, setApiVersion] = useState("auto");
   const [baseUrl, setBaseUrl] = useState("https://manage.hebergtonserv.com/");
   const [allowLocal, setAllowLocal] = useState(false);
   const [token, setToken] = useState("");
@@ -23,9 +21,19 @@ export default function PanelsPage() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!name.trim() || !token.trim() || !baseUrl.trim()) throw new Error("Nom, adresse HTTPS et jeton API requis.");
+      if (!name.trim() || !token.trim() || !baseUrl.trim()) throw new Error("Nom, adresse HTTPS et jeton Client API requis.");
+      const normalizedUrl = new URL(baseUrl.trim()).toString().replace(/\/+$/, "");
+      const existing = panels.data?.find((panel) => {
+        try { return new URL(panel.base_url).toString().replace(/\/+$/, "") === normalizedUrl; }
+        catch { return false; }
+      });
+      if (existing) {
+        await commands.setPanelToken(existing.id, token.trim());
+        await commands.checkPanel(existing.id);
+        return { id: existing.id, replaced: true };
+      }
       const id = crypto.randomUUID();
-      await commands.savePanel({ id, name: name.trim(), provider, base_url: baseUrl.trim(), pterodactyl_version: apiVersion,
+      await commands.savePanel({ id, name: name.trim(), provider: "wisp", base_url: baseUrl.trim(), pterodactyl_version: "auto",
         allow_local: allowLocal, status: null, account_label: null, last_checked_at: null });
       try { await commands.setPanelToken(id, token); }
       catch (error) {
@@ -33,8 +41,10 @@ export default function PanelsPage() {
         catch { toast.error("Le panel a été enregistré sans jeton : supprimez-le manuellement."); }
         throw error;
       }
+      await commands.checkPanel(id);
+      return { id, replaced: false };
     },
-    onSuccess: () => { setToken(""); toast.success("Panel et jeton sauvegardés dans le coffre Windows"); void qc.invalidateQueries({ queryKey: ["panels"] }); },
+    onSuccess: (result) => { setToken(""); toast.success(result.replaced ? "Panel existant mis à jour et détecté" : "Panel détecté et accès sauvegardé dans le coffre Windows"); void qc.invalidateQueries({ queryKey: ["panels"] }); },
     onError: (e) => toast.error(errorMessage(e)),
   });
   const saveExistingToken = useMutation({
@@ -55,44 +65,27 @@ export default function PanelsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Infrastructure · Connexions" title="Panels d'hébergement" description="Gérez vos connexions API WISP et Pterodactyl. Les jetons sont conservés uniquement dans le coffre Windows." />
+      <PageHeader eyebrow="Infrastructure · Connexions" title="Panels d'hébergement" description="Connectez-vous à vos panels. Le type WISP ou Pterodactyl est détecté automatiquement." />
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Panels configurés</p><p className="mt-1 text-2xl font-semibold tabular-nums">{panels.data?.length ?? 0}</p></div>
         <div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Connexions vérifiées</p><p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-500">{panels.data?.filter(p => p.status === "ok").length ?? 0}</p></div>
         <div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Sécurité des clés</p><p className="mt-1 flex items-center gap-2 text-sm font-medium"><ShieldCheck className="size-4 text-primary" /> Windows Credential Manager</p></div>
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <SectionCard title="Ajouter un panel" description="Renseignez l'adresse de l'API Client et sa clé d'accès.">
-          <div className="mb-4 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>La clé est conservée dans Windows Credential Manager. Seule l’API Client HTTPS est appelée; aucun cookie de navigateur n’est lu.</span></div>
+        <SectionCard title="Ajouter un panel" description="Renseignez l’adresse du panel et sa clé Client API.">
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground"><WandSparkles className="mt-0.5 size-4 shrink-0 text-primary" /><span>Cette option est un secours pour une clé existante. Le fournisseur et le format WISP/Pterodactyl sont détectés à la vérification; une adresse déjà enregistrée sera mise à jour, sans créer de doublon.</span></div>
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
             <Field htmlFor="panel-name" label="Nom du panel"><Input id="panel-name" value={name} onChange={(e) => setName(e.target.value)} required /></Field>
-            <Field htmlFor="panel-provider" label="Plateforme"><select id="panel-provider" className={selectStyles} value={provider} onChange={(e) => { setProvider(e.target.value); setApiVersion("auto"); }}><option value="wisp">Wisp</option><option value="pterodactyl">Pterodactyl</option></select></Field>
-            <Field htmlFor="panel-api-version" label="Contrat API" hint={provider === "wisp" ? "WISP API v1 est documentée. v2 MIME est expérimental et nécessite un panel compatible." : "Auto garde le comportement historique 1.x. Choisissez 2.x pour le JSON documenté."}>
-              <select id="panel-api-version" className={selectStyles} value={apiVersion} onChange={(e) => setApiVersion(e.target.value)}>
-                {provider === "wisp" ? (
-                  <>
-                    <option value="auto">WISP API v1 (documentée)</option>
-                    <option value="wisp-v2-experimental">WISP API v2 (expérimental, non vérifié)</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="auto">Auto / compatibilité 1.x</option>
-                    <option value="1">Pterodactyl 1.x</option>
-                    <option value="2">Pterodactyl 2.x (JSON)</option>
-                  </>
-                )}
-              </select>
-            </Field>
             <Field htmlFor="panel-url" label="Adresse du panel"><Input id="panel-url" type="url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://panel.exemple.fr/" required /></Field>
-            <Field htmlFor="panel-token" label="Jeton API" hint="Saisi uniquement ici ; jamais affiché ou stocké dans un fichier JSON.">
-              <Input id="panel-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Clé d'API Client" autoComplete="off" required />
+            <Field htmlFor="panel-token" label="Clé Client API" hint="La connexion initiale WISP/Pterodactyl nécessite cette clé. Le type de panel est ensuite détecté automatiquement.">
+              <Input id="panel-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Jeton de secours" autoComplete="off" required />
             </Field>
             <label className="flex items-start gap-3 rounded-lg border border-border/70 p-3 text-xs text-muted-foreground">
               <input className="mt-0.5 size-4 accent-primary" type="checkbox" checked={allowLocal} onChange={(e) => setAllowLocal(e.target.checked)} />
-              <span>Autoriser une cible locale (boucle locale uniquement). À activer seulement pour les panels de développement.</span>
+              <span>Autoriser un panel local de développement (boucle locale uniquement).</span>
             </label>
-            <Button type="submit" disabled={save.isPending || !name.trim() || !token.trim() || !baseUrl.trim()}>
-              <Plus className="mr-2 size-4" />{save.isPending ? "Enregistrement…" : "Enregistrer le panel"}
+            <Button type="submit" variant="outline" disabled={save.isPending || !name.trim() || !token.trim() || !baseUrl.trim()}>
+              <Plus className="mr-2 size-4" />{save.isPending ? "Enregistrement…" : "Enregistrer une clé existante"}
             </Button>
           </form>
         </SectionCard>
@@ -108,7 +101,7 @@ export default function PanelsPage() {
                       <div className="min-w-0 flex-1">
                         <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">{p.name}<span className="rounded-md border bg-secondary/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{p.provider}</span><span className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${p.status === "ok" ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : "border-border bg-secondary text-muted-foreground"}`}>{p.status === "ok" ? "Vérifié" : "À vérifier"}</span></h3>
                         <p className="mt-1 break-all text-xs text-muted-foreground">{p.base_url}</p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">API : {p.provider === "wisp" ? (p.pterodactyl_version === "wisp-v2-experimental" ? "v2 expérimentale" : "v1 documentée") : (p.pterodactyl_version === "2" ? "Pterodactyl 2.x" : "Pterodactyl 1.x / Auto")}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">Détection automatique · {p.provider === "wisp" ? "WISP" : "Pterodactyl"}</p>
                         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                           {p.status === "ok" ? <CheckCircle2 className="size-3.5 text-emerald-500" /> : <ExternalLink className="size-3.5" />}
                           {p.status === "ok" ? (p.account_label ?? "Compte vérifié") : "Connexion non vérifiée"}
