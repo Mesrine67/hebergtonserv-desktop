@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { CheckCircle2, ExternalLink, LockKeyhole, Plus, ServerCog, Trash2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ExternalLink, LockKeyhole, Plus, ServerCog, Trash2, ShieldCheck, Server, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
+import { errorMessage } from "@/lib/error-message";
+import { serverListRoute } from "@/lib/panel-navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,27 +35,32 @@ export default function PanelsPage() {
       }
     },
     onSuccess: () => { setToken(""); toast.success("Panel et jeton sauvegardés dans le coffre Windows"); void qc.invalidateQueries({ queryKey: ["panels"] }); },
-    onError: (e) => toast.error(String(e)),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const saveExistingToken = useMutation({
     mutationFn: ({ id, value }: { id: string; value: string }) => commands.setPanelToken(id, value),
     onSuccess: (_data, { id }) => { setTokenDrafts((state) => ({ ...state, [id]: "" })); toast.success("Jeton remplacé dans Windows Credential Manager"); },
-    onError: (e) => toast.error(String(e)),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const check = useMutation({
     mutationFn: (id: string) => commands.checkPanel(id),
     onSuccess: (result) => { toast.success(result.message); void qc.invalidateQueries({ queryKey: ["panels"] }); },
-    onError: (e) => toast.error(String(e)),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const del = useMutation({
     mutationFn: commands.deletePanel,
     onSuccess: () => { toast.success("Panel supprimé"); void qc.invalidateQueries({ queryKey: ["panels"] }); },
-    onError: (e) => toast.error(String(e)),
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Infrastructure" title="Panels d'hébergement" description="Connectez vos espaces Wisp et Pterodactyl sans enregistrer les jetons en clair. Les informations sensibles restent protégées par Windows." />
+      <PageHeader eyebrow="Infrastructure · Connexions" title="Panels d'hébergement" description="Gérez vos connexions API WISP et Pterodactyl. Les jetons sont conservés uniquement dans le coffre Windows." />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Panels configurés</p><p className="mt-1 text-2xl font-semibold tabular-nums">{panels.data?.length ?? 0}</p></div>
+        <div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Connexions vérifiées</p><p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-500">{panels.data?.filter(p => p.status === "ok").length ?? 0}</p></div>
+        <div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Sécurité des clés</p><p className="mt-1 flex items-center gap-2 text-sm font-medium"><ShieldCheck className="size-4 text-primary" /> Windows Credential Manager</p></div>
+      </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <SectionCard title="Ajouter un panel" description="Renseignez l'adresse de l'API Client et sa clé d'accès.">
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><span>La clé est conservée dans Windows Credential Manager. Seule l’API Client HTTPS est appelée; aucun cookie de navigateur n’est lu.</span></div>
@@ -94,11 +102,11 @@ export default function PanelsPage() {
             : !panels.data?.length ? <EmptyState message="Aucun panel configuré. Ajoutez votre espace Wisp ou Pterodactyl." />
             : <div className="divide-y divide-border/70">
                 {(panels.data ?? []).map((p: PanelConfig) => (
-                  <article key={p.id} className="space-y-3 py-4 first:pt-0 last:pb-0">
+                  <article key={p.id} className="space-y-3 py-4 first:pt-0 last:pb-0" aria-label={`Panel ${p.name}`}>
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary"><ServerCog className="size-5 text-primary" /></div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">{p.name}<span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-normal uppercase text-muted-foreground">{p.provider}</span></h3>
+                        <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">{p.name}<span className="rounded-md border bg-secondary/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{p.provider}</span><span className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${p.status === "ok" ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : "border-border bg-secondary text-muted-foreground"}`}>{p.status === "ok" ? "Vérifié" : "À vérifier"}</span></h3>
                         <p className="mt-1 break-all text-xs text-muted-foreground">{p.base_url}</p>
                         <p className="mt-1 text-[11px] text-muted-foreground">API : {p.provider === "wisp" ? (p.pterodactyl_version === "wisp-v2-experimental" ? "v2 expérimentale" : "v1 documentée") : (p.pterodactyl_version === "2" ? "Pterodactyl 2.x" : "Pterodactyl 1.x / Auto")}</p>
                         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -117,6 +125,8 @@ export default function PanelsPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" size="sm" variant="outline" disabled={check.isPending} onClick={() => check.mutate(p.id)}><CheckCircle2 className="mr-1.5 size-3.5" />Vérifier</Button>
+                      <Button type="button" size="sm" variant="secondary" asChild><Link to={`/panel/account?panel=${encodeURIComponent(p.id)}`}><UserRound className="mr-1.5 size-3.5" />Compte</Link></Button>
+                      <Button type="button" size="sm" variant="secondary" asChild><Link to={serverListRoute(p.id)}><Server className="mr-1.5 size-3.5" />Serveurs</Link></Button>
                       <Button type="button" size="sm" variant="ghost" disabled={del.isPending} onClick={() => { if (window.confirm(`Supprimer « ${p.name} » et son jeton enregistré ?`)) del.mutate(p.id); }}><Trash2 className="mr-1.5 size-3.5" />Supprimer</Button>
                     </div>
                   </article>
