@@ -215,10 +215,28 @@ export interface GitSnapshot {
   changes_truncated: boolean;
   commits: GitCommit[];
 }
+export interface GitHubEntry {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  updated_at: string | null;
+  labels: string[];
+  head_branch: string | null;
+  base_branch: string | null;
+}
+export interface GitHubActivity {
+  repository: string;
+  authenticated: boolean;
+  pull_requests: GitHubEntry[];
+  issues: GitHubEntry[];
+  issues_available: boolean;
+}
 
 export const commands = {
   getGitTools: () => invoke<GitTools>("get_git_tools"),
   inspectGitRepository: (path: string) => invoke<GitSnapshot>("inspect_git_repository", { path }),
+  getGitHubActivity: (path: string) => invoke<GitHubActivity>("get_github_activity", { path }),
   toggleAppWindowMaximize: () => invoke<void>("toggle_app_window_maximize"),
   listSshKeys: () => invoke<SshKeySummary[]>("list_ssh_keys"),
   generateSshKey: (input: {
