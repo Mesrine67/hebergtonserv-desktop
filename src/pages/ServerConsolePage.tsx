@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import WebSocket from "@tauri-apps/plugin-websocket";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { ArrowDown, ArrowLeft, Copy, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
+import { ArrowDown, ArrowLeft, Copy, Database, File, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
 import { toast } from "sonner";
 import { AnsiLine, plainTerminalLine } from "@/lib/ansi-terminal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { commands } from "@/lib/tauri";
-import { resolvePanel, serverListRoute } from "@/lib/panel-navigation";
+import { resolvePanel, serverListRoute, serverSectionRoute } from "@/lib/panel-navigation";
 
 type Credentials = { socket: string; token: string };
 type WingsEvent = { event?: string; args?: unknown[] };
@@ -170,6 +170,13 @@ export default function ServerConsolePage() {
       <Button variant="outline" size="sm" disabled={!panel || !server} onClick={() => setConnectionId(i => i + 1)}><RefreshCw className="size-4" /> Reconnecter</Button>
     </div>
     {panels.isSuccess && !panel && <p role="alert" className="border-b px-4 py-3 text-sm text-destructive">Le panel demandé n'existe pas ou n'est plus configuré. Revenez à la liste des serveurs pour choisir un compte.</p>}
+    <nav aria-label="Sections du serveur" className="flex gap-1 border-b px-3">
+      <span className="inline-flex items-center gap-2 border-b-2 border-primary px-3 py-2 text-sm font-medium"><TerminalSquare className="size-4" />Console</span>
+      {panel && server && <>
+        <Link to={serverSectionRoute(panel.id, server.identifier, "files")} className="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground hover:text-foreground"><File className="size-4" />Fichiers</Link>
+        <Link to={serverSectionRoute(panel.id, server.identifier, "databases")} className="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground hover:text-foreground"><Database className="size-4" />Bases de données</Link>
+      </>}
+    </nav>
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/25 px-4 py-2">
       <span className="mr-auto font-mono text-[11px] text-muted-foreground">Wings · {lines.length} entrée(s)</span>
       <Button size="sm" variant={autoScroll ? "secondary" : "ghost"} className="h-8 gap-1.5 text-xs" onClick={() => setAutoScroll(value => !value)} aria-pressed={autoScroll}><ArrowDown className="size-3.5" /> Défilement {autoScroll ? "actif" : "arrêté"}</Button>

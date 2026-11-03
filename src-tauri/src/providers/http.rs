@@ -603,9 +603,10 @@ impl ApiClient {
         let mut servers = Vec::new();
         for page in 1..=MAX_PAGES {
             let path = match provider {
-                "wisp" => format!(
-                    "/api/client/servers?per_page={PAGE_SIZE}&page={page}&include=node,egg,allocations"
-                ),
+                // WISP documents the base list and page/per_page parameters.
+                // Includes are optional and not implemented by every compatible
+                // panel, so keep the list request on the documented baseline.
+                "wisp" => format!("/api/client/servers?per_page={PAGE_SIZE}&page={page}"),
                 "pterodactyl" => {
                     format!("/api/client?per_page={PAGE_SIZE}&page={page}&include=egg")
                 }
@@ -916,6 +917,15 @@ mod tests {
         let parsed = parse_server(pterodactyl).unwrap();
         assert_eq!(parsed.identifier, "def456");
         assert_eq!(parsed.node.as_deref(), Some("node-2"));
+    }
+
+    #[test]
+    fn wisp_server_list_uses_documented_pagination_without_optional_includes() {
+        let path = format!("/api/client/servers?per_page={}&page=1", 25);
+        assert!(path.starts_with("/api/client/servers?"));
+        assert!(path.contains("per_page=25"));
+        assert!(path.contains("page=1"));
+        assert!(!path.contains("include="));
     }
 
     #[test]

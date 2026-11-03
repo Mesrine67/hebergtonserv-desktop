@@ -157,6 +157,9 @@ export interface PanelServerResources {
   connect_address?: string | null;
 }
 
+export interface PanelFileEntry { name: string; path: string; kind: string; size?: number | null; modified_at?: string | null; }
+export interface PanelDatabase { id: string; name: string; username?: string | null; password?: string | null; host?: string | null; connections_from?: string | null; jdbc_connection_string?: string | null; phpmyadmin_url?: string | null; }
+
 export interface PanelResourceBatchItem { key: string; resources: PanelServerResources | null; error_code: string | null; }
 
 export interface PanelAccountSummary {
@@ -273,6 +276,9 @@ export const commands = {
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
   getPanelAccount: (id: string) => invoke<PanelAccountSummary>("get_panel_account", { id }),
   listPanelServers: (id: string) => invoke<PanelServer[]>("list_panel_servers", { id }),
+  listPanelServerFiles: (id: string, identifier: string, path: string) => invoke<PanelFileEntry[]>("list_panel_server_files", { id, identifier, path }),
+  readPanelServerFile: (id: string, identifier: string, path: string) => invoke<string>("read_panel_server_file", { id, identifier, path }),
+  listPanelServerDatabases: (id: string, identifier: string) => invoke<PanelDatabase[]>("list_panel_server_databases", { id, identifier }),
   listPanelServerSubusers: (id: string, identifier: string) =>
     invoke<PanelCapability<PanelSubuser[]>>("list_panel_server_subusers", { id, identifier }),
   getPanelResourcesBatch: (id: string, requests: { key: string; identifier: string }[]) => invoke<PanelResourceBatchItem[]>("get_panel_resources_batch", { id, requests }),

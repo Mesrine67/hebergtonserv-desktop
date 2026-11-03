@@ -1,6 +1,6 @@
 # HébergTonServ Desktop v0.4.12 — Serveurs, diagnostics et styles shadcn
 
-## Mes serveurs
+## Serveurs
 - Suppression du grand en-tête vide en haut de l'écran Serveurs.
 - Titre, panel, recherche, bouton Actualiser et entrée Journal API réunis dans la carte de gestion.
 - Suppression du deuxième logo dans la titlebar. L'icône Maison de la sidebar reste disponible et liée à Accueil.

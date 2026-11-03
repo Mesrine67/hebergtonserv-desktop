@@ -5,8 +5,8 @@ pub mod wisp;
 
 use crate::errors::Result;
 use crate::providers::models::{
-    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelServer, PanelServerResources, PanelSshKey,
-    PanelSubuser,
+    CreatedPanelApiKey, PanelAccount, PanelApiKey, PanelDatabase, PanelFileEntry, PanelServer,
+    PanelServerResources, PanelSshKey, PanelSubuser,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -70,6 +70,12 @@ pub trait PanelProvider: Send + Sync + 'static {
     async fn list_servers(&self) -> Result<Vec<PanelServer>>;
 
     async fn server_resources(&self, identifier: &str) -> Result<PanelServerResources>;
+
+    async fn list_server_files(&self, identifier: &str, path: &str) -> Result<Vec<PanelFileEntry>>;
+
+    async fn read_server_file(&self, identifier: &str, path: &str) -> Result<String>;
+
+    async fn list_server_databases(&self, identifier: &str) -> Result<Vec<PanelDatabase>>;
 
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>>;
 
