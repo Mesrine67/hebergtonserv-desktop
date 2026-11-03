@@ -1,16 +1,44 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleOff, ExternalLink, Cpu, Database, File, HardDrive, MemoryStick, RefreshCw, Search, Server, Users, } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { EmptyState, selectStyles } from "@/components/page-shell";
+import { EmptyState } from "@/components/page-shell";
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { errorMessage } from "@/lib/error-message";
 import { commands, type PanelCapability, type PanelServer, type PanelServerResources, type PanelSubuser } from "@/lib/tauri";
 import { consoleRoute, resolvePanel, serverSectionRoute } from "@/lib/panel-navigation";
 
 const PAGE_SIZE = 12;
 const RESOURCE_REFRESH_MS = 60_000;
+
+function ServerSearch({ servers, onOpen }: { servers: PanelServer[]; onOpen: (server: PanelServer) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setOpen(value => !value); }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+  return <>
+    <Button type="button" variant="outline" size="icon" className="size-8" aria-label="Rechercher un serveur" title="Rechercher un serveur (Ctrl+K)" onClick={() => setOpen(true)}><Search className="size-4"/></Button>
+    <CommandDialog open={open} onOpenChange={setOpen} title="Rechercher un serveur" description="Filtrez les serveurs par nom, identifiant ou adresse.">
+      <Command>
+        <CommandInput placeholder="Rechercher un serveur…" aria-label="Rechercher un serveur"/>
+        <CommandList>
+          <CommandEmpty>Aucun serveur trouvé.</CommandEmpty>
+          <CommandGroup heading="Serveurs du panel">
+            {servers.map(server => <CommandItem key={server.id} value={`${server.name} ${server.identifier} ${server.node ?? ""} ${server.connect_address ?? ""}`} onSelect={() => { setOpen(false); onOpen(server); }}>
+              <Server className="text-primary"/><span className="min-w-0 flex-1 truncate">{server.name}</span><span className="font-mono text-xs text-muted-foreground">{server.identifier}</span>
+            </CommandItem>)}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </CommandDialog>
+  </>;
+}
 
 function formatBytes(bytes?: number | null) {
   if (bytes == null || !Number.isFinite(bytes)) return "—";
@@ -223,18 +251,11 @@ function SubuserList({ capability }: { capability: PanelCapability<PanelSubuser[
 export default function PanelServersPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const panels = useQuery({ queryKey: ["panels"], queryFn: commands.listPanels });
   const panel = resolvePanel(panels.data, searchParams.get("panel"));
   const servers = useQuery({queryKey: ["panel-servers", panel?.id], queryFn: () => commands.listPanelServers(panel!.id), enabled: Boolean(panel)});
-  const matchingServers = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase();
-    return (servers.data ?? []).filter((server) => {
-      const matchesSearch = !normalizedSearch || `${server.name} ${server.identifier} ${server.node ?? ""} ${server.egg ?? ""} ${server.connect_address ?? ""}`.toLocaleLowerCase().includes(normalizedSearch);
-      return matchesSearch;
-    });
-  }, [search, servers.data]);
+  const matchingServers = useMemo(() => servers.data ?? [], [servers.data]);
   const pageCount = Math.max(1, Math.ceil(matchingServers.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const visibleServers = matchingServers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -256,32 +277,21 @@ export default function PanelServersPage() {
         <EmptyState message="Aucun panel configuré. Ajoutez un panel puis connectez-vous." />
       ) : (
         <section className="space-y-3">
+          <div className="flex items-center gap-2 px-1" aria-label="Actions des serveurs">
+            <ServerSearch servers={servers.data ?? []} onOpen={server => navigate(consoleRoute(panel.id, server.identifier))}/>
+            <Button size="icon" variant="outline" className="size-8" aria-label="Actualiser les serveurs" title="Actualiser les serveurs" onClick={()=>void refresh()} disabled={servers.isFetching || loadingResources}>
+              <RefreshCw className={servers.isFetching || loadingResources ? "size-4 animate-spin" : "size-4"}/>
+            </Button>
+          </div>
           <div className="rounded-xl border bg-card/45 px-4 py-3 sm:px-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              {servers.data && servers.data.length > 0 && (
-                <div className="relative w-full sm:max-w-sm">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                  <Input
-                    className="pl-9"
-                    value={search}
-                    onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-                    placeholder="Rechercher un serveur…"
-                    aria-label="Rechercher un serveur"
-                  />
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                {(panels.data?.length ?? 0) > 1 && (
-                  <select className={selectStyles} aria-label="Choisir un panel" value={panel?.id ?? ""}
-                    onChange={(event) => { setSearchParams({ panel: event.target.value }); setSearch(""); setPage(1); }}>
-                    {panels.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  </select>
-                )}
-                <Button size="sm" variant="outline" onClick={()=>void refresh()} disabled={servers.isFetching || loadingResources}>
-                  <RefreshCw className={servers.isFetching || loadingResources ? "size-4 animate-spin" : "size-4"}/> Actualiser
-                </Button>
+            {(panels.data?.length ?? 0) > 1 && (
+              <div className="mb-3 flex justify-end">
+                  <Select value={panel.id} onValueChange={(value) => { setSearchParams({ panel: value }); setPage(1); }}>
+                    <SelectTrigger className="w-48" aria-label="Choisir un panel"><SelectValue placeholder="Choisir un panel"/></SelectTrigger>
+                    <SelectContent>{panels.data?.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
+                  </Select>
               </div>
-            </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

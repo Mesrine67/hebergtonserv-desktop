@@ -1,7 +1,7 @@
 {
   "name": "hebergtonserv-desktop",
   "private": true,
-  "version": "0.4.23",
+  "version": "0.4.24",
   "description": "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement",
   "type": "module",
   "packageManager": "pnpm@12.15.0",
@@ -54,6 +54,7 @@
     "@tauri-apps/plugin-window-state": "2.5.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "cmdk": "1.1.1",
     "cn": "^0.5.0",
     "lucide-react": "1.65.0",
     "next-themes": "0.4.6",

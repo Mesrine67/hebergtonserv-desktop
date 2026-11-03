@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, ExternalLink, KeyRound, RefreshCw, Server, ShieldCheck, UserRound } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageHeader, selectStyles } from "@/components/page-shell";
+import { EmptyState, PageHeader } from "@/components/page-shell";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { commands } from "@/lib/tauri";
 import { resolvePanel, serverListRoute } from "@/lib/panel-navigation";
 import { errorMessage } from "@/lib/error-message";
@@ -76,7 +77,7 @@ export default function PanelAccountPage() {
     <div className="space-y-5">
       <PageHeader eyebrow="Infrastructure · Accès Client API" title="Compte du panel" description="Profil connecté, état des accès et ressources visibles pour le jeton de ce panel." />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-4">
-        <div className="space-y-1"><label htmlFor="account-panel-select" className="text-xs font-medium text-muted-foreground">Connexion panel</label><select id="account-panel-select" className={selectStyles + " min-w-60 max-w-full"} value={panel?.id ?? ""} onChange={event => setSearchParams({ panel: event.target.value })} disabled={!panels.data?.length}>{!panel && <option value="">Choisir un panel</option>}{(panels.data ?? []).map(item => <option key={item.id} value={item.id}>{item.name} · {item.provider}</option>)}</select></div>
+        <div className="space-y-1"><label id="account-panel-select-label" className="text-xs font-medium text-muted-foreground">Connexion panel</label><Select value={panel?.id ?? ""} onValueChange={value => setSearchParams({ panel: value })} disabled={!panels.data?.length}><SelectTrigger aria-labelledby="account-panel-select-label" className="min-w-60 max-w-full"><SelectValue placeholder="Choisir un panel"/></SelectTrigger><SelectContent>{(panels.data ?? []).map(item => <SelectItem key={item.id} value={item.id}>{item.name} · {item.provider}</SelectItem>)}</SelectContent></Select></div>
         {panel && <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${panel.status === "ok" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" : "bg-secondary text-muted-foreground"}`}><span className={`size-1.5 rounded-full ${panel.status === "ok" ? "bg-emerald-500" : "bg-muted-foreground"}`} />{panel.status === "ok" ? "Vérifié" : "À vérifier"}</span>}
       </div>
       {panels.isPending ? <p role="status" className="text-sm text-muted-foreground">Chargement des panels…</p> : panels.isError ? <p role="alert" className="text-sm text-destructive">{errorMessage(panels.error)}</p> : !panel ? <EmptyState message={requestedId ? "Ce panel n’existe plus. Choisissez une autre connexion." : "Aucun panel configuré. Ajoutez une connexion pour continuer."} /> : <PanelAccountDetails key={panel.id} panel={panel} />}
