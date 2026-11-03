@@ -96,12 +96,12 @@ function Stat({icon: Icon, label, value, percent}: {
   percent?: number;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-md border bg-muted/25 px-3 py-2.5">
+    <div className="flex min-w-0 flex-col gap-2 rounded-md border bg-muted/25 px-2.5 py-2.5">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon data-icon="inline-start" aria-hidden="true" />
-        <span className="truncate text-[0.6875rem] font-medium uppercase tracking-wide">{label}</span>
+        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="text-[0.6875rem] font-medium">{label}</span>
       </div>
-      <p className="truncate text-xs font-semibold tabular-nums text-card-foreground" title={value}>{value}</p>
+      <p className="min-h-8 text-xs/4 font-semibold tabular-nums text-card-foreground">{value}</p>
       {percent != null && (
         <Progress value={percent} aria-label={`${label} utilisé`} className="h-1" />
       )}
@@ -134,10 +134,10 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
   const diskPercent = usagePercent(stats?.disk_used_bytes, diskLimit);
   const address = stats?.connect_address ?? server.connect_address;
   const shortId = server.identifier || server.id.slice(0, 8);
-  const stateIcon = state === "online" ? <CircleCheck data-icon="inline-start" className="text-primary" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff data-icon="inline-start" aria-hidden="true" /> : <CircleAlert data-icon="inline-start" aria-hidden="true" />;
-  const stateVariant = state === "online" && !failed ? "secondary" : state === "offline" || state === "suspended" || failed ? "destructive" : "outline";
+  const stateIcon = state === "online" ? <CircleCheck data-icon="inline-start" className="text-emerald-500" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff data-icon="inline-start" aria-hidden="true" /> : <CircleAlert data-icon="inline-start" className="text-amber-500" aria-hidden="true" />;
+  const stateVariant = state === "offline" || state === "suspended" || failed ? "destructive" : "outline";
   return (
-    <Card role="article" className="group/card transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
+    <Card role="article" className="group/card gap-0 transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
       <CardHeader className="border-b bg-muted/15">
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -150,12 +150,12 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
           </div>
         </div>
         <CardAction>
-          <Badge variant={stateVariant} className={cn(state === "online" && !failed && "text-primary")}>
+          <Badge variant={stateVariant} className={cn("bg-background/80 text-foreground", state === "online" && !failed && "border-emerald-500/30", state !== "online" && state !== "offline" && state !== "suspended" && !failed && "border-amber-500/30")}>
             {stateIcon}{stateText}
           </Badge>
         </CardAction>
       </CardHeader>
-      <CardContent className="grid gap-3">
+      <CardContent className="grid gap-3 py-3">
         {server.egg && <div className="flex min-w-0 items-center gap-2">
           <Badge variant="outline" className="max-w-full truncate">{server.egg}</Badge>
           {server.installing && <CardDescription>Installation en cours</CardDescription>}
@@ -181,7 +181,7 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
       {subusersOpen && <CardContent className="border-t pt-3" aria-live="polite">
         {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p> : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p> : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p> : <SubuserList capability={subusers.data} />}
       </CardContent>}
-      <CardContent className="grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-4">
+      <CardContent className="grid grid-cols-2 gap-1.5 border-t py-3 sm:grid-cols-4">
         <Stat
           icon={Cpu}
           label="CPU"
@@ -207,10 +207,7 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
             value={`${stats.players ?? 0} / ${stats.max_players ?? "—"}`}
           />
         ) : (
-          <div className="flex min-w-0 flex-col justify-center gap-2 rounded-md border bg-muted/25 px-3 py-2.5 text-muted-foreground">
-            <span className="flex items-center gap-2 text-[0.6875rem] font-medium uppercase tracking-wide"><Users data-icon="inline-start" aria-hidden="true" /> Joueurs</span>
-            <span className="truncate text-xs">{failed ? "Stats indisponibles" : loading ? "Chargement…" : "Jeu sans requête"}</span>
-          </div>
+          <Stat icon={Users} label="Joueurs" value={failed ? "Stats indisponibles" : loading ? "Chargement…" : "Jeu sans requête"} />
         )}
       </CardContent>
       {stats && (stats.network_rx_bytes != null || stats.network_tx_bytes != null) && (
