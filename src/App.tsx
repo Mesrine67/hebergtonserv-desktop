@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
@@ -15,26 +15,30 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeStyleProvider } from "@/lib/theme-style";
 import { WorkspaceNavigationProvider } from "@/lib/workspace-navigation";
-import GitHubPage from "@/pages/GitHubPage";
-import HomePage from "@/pages/HomePage";
-import DocumentationPage from "@/pages/DocumentationPage";
 import { DesktopHelpPanels } from "@/components/desktop-help-panels";
+import { DesktopTaskManager } from "@/components/desktop-task-manager";
+import { recordAppEvent } from "@/lib/app-diagnostics";
 import { PanelDiagnostics } from "@/components/panel-diagnostics";
-import SshKeysPage from "./pages/SshKeysPage";
-import SshConfigPage from "./pages/SshConfigPage";
-import PanelsPage from "./pages/PanelsPage";
-import ProfilesPage from "./pages/ProfilesPage";
-import SettingsPage from "./pages/SettingsPage";
-import SecurityPage from "./pages/SecurityPage";
-import PanelAccountPage from "./pages/PanelAccountPage";
-import PanelServersPage from "./pages/PanelServersPage";
-import ServerConsolePage from "./pages/ServerConsolePage";
 import "./App.css";
 import "./theme-presets.css";
 import "./welcome-motion.css";
 import "./desktop-polish.css";
 import "./desktop-next.css";
 import "./shadcn-style-modes.css";
+
+// Route-level splitting keeps the cold-start WebView bundle small.
+const HomePage = lazy(() => import("@/pages/HomePage"));
+const GitHubPage = lazy(() => import("@/pages/GitHubPage"));
+const DocumentationPage = lazy(() => import("@/pages/DocumentationPage"));
+const SshKeysPage = lazy(() => import("./pages/SshKeysPage"));
+const SshConfigPage = lazy(() => import("./pages/SshConfigPage"));
+const PanelsPage = lazy(() => import("./pages/PanelsPage"));
+const ProfilesPage = lazy(() => import("./pages/ProfilesPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const SecurityPage = lazy(() => import("./pages/SecurityPage"));
+const PanelAccountPage = lazy(() => import("./pages/PanelAccountPage"));
+const PanelServersPage = lazy(() => import("./pages/PanelServersPage"));
+const ServerConsolePage = lazy(() => import("./pages/ServerConsolePage"));
 
 const queryClient = new QueryClient();
 
@@ -60,13 +64,17 @@ function Workspace() {
     window.addEventListener("hts:open-api-journal", openJournal);
     return () => window.removeEventListener("hts:open-api-journal", openJournal);
   }, []);
-  useEffect(() => { document.getElementById("workspace-scroll")?.scrollTo({ top: 0 }); }, [location.pathname]);
+  useEffect(() => {
+    document.getElementById("workspace-scroll")?.scrollTo({ top: 0 });
+    recordAppEvent("navigation", "route_changed");
+  }, [location.pathname]);
   const current = routeLabels[location.pathname] ?? (location.pathname.startsWith("/panel/servers/") ? "Console serveur" : "Clés SSH");
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
       <DesktopTitlebar navigation title={current} />
       <DesktopHelpPanels />
+      <DesktopTaskManager />
       <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
@@ -74,6 +82,7 @@ function Workspace() {
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
           <div className={`mx-auto w-full ${location.pathname === "/panel/servers" ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <div key={location.pathname} className="hts-route-scene">
+            <Suspense fallback={<p role="status" className="px-4 py-6 text-sm text-muted-foreground">Chargement de la page…</p>}>
             <Routes>
               <Route path="/" element={<Navigate to="/home" replace />} />
               <Route path="/home" element={<HomePage />} />
@@ -90,6 +99,7 @@ function Workspace() {
               <Route path="/git" element={<GitHubPage />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
+            </Suspense>
             </div>
           </div>
         </main>
@@ -110,6 +120,7 @@ export default function App() {
     function requestClose() {
       if (!isTauri() || closingRef.current) return;
       closingRef.current = true;
+      recordAppEvent("lifecycle", "close_requested");
       setIsClosing(true);
       window.setTimeout(() => {
         void invoke("finish_main_window_close").catch((error: unknown) => {
@@ -144,6 +155,7 @@ export default function App() {
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
       secondFrame = requestAnimationFrame(() => {
+        recordAppEvent("lifecycle", "window_ready");
         void invoke("show_ready_main_window").catch((error: unknown) => {
           console.error("[desktop] ready window", error);
         });
@@ -152,6 +164,7 @@ export default function App() {
     return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
   }, []);
   const onAuthenticated = useCallback(() => {
+    recordAppEvent("auth", "session_authenticated");
     try { window.localStorage.setItem("hts-last-authenticated-version", buildVersion); } catch { /* private storage unavailable */ }
     setAuthenticated(true);
   }, []);

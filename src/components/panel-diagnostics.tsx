@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { ChevronDown, ChevronRight, Clipboard, Download, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Clipboard, Download, RefreshCw, Trash2, Bot, Braces, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { version as appVersion } from "../../package.json";
 
 export interface DiagnosticEntry {
   timestamp: string;
@@ -29,13 +30,33 @@ function diagnosticHint(code: string): string {
     case "ws_expired": return "Jeton Wings expiré : une reconnexion doit obtenir un nouveau jeton.";
     case "api_invalid_response": return "Réponse API non compatible avec le contrat attendu : vérifier la version WISP/Pterodactyl.";
     case "api_ok": return "Appel Client API réussi.";
+    case "command_ok": return "Commande Tauri exécutée. Durée et résultat résumés sans arguments.";
+    case "command_slow": return "Commande longue : inspecter les délais IO et les traitements bloquants.";
+    case "command_error": return "Commande Tauri refusée ou en échec : rechercher la cause dans les autres événements.";
+    case "unhandled_error": return "Exception frontend capturée, détail volontairement non enregistré.";
+    case "unhandled_rejection": return "Promesse rejetée sans gestion ; inspecter les points d’appel React.";
+    case "snapshot_ok": return "Inventaire Windows obtenu sans blocage de l’interface.";
+    case "app_started": return "Initialisation de l’interface réussie.";
     default: return "Vérifier le statut du panel, les permissions et les journaux du serveur.";
   }
 }
 export function formatDiagnosticEntries(entries: DiagnosticEntry[]) {
-  return ["# HébergTonServ Desktop — Journal global des API (sans secrets)", ...entries.map(e =>
+  return ["# HébergTonServ Desktop — Journal global de l’application (sans secrets)", ...entries.map(e =>
     `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}`
   )].join("\n") + "\n";
+}
+export function formatAiDiagnosticEntries(entries: DiagnosticEntry[], target: "chatgpt" | "codex") {
+  const alerts = entries.filter(e=>e.level!=="info");
+  const header = [
+    "# Diagnostic HébergTonServ Desktop v" + appVersion,
+    "Format destiné à " + (target==="codex" ? "Codex" : "ChatGPT") + ".",
+    "Environnement : Windows / Tauri 2 / React. Données personnelles, en-têtes, jetons, URL et réponses API non inclus.",
+    "Entrées : " + entries.length + ", avertissements et erreurs : " + alerts.length + ".",
+    "Analyser les causes, proposer des tests et des corrections sans supposer les informations absentes.",
+    "## Événements récents (200 maximum)",
+    ...entries.slice(-200).map(e=>e.timestamp + " [" + e.level + "] " + e.operation + " / " + e.code + ": " + e.message),
+  ];
+  return header.join("\n") + "\n";
 }
 export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChange:(open:boolean)=>void}) {
   const [entries,setEntries]=useState<DiagnosticEntry[]>([]);
@@ -43,6 +64,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
   const [feedback,setFeedback]=useState("");
   const [filter,setFilter]=useState("");
   const [severity,setSeverity]=useState("all");
+  const [category,setCategory]=useState("all");
   const [expanded,setExpanded]=useState<string[]>([]);
   const refresh=useCallback(async()=>{
     if(!isTauri())return;
@@ -50,12 +72,17 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
     catch {setFeedback("Lecture du journal indisponible.");}
   },[]);
   useEffect(()=>{if(!open)return;void refresh();const t=window.setInterval(()=>void refresh(),12000);return()=>window.clearInterval(t);},[open,refresh]);
-  const shown=useMemo(()=>entries.filter(e=>(severity==="all"||e.level===severity)&&`${e.operation} ${e.code} ${e.message}`.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),[entries,filter,severity]);
+  const shown=useMemo(()=>entries.filter(e=>(severity==="all"||e.level===severity)&&(category==="all"||category==="app"&&!/(wisp|pterodactyl|panel|console)/.test(e.operation)||category==="api"&&/(wisp|pterodactyl|panel)/.test(e.operation)||category==="wings"&&e.operation.startsWith("console"))&&`${e.operation} ${e.code} ${e.message}`.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),[entries,filter,severity,category]);
   const content=useMemo(()=>formatDiagnosticEntries(entries),[entries]);
   const toggle=(key:string)=>setExpanded(previous=>previous.includes(key)?previous.filter(x=>x!==key):[...previous,key]);
   async function copy(){
     try {if(isTauri()) await writeText(content);else await navigator.clipboard.writeText(content);setFeedback("Journal copié.");}
     catch {setFeedback("Copie indisponible.");}
+  }
+  async function copyAi(target: "chatgpt" | "codex") {
+    const report=formatAiDiagnosticEntries(shown,target);
+    try { if(isTauri())await writeText(report);else await navigator.clipboard.writeText(report);setFeedback("Diagnostic structuré copié pour "+target+"."); }
+    catch {setFeedback("Copie du diagnostic impossible.");}
   }
   async function exportFile(){
     if(!isTauri())return;
@@ -76,19 +103,29 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="z-[10025] flex h-[min(85vh,820px)] w-[min(94vw,1200px)] max-w-none flex-col gap-3 overflow-hidden bg-card p-0 sm:max-w-none">
       <DialogHeader className="border-b px-5 py-4">
-        <DialogTitle className="flex items-center gap-2"><FileText className="size-4 text-primary"/>Journal des API</DialogTitle>
-        <DialogDescription>Journal commun des appels WISP, Pterodactyl et des connexions console de HébergTonServ. Aucun jeton, contenu WebSocket, URL ni identifiant de serveur n’est enregistré.</DialogDescription>
+        <DialogTitle className="flex items-center gap-2"><Activity className="size-4 text-primary"/>Journal de l’application</DialogTitle>
+        <DialogDescription>Journal global : API, application, Tauri, Windows et erreurs frontend. Arguments, identifiants et réponses sensibles restent exclus.</DialogDescription>
       </DialogHeader>
       <div className="flex flex-wrap gap-2 px-4">
         <Button size="sm" variant="outline" onClick={()=>void refresh()}><RefreshCw className="size-4"/> Actualiser</Button>
         <Button size="sm" variant="outline" onClick={()=>void copy()}><Clipboard className="size-4"/> Copier</Button>
+        <Button size="sm" variant="secondary" disabled={!shown.length} onClick={()=>void copyAi("chatgpt")}><Bot className="size-4"/> Copier pour ChatGPT</Button>
+        <Button size="sm" variant="secondary" disabled={!shown.length} onClick={()=>void copyAi("codex")}><Braces className="size-4"/> Copier pour Codex</Button>
         <Button size="sm" variant="outline" disabled={busy || !isTauri()} onClick={()=>void exportFile()}><Download className="size-4"/> Enregistrer</Button>
         <Button size="sm" variant="outline" disabled={busy || !entries.length} onClick={()=>void clear()}><Trash2 className="size-4"/> Vider</Button>
       </div>
       <div className="flex flex-wrap items-center gap-2 px-4"><Input className="max-w-sm" placeholder="Filtrer les événements…" aria-label="Filtrer les journaux" value={filter} onChange={e=>setFilter(e.target.value)}/><select className="rounded-md border bg-background px-3 py-2 text-xs" aria-label="Niveau des événements" value={severity} onChange={e=>setSeverity(e.target.value)}><option value="all">Tous les niveaux</option><option value="info">Informations</option><option value="warning">Avertissements</option><option value="error">Erreurs</option></select><span className="text-xs text-muted-foreground">{shown.length} / {entries.length} événements</span></div>
       {feedback&&<p className="px-4 text-xs text-muted-foreground" role="status">{feedback}</p>}
-      <div className="min-h-0 flex-1 overflow-auto bg-background/70 px-4 pb-5 font-mono">
-        {shown.length===0?<p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Aucun événement. Les appels Client API et les connexions console y apparaîtront automatiquement.</p>:<div className="divide-y divide-border/60 rounded-md border">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="flex w-40 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-sidebar p-2 md:w-52" aria-label="Filtrer les composants">
+          <p className="px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground">Sous-systèmes</p>
+          {([{id:"all",label:"Tous les événements"},{id:"app",label:"Application / Windows"},{id:"api",label:"WISP / Pterodactyl"},{id:"wings",label:"Console Wings"}] as const).map(item=>
+            <button type="button" key={item.id} onClick={()=>setCategory(item.id)}
+              className={"rounded-md px-3 py-2 text-left text-xs hover:bg-accent "+(category===item.id?"bg-accent text-foreground":"text-muted-foreground")}>{item.label}</button>)}
+          <p className="mt-auto border-t px-3 py-3 text-[11px] text-muted-foreground">Filtrer sans supprimer les événements.</p>
+        </aside>
+        <div className="min-h-0 flex-1 overflow-auto bg-background/70 px-4 pb-5 font-mono">
+        {shown.length===0?<p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Aucun événement pour ce filtre. Essayez une autre catégorie ou actualisez.</p>:<div className="divide-y divide-border/60 rounded-md border">
           {[...shown].reverse().map((entry,i)=><div key={`${entry.timestamp}-${i}`} className="px-3 py-2 text-xs hover:bg-muted/40">
             <button type="button" className="grid w-full items-center gap-2 text-left md:grid-cols-[16px_175px_75px_1fr]" aria-expanded={expanded.includes(`${entry.timestamp}-${i}`)} onClick={()=>toggle(`${entry.timestamp}-${i}`)}>
               {expanded.includes(`${entry.timestamp}-${i}`)?<ChevronDown className="size-3.5"/>:<ChevronRight className="size-3.5"/>}
@@ -99,8 +136,9 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
             {expanded.includes(`${entry.timestamp}-${i}`)&&<div className="mt-2 grid gap-1 rounded-md border bg-muted/35 p-3 font-mono text-xs break-all"><p>Date UTC : {entry.timestamp}</p><p>Niveau : {entry.level}</p><p>Opération : {entry.operation}</p><p>Code : {entry.code}</p><p>Résumé : {entry.message}</p><p>Diagnostic probable : {diagnosticHint(entry.code)}</p><p className="text-muted-foreground">Les données privées (jetons, URL, réponses brutes et identifiants) sont volontairement exclues.</p><Button variant="outline" size="sm" className="w-fit" onClick={()=>void (isTauri()?writeText(formatDiagnosticEntries([entry])):navigator.clipboard.writeText(formatDiagnosticEntries([entry])))}>Copier cet événement</Button></div>}
 
           </div>)}</div>}
+        </div>
       </div>
-      <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile de 300 événements maximum, perdu à la fermeture de l’application. Aucune donnée sensible n’est conservée.</p>
+      <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile de 1 500 événements maximum, perdu à la fermeture de l’application. Aucune donnée sensible n’est conservée.</p>
     </DialogContent>
   </Dialog>;
 }

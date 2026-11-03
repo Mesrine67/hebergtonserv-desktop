@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
-const CAPACITY: usize = 300;
+const CAPACITY: usize = 1500;
 
 #[derive(Clone, Serialize)]
 pub struct DiagnosticEntry {
@@ -90,6 +90,174 @@ pub fn record_console_connection_event(event: String) {
         _ => return,
     };
     record(level, "console_websocket", code, message);
+}
+
+/// A deliberately strict vocabulary: no untrusted text, arguments, credentials,
+/// filesystem paths, URLs, server identifiers or exception stacks are recorded.
+#[tauri::command]
+pub fn record_app_event(source: String, code: String) {
+    let (level, operation, event, description) = match (source.as_str(), code.as_str()) {
+        ("lifecycle", "app_started") => ("info", "lifecycle", "app_started", "Interface démarrée"),
+        ("lifecycle", "close_requested") => {
+            ("info", "lifecycle", "close_requested", "Fermeture demandée")
+        }
+        ("lifecycle", "window_ready") => (
+            "info",
+            "lifecycle",
+            "window_ready",
+            "Fenêtre principale prête",
+        ),
+        ("navigation", "route_changed") => (
+            "info",
+            "navigation",
+            "route_changed",
+            "Navigation vers une page",
+        ),
+        ("frontend", "unhandled_error") => (
+            "error",
+            "frontend",
+            "unhandled_error",
+            "Erreur JavaScript non gérée",
+        ),
+        ("frontend", "unhandled_rejection") => (
+            "error",
+            "frontend",
+            "unhandled_rejection",
+            "Promesse JavaScript rejetée sans gestion",
+        ),
+        ("frontend", "console_error") => (
+            "warning",
+            "frontend",
+            "console_error",
+            "Erreur rapportée dans la console JavaScript",
+        ),
+        ("auth", "session_authenticated") => (
+            "info",
+            "auth",
+            "session_authenticated",
+            "Authentification de l'application réussie",
+        ),
+        ("help", "changelog_opened") => (
+            "info",
+            "help",
+            "changelog_opened",
+            "Historique des versions ouvert",
+        ),
+        ("help", "changelog_loaded") => {
+            ("info", "help", "changelog_loaded", "Versions GitHub reçues")
+        }
+        ("help", "changelog_failed") => (
+            "warning",
+            "help",
+            "changelog_failed",
+            "Chargement des versions GitHub impossible",
+        ),
+        ("help", "shortcuts_opened") => (
+            "info",
+            "help",
+            "shortcuts_opened",
+            "Raccourcis clavier affichés",
+        ),
+        ("help", "diagnostics_opened") => (
+            "info",
+            "help",
+            "diagnostics_opened",
+            "Journal de diagnostic ouvert",
+        ),
+        ("windows", "task_manager_opened") => (
+            "info",
+            "windows",
+            "task_manager_opened",
+            "Gestionnaire de tâches ouvert",
+        ),
+        ("windows", "task_snapshot_failed") => (
+            "warning",
+            "windows",
+            "task_snapshot_failed",
+            "Lecture des processus indisponible",
+        ),
+        _ => return,
+    };
+    record(level, operation, event, description);
+}
+
+/// Timing and outcome only. This allowlist prevents untrusted invocations
+/// (including deliberately crafted command names) from encoding secrets.
+#[tauri::command]
+pub fn record_command_event(operation: String, outcome: String, duration_ms: u32) {
+    let accepted = matches!(
+        operation.as_str(),
+        "get_git_tools"
+            | "inspect_git_repository"
+            | "toggle_app_window_maximize"
+            | "list_ssh_keys"
+            | "generate_ssh_key"
+            | "import_public_key"
+            | "read_ssh_public_key"
+            | "delete_ssh_key"
+            | "list_ssh_trash"
+            | "test_ssh_connection"
+            | "open_ssh_connection"
+            | "scan_host_key"
+            | "append_host_key"
+            | "read_ssh_config"
+            | "upsert_ssh_config"
+            | "delete_ssh_config"
+            | "import_ssh_config_profiles"
+            | "agent_status"
+            | "agent_identities"
+            | "agent_add_identity"
+            | "agent_remove_identity"
+            | "list_panels"
+            | "login_wisp"
+            | "save_panel"
+            | "delete_panel"
+            | "check_panel"
+            | "get_panel_account"
+            | "list_panel_servers"
+            | "get_panel_resources_batch"
+            | "get_panel_server_resources"
+            | "set_panel_token"
+            | "panel_token_configured"
+            | "create_panel_api_key"
+            | "create_panel_ssh_key"
+            | "revoke_panel_api_key"
+            | "delete_panel_ssh_key"
+            | "list_ssh_profiles"
+            | "save_ssh_profile"
+            | "delete_ssh_profile"
+            | "get_settings"
+            | "update_settings"
+            | "enable_autostart"
+            | "disable_autostart"
+            | "get_security_state"
+    );
+    if !accepted || duration_ms > 60_000 || !matches!(outcome.as_str(), "ok" | "error") {
+        return;
+    }
+    let (level, code) = if outcome == "error" {
+        ("warning", "command_error")
+    } else if duration_ms >= 1500 {
+        ("warning", "command_slow")
+    } else {
+        ("info", "command_ok")
+    };
+    let entry = DiagnosticEntry {
+        timestamp: Utc::now().to_rfc3339(),
+        level,
+        operation: operation.clone(),
+        code: code.to_owned(),
+        message: format!(
+            "Commande Tauri {} ({} ms) ; arguments et réponse exclus.",
+            outcome, duration_ms
+        ),
+    };
+    if let Ok(mut events) = journal().lock() {
+        if events.len() == CAPACITY {
+            events.pop_front();
+        }
+        events.push_back(entry);
+    }
 }
 
 #[tauri::command]
@@ -181,7 +349,7 @@ mod tests {
         clear_panel_diagnostics();
         record("error", "resource", "token=secret", "Échec");
         assert!(list_panel_diagnostics().is_empty());
-        for _ in 0..310 {
+        for _ in 0..(CAPACITY + 10) {
             record("info", "resource", "ok", "Sans données sensibles");
         }
         assert_eq!(list_panel_diagnostics().len(), CAPACITY);
