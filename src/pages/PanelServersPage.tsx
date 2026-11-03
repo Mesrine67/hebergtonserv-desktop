@@ -249,7 +249,14 @@ function SubuserList({ capability }: { capability: PanelCapability<PanelSubuser[
     {users.map(user => <li key={user.uuid} className="rounded-lg bg-muted/45 px-3 py-2">
       <p className="truncate text-sm font-medium">{user.username || user.email || user.identifier || user.uuid}</p>
       {user.email && user.username && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
-      <p className="mt-1 text-xs text-muted-foreground">Permissions : {user.permissions.length ? user.permissions.join(", ") : "aucune communiquée"}</p>
+      {user.permissions.length > 0
+        ? <details className="mt-1 text-xs text-muted-foreground">
+          <summary className="cursor-pointer">{user.permissions.length} permissions</summary>
+          <ul className="mt-1 max-h-32 list-inside list-disc overflow-auto pl-1">
+            {user.permissions.map(permission => <li key={permission} className="break-all">{permission}</li>)}
+          </ul>
+        </details>
+        : <p className="mt-1 text-xs text-muted-foreground">Aucune permission communiquée par le panel.</p>}
     </li>)}
   </ul>;
 }

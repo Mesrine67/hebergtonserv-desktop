@@ -125,6 +125,7 @@ pub struct PanelSshKey {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PanelSubuser {
+    #[serde(alias = "id")]
     pub uuid: String,
     #[serde(default)]
     pub identifier: Option<String>,

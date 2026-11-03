@@ -1,6 +1,6 @@
 # HébergTonServ Desktop — Index des API de panels
 
-Mise à jour : 2026-11-02. Cet index distingue **la version du logiciel Panel** de **la version du contrat HTTP/API**. Il ne prétend pas que tous les endpoints répertoriés sont implémentés.
+Mise à jour : 2026-11-03. Cet index distingue **la version du logiciel Panel** de **la version du contrat HTTP/API**. Il ne prétend pas que tous les endpoints répertoriés sont implémentés.
 
 ## Contrats et en-têtes utilisés
 
@@ -27,7 +27,7 @@ La présence de **WISP Panel v2.10.x** dans un changelog ne prouve **pas** qu'un
 | Liste des clés SSH | Selon prise en charge du panel | Présent si endpoint exposé | `providers/*.rs` |
 | Créer / supprimer clés SSH | Non activé (contrat non vérifié) | Présent si endpoint exposé | `providers/*.rs` |
 | Console interactive, commandes, websocket | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon le panel | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon la version | `commands/panels.rs`, `pages/ServerConsolePage.tsx` (PR #79) |
-| Liste des sous-utilisateurs d’un serveur | Non documentée dans l’API Client publique consultée | GET `/api/client/servers/{identifier}/users` (1.x, identifiant court) et GET `/api/client/servers/{server_uuid}/users` (2.x, UUID), lecture seule | `providers/pterodactyl.rs`, `commands/panels.rs`, `PanelServersPage.tsx` |
+| Liste des sous-utilisateurs d’un serveur | GET `/api/client/servers/{identifier}/subusers` observé sur le client web WISP v4.0.19 (Bearer API à confirmer; pagination `page`/`per_page`) | GET `/api/client/servers/{identifier}/users` (1.x, identifiant court) et GET `/api/client/servers/{server_uuid}/users` (2.x, UUID), lecture seule | `providers/wisp.rs`, `providers/pterodactyl.rs`, `commands/panels.rs`, `PanelServersPage.tsx` |
 | Fichiers, sauvegardes, bases, tâches, allocations | Non implémenté dans `PanelProvider` | Endpoints Client documentés, pas encore intégrés | À traiter par capacités incrémentales |
 | Opérations Admin / Application | Non implémenté | Non implémenté | Ne pas mélanger les droits Client / Admin |
 
@@ -51,7 +51,7 @@ Racine : [API Client WISP](https://gamepanel.notion.site/Client-API-b76f787c2cbb
 | FastDL / File manager | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
 | Modpacks / Mods | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
 | Schedules / Scheduled tasks / Startup | [WISP Client API](https://gamepanel.notion.site/Client-API-b76f787c2cbb4970b8dcca7f20104a15) | À faire |
-| Sous-utilisateurs | Non trouvé dans l’index officiel Client API consulté ; aucune route devinée n’est appelée |
+| Sous-utilisateurs | Le client web WISP v4.0.19 utilise `GET /api/client/servers/{identifier}/subusers`. Route observée sur le panel de test (réponse paginée `data` + `meta`); prise en charge ajoutée. L’authentification Bearer par jeton API reste à confirmer sur cette instance. |
 | Évolutions produit | [WISP Changelog](https://gamepanel.notion.site/WISP-Changelog-201ec094c23d8019a02bef6a5ba872a2) | Version du produit, pas version MIME |
 | IP WISP / infra | [WISP IP's](https://gamepanel.notion.site/WISP-IP-s-0ad3628fb72d43029639d8caad7dea8d), [ips.txt](https://wisp.gg/ips.txt) | Référence réseau ; ne pas en déduire automatiquement une allowlist |
 

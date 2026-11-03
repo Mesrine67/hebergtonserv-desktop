@@ -151,19 +151,92 @@ impl PanelProvider for WispProvider {
 
     async fn list_server_subusers(
         &self,
-        _identifier: &str,
+        identifier: &str,
     ) -> Result<Capability<Vec<PanelSubuser>>> {
-        Ok(Capability::unsupported(
-            "La documentation publique WISP consultée ne décrit pas d’endpoint Client API pour les sous-utilisateurs.",
-            Some(self.help_url("")),
-            false,
-        ))
+        if identifier.is_empty()
+            || identifier.len() > 128
+            || !identifier.chars().all(|character| {
+                character.is_ascii_alphanumeric() || character == '-' || character == '_'
+            })
+        {
+            return Err(crate::errors::app_error(
+                "api_config",
+                "Identifiant serveur invalide.",
+            ));
+        }
+
+        const PAGE_SIZE: u64 = 25;
+        const MAX_PAGES: u64 = 100;
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let mut subusers = Vec::new();
+        for page in 1..=MAX_PAGES {
+            let path = format!(
+                "/api/client/servers/{identifier}/subusers?per_page={PAGE_SIZE}&page={page}"
+            );
+            let response = client
+                .send_json::<serde_json::Value>(reqwest::Method::GET, &path, None)
+                .await?;
+            let rows = response
+                .get("data")
+                .and_then(serde_json::Value::as_array)
+                .ok_or_else(|| {
+                    crate::errors::app_error(
+                        "api_invalid_response",
+                        "La liste des sous-utilisateurs WISP est invalide.",
+                    )
+                })?;
+            if rows.is_empty() {
+                break;
+            }
+            for row in rows {
+                let user = row.get("attributes").unwrap_or(row);
+                subusers.push(
+                    serde_json::from_value::<PanelSubuser>(user.clone()).map_err(|_| {
+                        crate::errors::app_error(
+                            "api_invalid_response",
+                            "Un sous-utilisateur WISP a un format invalide.",
+                        )
+                    })?,
+                );
+            }
+
+            let total_pages = response
+                .get("meta")
+                .and_then(|meta| meta.get("pagination"))
+                .and_then(|pagination| pagination.get("total_pages"))
+                .and_then(serde_json::Value::as_u64);
+            if total_pages.is_some_and(|total| page >= total)
+                || (total_pages.is_none() && (rows.len() as u64) < PAGE_SIZE)
+            {
+                break;
+            }
+        }
+
+        Ok(Capability::supported(subusers))
     }
 }
 
 #[cfg(test)]
 mod compatibility_tests {
     use super::WispProvider;
+    use crate::providers::models::PanelSubuser;
+
+    #[test]
+    fn parses_wisp_browser_client_subuser_response() {
+        let response: serde_json::Value = serde_json::json!({
+            "object": "list",
+            "data": [{
+                "id": "user-uuid",
+                "permissions": ["console.read", "power.start"],
+                "created_at": "2026-11-03T00:00:00Z",
+                "updated_at": "2026-11-03T00:00:00Z"
+            }],
+            "meta": {"pagination": {"total_pages": 1, "current_page": 1, "count": 1}}
+        });
+        let user: PanelSubuser = serde_json::from_value(response["data"][0].clone()).unwrap();
+        assert_eq!(user.uuid, "user-uuid");
+        assert_eq!(user.permissions, ["console.read", "power.start"]);
+    }
 
     #[test]
     fn wisp_v1_is_default_and_v2_requires_explicit_opt_in() {
