@@ -8,6 +8,7 @@ use tokio::process::Command;
 use tokio::time::timeout;
 
 const EXECUTION_LIMIT: Duration = Duration::from_secs(8);
+const NETWORK_EXECUTION_LIMIT: Duration = Duration::from_secs(120);
 const OUTPUT_LIMIT: usize = 256 * 1024;
 
 #[derive(Debug, Serialize)]
@@ -38,6 +39,13 @@ pub struct GitHubActivity {
     pub pull_requests: Vec<GitHubEntry>,
     pub issues: Vec<GitHubEntry>,
     pub issues_available: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GitMutationResult {
+    pub action: String,
+    pub branch: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -343,6 +351,192 @@ async fn git_read(repository: &Path, args: &[&str]) -> Result<String> {
     tool_output("git", &all, Some(repository)).await
 }
 
+async fn git_network_action(repository: &Path, args: &[&str]) -> Result<()> {
+    let mut command = Command::new("git");
+    command
+        .args(["-c", "core.fsmonitor=false", "-c", "core.hooksPath=NUL"])
+        .args(args)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_PAGER", "cat")
+        .env("GCM_INTERACTIVE", "Never")
+        .env("GCM_MODAL_PROMPT", "Never")
+        .kill_on_drop(true)
+        .current_dir(repository);
+    let output = timeout(NETWORK_EXECUTION_LIMIT, command.output())
+        .await
+        .map_err(|_| {
+            app_error(
+                "git_timeout",
+                "L'opération Git a dépassé le délai autorisé.",
+            )
+        })?
+        .map_err(|_| app_error("git_unavailable", "L'exécutable Git est introuvable."))?;
+    if !output.status.success() {
+        return Err(app_error(
+            "git_network_action",
+            "L'opération Git a échoué. Vérifiez la connexion, les droits et l'état du dépôt.",
+        ));
+    }
+    if output.stdout.len().saturating_add(output.stderr.len()) > OUTPUT_LIMIT {
+        return Err(app_error(
+            "git_too_large",
+            "La sortie Git dépasse la taille autorisée.",
+        ));
+    }
+    Ok(())
+}
+
+fn upstream_branch(upstream: &str) -> Option<&str> {
+    let (remote, branch) = upstream.split_once('/')?;
+    (remote == "origin" && !branch.is_empty()).then_some(branch)
+}
+
+fn require_clean_worktree(status: &str) -> Result<()> {
+    if status.is_empty() {
+        Ok(())
+    } else {
+        Err(app_error(
+            "git_worktree_dirty",
+            "Pull refusé : validez ou mettez à l'abri les changements locaux avant de continuer.",
+        ))
+    }
+}
+
+async fn selected_github_repository(path: &str) -> Result<PathBuf> {
+    if path.trim().is_empty() || path.len() > 4096 {
+        return Err(app_error(
+            "git_path",
+            "Choisissez explicitement un dépôt local.",
+        ));
+    }
+    let path = std::fs::canonicalize(path)
+        .map_err(|_| app_error("git_path", "Le dossier sélectionné n'existe plus."))?;
+    let root = git_read(&path, &["rev-parse", "--show-toplevel"]).await?;
+    let root = PathBuf::from(root);
+    let fetch_url = git_read(&root, &["remote", "get-url", "origin"]).await?;
+    let repository = parse_github_repository(&fetch_url)?;
+    let push_url = git_read(&root, &["remote", "get-url", "--push", "origin"]).await?;
+    if parse_github_repository(&push_url)? != repository {
+        return Err(app_error(
+            "git_remote",
+            "Les destinations origin de lecture et d'écriture ne correspondent pas.",
+        ));
+    }
+    Ok(root)
+}
+
+#[tauri::command]
+pub async fn mutate_git_repository(path: String, action: String) -> Result<GitMutationResult> {
+    if !matches!(action.as_str(), "fetch" | "pull" | "push") {
+        return Err(app_error("git_action", "Action Git non reconnue."));
+    }
+    let root = selected_github_repository(&path).await?;
+    let branch = git_read(&root, &["branch", "--show-current"]).await?;
+    if branch.is_empty() {
+        return Err(app_error(
+            "git_detached_head",
+            "Cette action nécessite une branche active, pas un HEAD détaché.",
+        ));
+    }
+
+    let message = match action.as_str() {
+        "fetch" => {
+            git_network_action(&root, &["fetch", "--no-tags", "origin"]).await?;
+            "Références distantes actualisées ; les fichiers locaux n'ont pas été modifiés."
+        }
+        "pull" => {
+            let status = git_read(
+                &root,
+                &["status", "--porcelain=v1", "--untracked-files=all"],
+            )
+            .await?;
+            require_clean_worktree(&status)?;
+            let upstream = git_read(
+                &root,
+                &[
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{upstream}",
+                ],
+            )
+            .await?;
+            let target = upstream_branch(&upstream).ok_or_else(|| {
+                app_error(
+                    "git_upstream",
+                    "Pull refusé : configurez une branche de suivi origin.",
+                )
+            })?;
+            git_network_action(
+                &root,
+                &[
+                    "pull",
+                    "--ff-only",
+                    "--no-rebase",
+                    "--no-autostash",
+                    "origin",
+                    target,
+                ],
+            )
+            .await?;
+            "Mise à jour rapide appliquée ; aucun merge commit ni résolution automatique."
+        }
+        "push" => {
+            let upstream = git_read(
+                &root,
+                &[
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{upstream}",
+                ],
+            )
+            .await?;
+            let target = upstream_branch(&upstream).ok_or_else(|| {
+                app_error(
+                    "git_upstream",
+                    "Push refusé : configurez une branche de suivi origin.",
+                )
+            })?;
+            git_network_action(&root, &["fetch", "--no-tags", "origin"]).await?;
+            let remote_ahead = git_read(
+                &root,
+                &["rev-list", "--count", &format!("HEAD..origin/{target}")],
+            )
+            .await?
+            .parse::<u64>()
+            .unwrap_or(u64::MAX);
+            if remote_ahead > 0 {
+                return Err(app_error(
+                    "git_remote_ahead",
+                    "Push refusé : origin contient des commits absents localement. Récupérez-les d'abord.",
+                ));
+            }
+            let local_ahead = git_read(
+                &root,
+                &["rev-list", "--count", &format!("origin/{target}..HEAD")],
+            )
+            .await?
+            .parse::<u64>()
+            .unwrap_or(0);
+            if local_ahead == 0 {
+                "Aucun commit local en attente d'envoi."
+            } else {
+                let refspec = format!("HEAD:refs/heads/{target}");
+                git_network_action(&root, &["push", "origin", &refspec]).await?;
+                "Commits locaux envoyés sur la branche suivie, sans force push."
+            }
+        }
+        _ => unreachable!("action validated above"),
+    };
+    Ok(GitMutationResult {
+        action,
+        branch,
+        message: message.to_owned(),
+    })
+}
+
 #[tauri::command]
 pub async fn get_git_tools() -> GitTools {
     let git = tool_output("git", &["--version"], None).await.ok();
@@ -468,6 +662,31 @@ mod tests {
     }
 
     #[test]
+    fn only_accepts_origin_branch_upstreams_for_mutating_actions() {
+        assert_eq!(upstream_branch("origin/main"), Some("main"));
+        assert_eq!(
+            upstream_branch("origin/feature/topic"),
+            Some("feature/topic")
+        );
+        assert_eq!(upstream_branch("fork/main"), None);
+        assert_eq!(upstream_branch("origin/"), None);
+        assert_eq!(upstream_branch("main"), None);
+    }
+
+    #[test]
+    fn pull_guard_refuses_tracked_and_untracked_changes() {
+        assert!(require_clean_worktree("").is_ok());
+        assert_eq!(
+            require_clean_worktree(" M tracked.txt").unwrap_err().code(),
+            "git_worktree_dirty"
+        );
+        assert_eq!(
+            require_clean_worktree("?? private.txt").unwrap_err().code(),
+            "git_worktree_dirty"
+        );
+    }
+
+    #[test]
     fn parses_gh_pull_request_and_issue_json_fixtures() {
         let prs: Vec<GhEntry> = serde_json::from_value(serde_json::json!([{
             "number": 42,
@@ -523,5 +742,111 @@ mod tests {
         assert!(!snapshot.root.is_empty());
         assert!(snapshot.commits.is_empty());
         assert!(snapshot.changes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn temporary_remote_supports_fetch_fast_forward_pull_and_push() {
+        if tool_output("git", &["--version"], None).await.is_err() {
+            return;
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let remote = temp.path().join("remote.git");
+        let local = temp.path().join("local");
+        let other = temp.path().join("other");
+        std::fs::create_dir_all(&local).unwrap();
+
+        async fn git_ok(cwd: &Path, args: &[&str]) {
+            let output = Command::new("git")
+                .args(args)
+                .current_dir(cwd)
+                .env("GIT_CONFIG_GLOBAL", "NUL")
+                .env("GIT_CONFIG_SYSTEM", "NUL")
+                .env("GIT_TERMINAL_PROMPT", "0")
+                .output()
+                .await
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "git {:?} failed with exit status {:?}",
+                args,
+                output.status.code()
+            );
+        }
+
+        let output = Command::new("git")
+            .args(["init", "--bare", "-q"])
+            .arg(&remote)
+            .output()
+            .await
+            .unwrap();
+        assert!(output.status.success());
+        git_ok(&local, &["init", "-q"]).await;
+        git_ok(&local, &["config", "user.name", "Fixture"]).await;
+        git_ok(&local, &["config", "user.email", "fixture@example.invalid"]).await;
+        std::fs::write(local.join("base.txt"), "base\n").unwrap();
+        git_ok(&local, &["add", "base.txt"]).await;
+        git_ok(&local, &["commit", "-qm", "base"]).await;
+        git_ok(&local, &["branch", "-M", "main"]).await;
+        git_ok(
+            &local,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+        )
+        .await;
+        git_ok(&local, &["push", "-u", "origin", "main"]).await;
+
+        git_network_action(&local, &["fetch", "--no-tags", "origin"])
+            .await
+            .unwrap();
+        let output = Command::new("git")
+            .args(["clone", "-q"])
+            .arg(&remote)
+            .arg(&other)
+            .output()
+            .await
+            .unwrap();
+        assert!(output.status.success());
+        git_ok(&other, &["switch", "main"]).await;
+        git_ok(&other, &["config", "user.name", "Fixture"]).await;
+        git_ok(&other, &["config", "user.email", "fixture@example.invalid"]).await;
+        std::fs::write(other.join("remote.txt"), "remote\n").unwrap();
+        git_ok(&other, &["add", "remote.txt"]).await;
+        git_ok(&other, &["commit", "-qm", "remote change"]).await;
+        git_ok(&other, &["push", "origin", "main"]).await;
+
+        git_network_action(
+            &local,
+            &[
+                "pull",
+                "--ff-only",
+                "--no-rebase",
+                "--no-autostash",
+                "origin",
+                "main",
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(local.join("remote.txt"))
+                .unwrap()
+                .trim_end(),
+            "remote"
+        );
+
+        std::fs::write(local.join("local.txt"), "local\n").unwrap();
+        git_ok(&local, &["add", "local.txt"]).await;
+        git_ok(&local, &["commit", "-qm", "local change"]).await;
+        git_network_action(&local, &["push", "origin", "HEAD:refs/heads/main"])
+            .await
+            .unwrap();
+        let output = Command::new("git")
+            .args(["--git-dir"])
+            .arg(&remote)
+            .args(["show", "main:local.txt"])
+            .output()
+            .await
+            .unwrap();
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim_end(), "local");
     }
 }

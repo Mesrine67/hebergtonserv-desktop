@@ -14,6 +14,15 @@ export interface DiagnosticEntry {
   operation: string;
   code: string;
   message: string;
+  details?: {
+    request?: { method?: string };
+    duration_ms?: number;
+    response?: {
+      status?: number;
+      content_type?: string;
+      json?: unknown;
+    };
+  } | null;
 }
 function diagnosticHint(code: string): string {
   switch (code) {
@@ -42,7 +51,7 @@ function diagnosticHint(code: string): string {
 }
 export function formatDiagnosticEntries(entries: DiagnosticEntry[]) {
   return ["# HébergTonServ Desktop — Journal global de l’application (sans secrets)", ...entries.map(e =>
-    `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}`
+    `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}${e.details ? `\n  Détails API expurgés :\n${JSON.stringify(e.details, null, 2).split("\n").map(line => `    ${line}`).join("\n")}` : ""}`
   )].join("\n") + "\n";
 }
 export function formatAiDiagnosticEntries(entries: DiagnosticEntry[], target: "chatgpt" | "codex") {
@@ -50,11 +59,11 @@ export function formatAiDiagnosticEntries(entries: DiagnosticEntry[], target: "c
   const header = [
     "# Diagnostic HébergTonServ Desktop v" + appVersion,
     "Format destiné à " + (target==="codex" ? "Codex" : "ChatGPT") + ".",
-    "Environnement : Windows / Tauri 2 / React. Données personnelles, en-têtes, jetons, URL et réponses API non inclus.",
+    "Environnement : Windows / Tauri 2 / React. En-têtes et données personnelles/secrets sont exclus ou masqués ; réponses JSON structurelles expurgées incluses.",
     "Entrées : " + entries.length + ", avertissements et erreurs : " + alerts.length + ".",
     "Analyser les causes, proposer des tests et des corrections sans supposer les informations absentes.",
     "## Événements récents (200 maximum)",
-    ...entries.slice(-200).map(e=>e.timestamp + " [" + e.level + "] " + e.operation + " / " + e.code + ": " + e.message),
+    ...entries.slice(-100).map(e=>e.timestamp + " [" + e.level + "] " + e.operation + " / " + e.code + ": " + e.message + (e.details ? "\n" + JSON.stringify(e.details, null, 2) : "")),
   ];
   return header.join("\n") + "\n";
 }
@@ -104,7 +113,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
     <DialogContent className="z-[10025] flex h-[min(85vh,820px)] w-[min(94vw,1200px)] max-w-none flex-col gap-3 overflow-hidden bg-card p-0 sm:max-w-none">
       <DialogHeader className="border-b px-5 py-4">
         <DialogTitle className="flex items-center gap-2"><Activity className="size-4 text-primary"/>Journal de l’application</DialogTitle>
-        <DialogDescription>Journal global : API, application, Tauri, Windows et erreurs frontend. Arguments, identifiants et réponses sensibles restent exclus.</DialogDescription>
+      <DialogDescription>Journal global : appels HTTP, JSON de réponse expurgé, application, Tauri, Windows et erreurs frontend. Jetons, identifiants et champs privés sont masqués.</DialogDescription>
       </DialogHeader>
       <div className="flex flex-wrap gap-2 px-4">
         <Button size="sm" variant="outline" onClick={()=>void refresh()}><RefreshCw className="size-4"/> Actualiser</Button>
@@ -133,12 +142,12 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
               <span className={entry.level==="error"?"text-destructive":entry.level==="warning"?"text-amber-500":"text-primary"}>{entry.level}</span>
               <p className="font-semibold">{entry.operation} · {entry.code} — <span className="font-normal text-muted-foreground">{entry.message}</span></p>
             </button>
-            {expanded.includes(`${entry.timestamp}-${i}`)&&<div className="mt-2 grid gap-1 rounded-md border bg-muted/35 p-3 font-mono text-xs break-all"><p>Date UTC : {entry.timestamp}</p><p>Niveau : {entry.level}</p><p>Opération : {entry.operation}</p><p>Code : {entry.code}</p><p>Résumé : {entry.message}</p><p>Diagnostic probable : {diagnosticHint(entry.code)}</p><p className="text-muted-foreground">Les données privées (jetons, URL, réponses brutes et identifiants) sont volontairement exclues.</p><Button variant="outline" size="sm" className="w-fit" onClick={()=>void (isTauri()?writeText(formatDiagnosticEntries([entry])):navigator.clipboard.writeText(formatDiagnosticEntries([entry])))}>Copier cet événement</Button></div>}
+            {expanded.includes(`${entry.timestamp}-${i}`)&&<div className="mt-2 grid gap-2 rounded-md border bg-muted/35 p-3 font-mono text-xs break-all"><p>Date UTC : {entry.timestamp}</p><p>Niveau : {entry.level}</p><p>Opération : {entry.operation}</p><p>Code : {entry.code}</p><p>Résumé : {entry.message}</p><p>Diagnostic probable : {diagnosticHint(entry.code)}</p>{entry.details&&<section className="space-y-1"><p className="font-semibold">Détails de la requête et réponse JSON expurgée</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded border bg-background p-2">{JSON.stringify(entry.details,null,2)}</pre></section>}<p className="text-muted-foreground">Les jetons, noms, identifiants, adresses réseau, chemins et contenus textuels libres sont masqués dans le JSON.</p><Button variant="outline" size="sm" className="w-fit" onClick={()=>void (isTauri()?writeText(formatDiagnosticEntries([entry])):navigator.clipboard.writeText(formatDiagnosticEntries([entry])))}>Copier cet événement</Button></div>}
 
           </div>)}</div>}
         </div>
       </div>
-      <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile de 1 500 événements maximum, perdu à la fermeture de l’application. Aucune donnée sensible n’est conservée.</p>
+      <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile de 1 500 événements maximum, perdu à la fermeture. Les réponses JSON sont limitées et expurgées avant stockage.</p>
     </DialogContent>
   </Dialog>;
 }

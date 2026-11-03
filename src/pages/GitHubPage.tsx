@@ -15,6 +15,9 @@ export default function GitHubPage() {
   const [loading, setLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubError, setGithubError] = useState("");
+  const [mutationMessage, setMutationMessage] = useState("");
+  const [mutationError, setMutationError] = useState("");
+  const [mutatingAction, setMutatingAction] = useState<"fetch" | "pull" | "push" | null>(null);
   const selectionVersion = useRef(0);
 
   useEffect(() => {
@@ -77,10 +80,33 @@ export default function GitHubPage() {
     }
   }
 
+  async function mutateGit(action: "fetch" | "pull" | "push") {
+    if (!root || !snapshot || !isTauri() || mutatingAction) return;
+    const confirmText = action === "fetch"
+      ? `Récupérer les références de origin pour ${snapshot.branch} ? Aucun fichier local ne sera modifié.`
+      : action === "pull"
+        ? `Mettre à jour ${snapshot.branch} depuis origin en avance rapide ? L'opération est refusée si le dépôt contient des changements locaux.`
+        : `Envoyer les commits de ${snapshot.branch} vers origin ? Aucun force push ne sera utilisé.`;
+    if (!window.confirm(confirmText)) return;
+    setMutatingAction(action);
+    setMutationError("");
+    setMutationMessage("");
+    try {
+      const result = await commands.mutateGitRepository(root, action);
+      setMutationMessage(`${result.branch} : ${result.message}`);
+      if (action !== "push") await inspect(root);
+    } catch (cause) {
+      setMutationError(typeof cause === "object" && cause !== null && "message" in cause
+        ? String(cause.message) : "L'opération Git a échoué.");
+    } finally {
+      setMutatingAction(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Développement" title="Git / GitHub"
-        description="Consultez vos dépôts locaux en lecture seule, uniquement après avoir choisi un dossier." />
+        description="Consultez et mettez à jour un dépôt choisi explicitement. Toute action réseau demande confirmation." />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <SectionCard title="Git local" description="Branches, fichiers suivis modifiés et derniers commits."
           action={<Button type="button" size="sm" variant="outline" onClick={() => void chooseFolder()} disabled={!isTauri() || loading}>
@@ -95,7 +121,14 @@ export default function GitHubPage() {
             {root && <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void inspect(root)}>
               <RefreshCw className="mr-2 size-4" /> {loading ? "Analyse…" : "Actualiser"}
             </Button>}
+            {snapshot && <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={!isTauri() || Boolean(mutatingAction)} onClick={() => void mutateGit("fetch")}>{mutatingAction === "fetch" ? "Fetch…" : "Fetch origin"}</Button>
+              <Button type="button" size="sm" variant="outline" disabled={!isTauri() || Boolean(mutatingAction)} onClick={() => void mutateGit("pull")}>{mutatingAction === "pull" ? "Pull…" : "Pull rapide"}</Button>
+              <Button type="button" size="sm" variant="outline" disabled={!isTauri() || Boolean(mutatingAction)} onClick={() => void mutateGit("push")}>{mutatingAction === "push" ? "Push…" : "Push"}</Button>
+            </div>}
             {error && <p role="alert" className="rounded-lg border border-destructive/30 p-3 text-destructive">{error}</p>}
+            {mutationMessage && <p role="status" className="rounded-lg border border-emerald-500/30 p-3 text-xs text-emerald-600">{mutationMessage}</p>}
+            {mutationError && <p role="alert" className="rounded-lg border border-destructive/30 p-3 text-xs text-destructive">{mutationError}</p>}
             {snapshot && (
               <div className="space-y-4">
                 <p className="flex items-center gap-2 break-all text-xs"><GitBranch className="size-4 shrink-0 text-primary" />
@@ -144,7 +177,7 @@ export default function GitHubPage() {
                 </>}
             </div>}
             <p className="flex items-start gap-2 text-xs text-muted-foreground"><LockKeyhole className="mt-0.5 size-4 shrink-0" />
-              Cette lecture explicite utilise l'authentification existante de gh. Elle n'effectue aucun fetch, pull, push ni modification de dépôt.
+              La lecture PR/issues utilise gh déjà authentifié. Fetch, pull et push nécessitent une confirmation ; pull refuse un dépôt sale et n'autorise que l'avance rapide. Push refuse les commits distants manquants et n'utilise jamais --force.
             </p>
           </div>
         </SectionCard>

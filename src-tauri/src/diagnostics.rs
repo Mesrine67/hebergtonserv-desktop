@@ -1,9 +1,12 @@
 use chrono::Utc;
 use serde::Serialize;
+use serde_json::{Map, Value};
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
 const CAPACITY: usize = 1500;
+const MAX_API_DIAGNOSTIC_BYTES: usize = 12 * 1024;
+const MAX_DIAGNOSTIC_DEPTH: usize = 12;
 
 #[derive(Clone, Serialize)]
 pub struct DiagnosticEntry {
@@ -12,6 +15,8 @@ pub struct DiagnosticEntry {
     pub operation: String,
     pub code: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<Value>,
 }
 
 static JOURNAL: OnceLock<Mutex<VecDeque<DiagnosticEntry>>> = OnceLock::new();
@@ -42,6 +47,7 @@ pub fn record(level: &'static str, operation: &'static str, code: &str, message:
             operation: operation.to_string(),
             code: code.to_string(),
             message: message.to_string(),
+            details: None,
         });
     }
 }
@@ -67,6 +73,7 @@ pub fn record_batch_summary(total: usize, failures: usize) {
             operation: "panel_resources".into(),
             code: "batch_summary".into(),
             message,
+            details: None,
         });
     }
 }
@@ -189,6 +196,8 @@ pub fn record_command_event(operation: String, outcome: String, duration_ms: u32
         operation.as_str(),
         "get_git_tools"
             | "inspect_git_repository"
+            | "get_github_activity"
+            | "mutate_git_repository"
             | "toggle_app_window_maximize"
             | "list_ssh_keys"
             | "generate_ssh_key"
@@ -251,12 +260,180 @@ pub fn record_command_event(operation: String, outcome: String, duration_ms: u32
             "Commande Tauri {} ({} ms) ; arguments et réponse exclus.",
             outcome, duration_ms
         ),
+        details: None,
     };
     if let Ok(mut events) = journal().lock() {
         if events.len() == CAPACITY {
             events.pop_front();
         }
         events.push_back(entry);
+    }
+}
+
+fn sensitive_diagnostic_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    [
+        "token",
+        "password",
+        "secret",
+        "authorization",
+        "cookie",
+        "credential",
+        "api_key",
+        "private_key",
+        "url",
+        "address",
+        "hostname",
+        "host",
+        "ip",
+        "path",
+    ]
+    .iter()
+    .any(|part| key.contains(part))
+        || matches!(
+            key.as_str(),
+            "id" | "uuid"
+                | "identifier"
+                | "email"
+                | "username"
+                | "first_name"
+                | "last_name"
+                | "name"
+                | "user"
+                | "owner"
+                | "key"
+                | "jdbc_connection_string"
+        )
+        || key.ends_with("_id")
+        || key.ends_with("_uuid")
+        || key.ends_with("_name")
+        || key.ends_with("_key")
+}
+
+fn safe_diagnostic_string_key(key: &str) -> bool {
+    matches!(
+        key.to_ascii_lowercase().as_str(),
+        "status" | "state" | "current_state" | "type" | "method" | "version" | "action"
+    )
+}
+
+fn redact_diagnostic_json(value: &Value, key: Option<&str>, depth: usize) -> Value {
+    if depth >= MAX_DIAGNOSTIC_DEPTH {
+        return Value::String("<depth limit>".into());
+    }
+    if key.is_some_and(sensitive_diagnostic_key) {
+        return Value::String("<redacted>".into());
+    }
+    match value {
+        Value::Object(object) => {
+            let mut redacted = Map::new();
+            for (child_key, child_value) in object {
+                redacted.insert(
+                    child_key.clone(),
+                    redact_diagnostic_json(child_value, Some(child_key), depth + 1),
+                );
+            }
+            Value::Object(redacted)
+        }
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .take(50)
+                .map(|item| redact_diagnostic_json(item, key, depth + 1))
+                .collect(),
+        ),
+        Value::String(text)
+            if key.is_some_and(safe_diagnostic_string_key)
+                && text.len() <= 24
+                && text.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || "_.-".contains(character)
+                }) =>
+        {
+            Value::String(text.chars().take(80).collect())
+        }
+        Value::String(_) => Value::String("<string redacted>".into()),
+        other => other.clone(),
+    }
+}
+
+fn bounded_api_details(
+    method: &str,
+    status: Option<u16>,
+    duration_ms: u64,
+    content_type: Option<&str>,
+    response: Option<&Value>,
+) -> Value {
+    let mut details = serde_json::json!({
+        "request": { "method": method },
+        "duration_ms": duration_ms,
+    });
+    if let Some(status) = status {
+        details["response"]["status"] = serde_json::json!(status);
+    }
+    if let Some(content_type) = content_type {
+        // Content-Type is a protocol value. Drop parameters and cap its length.
+        let media_type = content_type.split(';').next().unwrap_or_default().trim();
+        details["response"]["content_type"] = Value::String(media_type.chars().take(100).collect());
+    }
+    if let Some(response) = response {
+        details["response"]["json"] = redact_diagnostic_json(response, None, 0);
+        let encoded = serde_json::to_vec(&details).unwrap_or_default();
+        if encoded.len() > MAX_API_DIAGNOSTIC_BYTES {
+            details["response"]["json"] = serde_json::json!({
+                "_diagnostic": "response_truncated",
+                "sanitized_bytes": encoded.len(),
+                "limit_bytes": MAX_API_DIAGNOSTIC_BYTES,
+            });
+        }
+    }
+    details
+}
+
+/// Keep useful API response structure in the volatile journal while redacting
+/// credentials, personal identifiers, names, network addresses, and paths.
+pub struct ApiExchange<'a> {
+    pub method: &'a str,
+    pub status: Option<u16>,
+    pub duration_ms: u64,
+    pub content_type: Option<&'a str>,
+    pub response: Option<&'a Value>,
+}
+
+pub fn record_api_exchange(
+    level: &'static str,
+    operation: &'static str,
+    code: &str,
+    message: &'static str,
+    exchange: ApiExchange<'_>,
+) {
+    if !matches!(level, "info" | "warning" | "error")
+        || exchange.duration_ms > 60_000
+        || code.len() > 64
+        || !code
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    {
+        return;
+    }
+    let entry = DiagnosticEntry {
+        timestamp: Utc::now().to_rfc3339(),
+        level,
+        operation: operation.to_string(),
+        code: code.to_owned(),
+        message: message.to_owned(),
+        details: Some(bounded_api_details(
+            exchange.method,
+            exchange.status,
+            exchange.duration_ms,
+            exchange.content_type,
+            exchange.response,
+        )),
+    };
+    if let Ok(mut entries) = journal().lock() {
+        if entries.len() == CAPACITY {
+            entries.pop_front();
+        }
+        entries.push_back(entry);
     }
 }
 
@@ -283,6 +460,12 @@ fn formatted_log() -> String {
             "{} [{}] {} {}: {}\n",
             entry.timestamp, entry.level, entry.operation, entry.code, entry.message
         ));
+        if let Some(details) = entry.details {
+            contents.push_str("  Détails API expurgés :\n");
+            contents
+                .push_str(&serde_json::to_string_pretty(&details).unwrap_or_else(|_| "{}".into()));
+            contents.push('\n');
+        }
         let hint = match entry.code.as_str() {
             "api_validation_error" => {
                 "HTTP 400/422 : paramètres invalides ou état incompatible, vérifier la suspension et les droits."
@@ -354,5 +537,79 @@ mod tests {
         }
         assert_eq!(list_panel_diagnostics().len(), CAPACITY);
         clear_panel_diagnostics();
+    }
+
+    #[test]
+    fn api_response_details_keep_json_shape_and_redact_private_fields() {
+        let _guard = TEST_JOURNAL_LOCK
+            .lock()
+            .expect("test journal lock poisoned");
+        clear_panel_diagnostics();
+        let response = serde_json::json!({
+            "data": [{
+                "id": "private-server-id",
+                "attributes": {
+                    "name": "private server name",
+                    "state": "running",
+                    "code": "secret-code-that-must-be-hidden",
+                    "email": "person@example.test",
+                    "api_key": "secret-token-value",
+                    "database": { "password": "db-password", "host": "10.0.0.1" },
+                    "limits": { "memory": 2048, "cpu": 100 }
+                }
+            }],
+            "meta": { "pagination": { "current_page": 1, "total_pages": 2 } }
+        });
+        record_api_exchange(
+            "info",
+            "wisp_resources",
+            "api_ok",
+            "Réponse HTTP réussie",
+            ApiExchange {
+                method: "GET",
+                status: Some(200),
+                duration_ms: 32,
+                content_type: Some("application/json; charset=utf-8"),
+                response: Some(&response),
+            },
+        );
+        let entries = list_panel_diagnostics();
+        let details = entries[0].details.as_ref().unwrap();
+        let encoded = serde_json::to_string(details).unwrap();
+        assert!(encoded.contains("running"));
+        assert!(encoded.contains("current_page"));
+        assert!(encoded.contains("2048"));
+        assert!(encoded.contains("<string redacted>"));
+        for private in [
+            "private-server-id",
+            "private server name",
+            "secret-code-that-must-be-hidden",
+            "person@example.test",
+            "secret-token-value",
+            "db-password",
+            "10.0.0.1",
+        ] {
+            assert!(!encoded.contains(private), "leaked {private}");
+        }
+        clear_panel_diagnostics();
+    }
+
+    #[test]
+    fn api_response_details_are_bounded() {
+        let metrics = (0..50)
+            .map(|_| {
+                let values = (0..40)
+                    .map(|index| (format!("metric_{index}"), serde_json::json!(index)))
+                    .collect::<Map<_, _>>();
+                Value::Object(values)
+            })
+            .collect::<Vec<_>>();
+        let response = serde_json::json!({"metrics": metrics});
+        let details = bounded_api_details("GET", Some(200), 1, None, Some(&response));
+        assert!(serde_json::to_vec(&details).unwrap().len() < 1024);
+        assert_eq!(
+            details["response"]["json"]["_diagnostic"],
+            "response_truncated"
+        );
     }
 }

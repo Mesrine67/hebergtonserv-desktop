@@ -28,10 +28,14 @@ La présence de **WISP Panel v2.10.x** dans un changelog ne prouve **pas** qu'un
 | Créer / supprimer clés SSH | Non activé (contrat non vérifié) | Présent si endpoint exposé | `providers/*.rs` |
 | Console interactive, commandes, websocket | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon le panel | Implémentation initiale via API Client + WebSocket Wings, à vérifier selon la version | `commands/panels.rs`, `pages/ServerConsolePage.tsx` (PR #79) |
 | Liste des sous-utilisateurs d’un serveur | GET `/api/client/servers/{identifier}/subusers` observé sur le client web WISP v4.0.19 (Bearer API à confirmer; pagination `page`/`per_page`) | GET `/api/client/servers/{identifier}/users` (1.x, identifiant court) et GET `/api/client/servers/{server_uuid}/users` (2.x, UUID), lecture seule | `providers/wisp.rs`, `providers/pterodactyl.rs`, `commands/panels.rs`, `PanelServersPage.tsx` |
-| Fichiers, sauvegardes, bases, tâches, allocations | Non implémenté dans `PanelProvider` | Endpoints Client documentés, pas encore intégrés | À traiter par capacités incrémentales |
+| Fichiers — lister un dossier et lire un fichier texte | Routes observées sur WISP Client (`/files/directory`, `/files/read`) | GET `/files/list` et `/files/contents` ; pagination/identifiant selon version | Lecture intégrée, sans écriture ni téléchargement binaire |
+| Bases de données — lister les bases et afficher les champs disponibles | GET `/databases?include=host` observé sur WISP | GET `/databases`, `include=password` selon permissions | Lecture intégrée ; création, rotation et suppression désactivées |
+| Sauvegardes, tâches planifiées, allocations | Non implémenté | Endpoints Client disponibles selon version | À traiter par capacités incrémentales |
 | Opérations Admin / Application | Non implémenté | Non implémenté | Ne pas mélanger les droits Client / Admin |
 
 La console intégrée (#79) récupère à la demande des identifiants temporaires via `GET /api/client/servers/{identifier}/websocket`, puis établit une connexion WSS côté client Tauri. L'API Client ne fournit pas de droits administrateur ; l'accès dépend du panel et des permissions. Cette implémentation ne garantit pas encore une compatibilité exhaustive WISP/Pterodactyl ni un test sur toutes leurs versions. Aucun jeton éphémère ne doit être conservé dans les journaux.
+
+Le journal API conserve maintenant, en mémoire volatile, la méthode HTTP, le statut, le type MIME, la durée et une vue JSON expurgée des réponses valides. Les clés de secret, identifiants, e-mails, noms, chemins, URLs et adresses sont masqués ; le JSON est limité à 12 Kio par événement. Les requêtes, en-têtes, cookies, corps non JSON et contenus de fichiers ne sont jamais enregistrés.
 
 Les méthodes de test réseau appellent les endpoints réels **uniquement** quand l'utilisateur vérifie un panel configuré ; les tests unitaires utilisent des valeurs fictives et n'utilisent pas d'identifiants.
 

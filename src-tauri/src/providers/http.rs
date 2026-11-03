@@ -4,7 +4,7 @@ use crate::providers::models::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const MAX_RESPONSE_BYTES: usize = 1_048_576;
 
@@ -429,6 +429,12 @@ fn api_operation(path: &str, accept: &str) -> &'static str {
     let wisp = accept.contains("vnd.wisp");
     let category = if path.contains("/websocket") {
         0
+    } else if path.contains("/databases") {
+        6
+    } else if path.contains("/files") {
+        7
+    } else if path.contains("/subusers") || path.contains("/users") {
+        8
     } else if path.contains("/resources") {
         1
     } else if path.starts_with("/api/client/servers") {
@@ -451,6 +457,12 @@ fn api_operation(path: &str, accept: &str) -> &'static str {
         (false, 3) => "pterodactyl_account",
         (true, 4) => "wisp_client_api",
         (false, 4) => "pterodactyl_client_api",
+        (true, 6) => "wisp_databases",
+        (false, 6) => "pterodactyl_databases",
+        (true, 7) => "wisp_files",
+        (false, 7) => "pterodactyl_files",
+        (true, 8) => "wisp_subusers",
+        (false, 8) => "pterodactyl_subusers",
         (true, _) => "wisp_other_api",
         (false, _) => "pterodactyl_other_api",
     }
@@ -477,7 +489,6 @@ impl ApiClient {
     }
 
     /// Centralized, sanitized telemetry for every Client API request.
-    /// Record only a fixed operation label and an application error code.
     pub(crate) async fn send_json<T: DeserializeOwned>(
         &self,
         method: reqwest::Method,
@@ -485,15 +496,39 @@ impl ApiClient {
         body: Option<&Value>,
     ) -> Result<T> {
         let operation = api_operation(path, &self.accept);
-        let result = self.send_json_inner(method, path, body).await;
-        match &result {
-            Ok(_) => crate::diagnostics::record("info", operation, "api_ok", "Requête API réussie"),
-            Err(error) => crate::diagnostics::record(
-                "warning",
-                operation,
+        let method_label = method.as_str().to_owned();
+        let started = Instant::now();
+        let result = self
+            .send_json_inner(method, path, body, operation, &method_label, started)
+            .await;
+        if let Err(error) = &result {
+            // Responses from the panel are journaled in send_json_inner with
+            // HTTP status and sanitized JSON. This records failures that occur
+            // before an HTTP response exists (URL, DNS, TLS, timeout, size).
+            if !matches!(
                 error.code(),
-                "Requête API échouée",
-            ),
+                "api_auth_failed"
+                    | "api_forbidden"
+                    | "api_not_found"
+                    | "api_validation_error"
+                    | "api_rate_limited"
+                    | "api_error"
+                    | "api_invalid_response"
+            ) {
+                crate::diagnostics::record_api_exchange(
+                    "warning",
+                    operation,
+                    error.code(),
+                    "Requête API échouée avant réponse HTTP",
+                    crate::diagnostics::ApiExchange {
+                        method: &method_label,
+                        status: None,
+                        duration_ms: started.elapsed().as_millis().min(60_000) as u64,
+                        content_type: None,
+                        response: None,
+                    },
+                );
+            }
         }
         result
     }
@@ -503,6 +538,9 @@ impl ApiClient {
         method: reqwest::Method,
         path: &str,
         body: Option<&Value>,
+        operation: &'static str,
+        method_label: &str,
+        started: Instant,
     ) -> Result<T> {
         let base = crate::security::url::validate_panel_url(&self.base_url, self.allow_local)?;
         // DNS is checked on EVERY operation and pinned for the connection.
@@ -541,6 +579,11 @@ impl ApiClient {
             .await
             .map_err(|_| app_error("api_network", "Connexion au panneau refusée."))?;
         let status = response.status();
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
         // Apply the same bound to declared lengths and streamed chunks.
         if response
             .content_length()
@@ -559,11 +602,86 @@ impl ApiClient {
         {
             append_bounded_response_chunk(&mut bytes, &chunk)?;
         }
+        let response_json = if status == reqwest::StatusCode::NO_CONTENT && bytes.is_empty() {
+            Some(Value::Null)
+        } else {
+            serde_json::from_slice::<Value>(&bytes).ok()
+        };
+        let duration_ms = started.elapsed().as_millis().min(60_000) as u64;
         if !status.is_success() {
+            let code = http_error_code(status);
+            crate::diagnostics::record_api_exchange(
+                "warning",
+                operation,
+                code,
+                "Réponse HTTP en erreur",
+                crate::diagnostics::ApiExchange {
+                    method: method_label,
+                    status: Some(status.as_u16()),
+                    duration_ms,
+                    content_type: content_type.as_deref(),
+                    response: response_json.as_ref(),
+                },
+            );
             let detail = parse_panel_error_detail(status, bytes.as_ref());
-            return Err(http_error(http_error_code(status), detail));
+            return Err(http_error(code, detail));
         }
-        deserialize_success(status, bytes.as_ref())
+        let Some(response_json) = response_json else {
+            crate::diagnostics::record_api_exchange(
+                "warning",
+                operation,
+                "api_invalid_response",
+                "Réponse HTTP non JSON",
+                crate::diagnostics::ApiExchange {
+                    method: method_label,
+                    status: Some(status.as_u16()),
+                    duration_ms,
+                    content_type: content_type.as_deref(),
+                    response: None,
+                },
+            );
+            return Err(app_error(
+                "api_invalid_response",
+                "Réponse de l'API du panneau illisible.",
+            ));
+        };
+        match deserialize_success::<T>(status, bytes.as_ref()) {
+            Ok(parsed) => {
+                crate::diagnostics::record_api_exchange(
+                    "info",
+                    operation,
+                    "api_ok",
+                    "Réponse HTTP réussie",
+                    crate::diagnostics::ApiExchange {
+                        method: method_label,
+                        status: Some(status.as_u16()),
+                        duration_ms,
+                        content_type: content_type.as_deref(),
+                        response: Some(&response_json),
+                    },
+                );
+                Ok(parsed)
+            }
+            Err(_) => {
+                crate::diagnostics::record_api_exchange(
+                    "warning",
+                    operation,
+                    "api_invalid_response",
+                    "JSON reçu mais incompatible avec le contrat",
+                    crate::diagnostics::ApiExchange {
+                        method: method_label,
+                        status: Some(status.as_u16()),
+                        duration_ms,
+                        content_type: content_type.as_deref(),
+                        response: Some(&response_json),
+                    },
+                );
+                Err(app_error(
+                    "api_invalid_response",
+                    "Réponse de l'API du panneau incompatible avec le format attendu.",
+                ))
+            }
+        }
     }
 
     pub async fn get_account_wisp(&self) -> Result<Option<PanelUser>> {

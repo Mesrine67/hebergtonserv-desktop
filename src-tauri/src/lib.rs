@@ -233,6 +233,7 @@ pub fn run() {
             commands::git::get_git_tools,
             commands::git::inspect_git_repository,
             commands::git::get_github_activity,
+            commands::git::mutate_git_repository,
             commands::panels::list_panels,
             commands::panels::login_wisp,
             commands::panels::save_panel,

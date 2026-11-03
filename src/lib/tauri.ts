@@ -218,6 +218,7 @@ export interface GitSnapshot {
   changes_truncated: boolean;
   commits: GitCommit[];
 }
+export interface GitMutationResult { action: "fetch" | "pull" | "push"; branch: string; message: string; }
 export interface GitHubEntry {
   number: number;
   title: string;
@@ -240,6 +241,7 @@ export const commands = {
   getGitTools: () => invoke<GitTools>("get_git_tools"),
   inspectGitRepository: (path: string) => invoke<GitSnapshot>("inspect_git_repository", { path }),
   getGitHubActivity: (path: string) => invoke<GitHubActivity>("get_github_activity", { path }),
+  mutateGitRepository: (path: string, action: GitMutationResult["action"]) => invoke<GitMutationResult>("mutate_git_repository", { path, action }),
   toggleAppWindowMaximize: () => invoke<void>("toggle_app_window_maximize"),
   listSshKeys: () => invoke<SshKeySummary[]>("list_ssh_keys"),
   generateSshKey: (input: {
