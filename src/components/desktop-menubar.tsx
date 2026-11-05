@@ -18,7 +18,7 @@ export function DesktopMenubar() {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme !== "light";
   return (
-    <div className="hts-desktop-navigation flex min-w-0 shrink-0 items-center gap-1">
+    <div className="hts-desktop-navigation flex min-w-0 shrink-0 items-center gap-1 pl-2.5">
       <div className="flex items-center">
         <Tooltip><TooltipTrigger asChild>
           <Button size="icon-sm" variant="ghost" className="size-7" aria-label="Retour" disabled={!history.canBack} onClick={history.back}><ArrowLeft className="size-3.5" /></Button>

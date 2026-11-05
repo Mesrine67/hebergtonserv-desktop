@@ -6,23 +6,29 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+export type WorkspaceId = "infrastructure" | "ssh" | "development";
+
 const spaces = [
   { id: "infrastructure", title: "HébergTonServ", subtitle: "Infrastructure", path: "/panel/servers", icon: ServerCog },
   { id: "ssh", title: "SSH", subtitle: "Clés, connexions et profils", path: "/ssh-keys", icon: KeyRound },
   { id: "development", title: "Développement", subtitle: "Git et GitHub", path: "/git", icon: GitBranch },
 ] as const;
 
-export function workspaceForPath(pathname: string) {
+export function workspaceForPath(pathname: string): WorkspaceId {
   if (pathname.startsWith("/ssh-") || pathname === "/profiles") return "ssh";
   if (pathname === "/git") return "development";
   return "infrastructure";
 }
 
+/** Desktop workspace menus fly out beside the rail, mobile menus open below. */
+export function workspaceMenuSide(isMobile: boolean): "right" | "bottom" {
+  return isMobile ? "bottom" : "right";
+}
+
 export function WorkspaceSwitcher() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, isMobile, setOpenMobile } = useSidebar();
-  const collapsed = state === "collapsed" && !isMobile;
+  const { isMobile, setOpenMobile } = useSidebar();
   const selected = spaces.find(space => space.id === workspaceForPath(location.pathname)) ?? spaces[0];
   const SelectedIcon = selected.icon;
   return (
@@ -44,11 +50,11 @@ export function WorkspaceSwitcher() {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            side={collapsed ? "right" : "bottom"}
+            side={workspaceMenuSide(isMobile)}
             align="start"
-            sideOffset={8}
+            sideOffset={10}
             collisionPadding={12}
-            className="hts-floating-menu w-64"
+            className="hts-floating-menu hts-workspace-popup w-64"
           >
             <DropdownMenuLabel className="hts-floating-menu-label text-xs">Espaces de travail</DropdownMenuLabel>
             <DropdownMenuSeparator />
