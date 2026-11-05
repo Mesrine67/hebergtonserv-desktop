@@ -20,6 +20,7 @@ import { DesktopHelpPanels } from "@/components/desktop-help-panels";
 import { DesktopTaskManager } from "@/components/desktop-task-manager";
 import { recordAppEvent } from "@/lib/app-diagnostics";
 import { PanelDiagnostics } from "@/components/panel-diagnostics";
+import { ServerExplorerTabs } from "@/components/server-explorer-tabs";
 import "./App.css";
 import "./theme-presets.css";
 import "./welcome-motion.css";
@@ -75,6 +76,7 @@ function Workspace() {
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
       <DesktopTitlebar navigation title={current} />
+      <ServerExplorerTabs />
       <DesktopHelpPanels />
       <DesktopTaskManager />
       <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />

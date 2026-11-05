@@ -488,15 +488,28 @@ pub async fn export_panel_diagnostics(path: String) -> Result<(), String> {
     if path.len() > 4096
         || !matches!(
             output.extension().and_then(|x| x.to_str()),
-            Some("txt" | "log")
+            Some("txt" | "log" | "json")
         )
     {
-        return Err("Choisissez un fichier .txt ou .log.".to_string());
+        return Err("Choisissez un fichier .txt, .log ou .json.".to_string());
     }
     if !output.is_absolute() {
         return Err("Un chemin absolu est nécessaire.".to_string());
     }
-    tokio::fs::write(output, formatted_log())
+    let contents = if output.extension().and_then(|x| x.to_str()) == Some("json") {
+        let entries = list_panel_diagnostics();
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "application": "HébergTonServ Desktop",
+            "version": env!("CARGO_PKG_VERSION"),
+            "exported_at": Utc::now().to_rfc3339(),
+            "entry_count": entries.len(),
+            "events": entries,
+        }))
+        .map_err(|_| "Sérialisation JSON impossible.".to_string())?
+    } else {
+        formatted_log().into_bytes()
+    };
+    tokio::fs::write(output, contents)
         .await
         .map_err(|_| "Export impossible. Vérifiez les autorisations du dossier.".to_string())
 }

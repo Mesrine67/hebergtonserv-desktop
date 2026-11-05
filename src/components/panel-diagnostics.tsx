@@ -94,11 +94,11 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
     try { if(isTauri())await writeText(report);else await navigator.clipboard.writeText(report);setFeedback("Diagnostic structuré copié pour "+target+"."); }
     catch {setFeedback("Copie du diagnostic impossible.");}
   }
-  async function exportFile(){
+  async function exportFile(format: "txt" | "json"){
     if(!isTauri())return;
     setBusy(true);
     try {
-      const path=await save({title:"Exporter le journal de diagnostic",defaultPath:"hebergtonserv-diagnostic.txt",filters:[{name:"Journal texte",extensions:["txt","log"]}]});
+      const path=await save({title:"Exporter le journal de diagnostic",defaultPath:`hebergtonserv-diagnostic.${format}`,filters:format === "json" ? [{name:"Journal JSON",extensions:["json"]}] : [{name:"Journal texte",extensions:["txt","log"]}]});
       if(path){await invoke("export_panel_diagnostics",{path});setFeedback("Journal enregistré.");}
     }catch{setFeedback("Enregistrement impossible.");}
     finally{setBusy(false);}
@@ -121,7 +121,8 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
         <Button size="sm" variant="outline" onClick={()=>void copy()}><Clipboard className="size-4"/> Copier</Button>
         <Button size="sm" variant="secondary" disabled={!shown.length} onClick={()=>void copyAi("chatgpt")}><Bot className="size-4"/> Copier pour ChatGPT</Button>
         <Button size="sm" variant="secondary" disabled={!shown.length} onClick={()=>void copyAi("codex")}><Braces className="size-4"/> Copier pour Codex</Button>
-        <Button size="sm" variant="outline" disabled={busy || !isTauri()} onClick={()=>void exportFile()}><Download className="size-4"/> Enregistrer</Button>
+        <Button size="sm" variant="outline" disabled={busy || !isTauri()} onClick={()=>void exportFile("txt")}><Download className="size-4"/> Exporter TXT</Button>
+        <Button size="sm" variant="outline" disabled={busy || !isTauri()} onClick={()=>void exportFile("json")}><Braces data-icon="inline-start"/> Exporter JSON</Button>
         <Button size="sm" variant="outline" disabled={busy || !entries.length} onClick={()=>void clear()}><Trash2 className="size-4"/> Vider</Button>
       </div>
       <div className="flex flex-wrap items-center gap-2 px-4"><Input className="max-w-sm" placeholder="Filtrer les événements…" aria-label="Filtrer les journaux" value={filter} onChange={e=>setFilter(e.target.value)}/><Select value={severity} onValueChange={setSeverity}><SelectTrigger className="w-44" aria-label="Niveau des événements"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">Tous les niveaux</SelectItem><SelectItem value="info">Informations</SelectItem><SelectItem value="warning">Avertissements</SelectItem><SelectItem value="error">Erreurs</SelectItem></SelectContent></Select><span className="text-xs text-muted-foreground">{shown.length} / {entries.length} événements</span></div>
