@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import WebSocket from "@tauri-apps/plugin-websocket";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { ArrowDown, ArrowLeft, Copy, Database, File, MoreHorizontal, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
+import { ArrowDown, Copy, Database, File, MoreHorizontal, RefreshCw, Send, TerminalSquare, Trash2, WrapText } from "lucide-react";
 import { toast } from "sonner";
 import { AnsiLine, plainTerminalLine } from "@/lib/ansi-terminal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { commands } from "@/lib/tauri";
 import { resolvePanel, serverListRoute, serverSectionRoute } from "@/lib/panel-navigation";
@@ -66,7 +67,7 @@ export default function ServerConsolePage() {
     let removeListener: (() => void) | undefined;
     let ws: WebSocket | undefined;
     let stage: "credentials" | "socket" | "authentication" = "credentials";
-    const report = (event: string) => { void invoke("record_console_connection_event", { event }).catch(() => undefined); };
+    const report = (event: string) => { void invoke("record_console_connection_event", { event, provider: panel.provider }).catch(() => undefined); };
     const run = async () => {
       setStatus("Connexion…");
       try {
@@ -160,12 +161,14 @@ export default function ServerConsolePage() {
     try {
       await connection.current.send(JSON.stringify({ event: "send command", args: [value] }));
       setCommand("");
-    } catch { append("Commande non transmise : connexion indisponible."); void invoke("record_console_connection_event", {event: "ws_send_failed"}).catch(() => undefined); }
+    } catch { append("Commande non transmise : connexion indisponible."); void invoke("record_console_connection_event", {event: "ws_send_failed", provider: panel?.provider}).catch(() => undefined); }
   }
 
-  return <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-    <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
-      <Button variant="ghost" size="icon" aria-label="Retour aux serveurs" onClick={() => navigate(serverListRoute(requestedPanel ?? panel?.id ?? null))}><ArrowLeft /></Button>
+  return <Dialog open onOpenChange={open => { if (!open) navigate(serverListRoute(requestedPanel ?? panel?.id ?? null)); }}>
+    <DialogContent aria-describedby="server-console-description" className="flex h-[min(88vh,850px)] w-[min(94vw,1180px)] max-w-none flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-none">
+    <DialogHeader className="sr-only"><DialogTitle>Console · {server?.name ?? "Serveur"}</DialogTitle><DialogDescription id="server-console-description">Console flottante du serveur, connectée au flux Wings.</DialogDescription></DialogHeader>
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4 pr-14">
       <TerminalSquare className="size-5 text-primary" />
       <div className="min-w-0 flex-1"><h1 className="truncate font-semibold">Console · {server?.name ?? "Serveur"}</h1><p className="text-xs text-muted-foreground">Flux Wings en temps réel · session éphémère</p></div>
       <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${connected ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : status.includes("Connexion") ? "border-amber-500/25 bg-amber-500/10 text-amber-500" : "border-border bg-secondary text-muted-foreground"}`}><span className={`size-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-current"}`} />{status}</span>
@@ -184,13 +187,6 @@ export default function ServerConsolePage() {
       </DropdownMenu>
     </div>
     {panels.isSuccess && !panel && <p role="alert" className="border-b px-4 py-3 text-sm text-destructive">Le panel demandé n'existe pas ou n'est plus configuré. Revenez à la liste des serveurs pour choisir un compte.</p>}
-    <nav aria-label="Sections du serveur" className="flex gap-1 border-b px-3">
-      <span className="inline-flex items-center gap-2 border-b-2 border-primary px-3 py-2 text-sm font-medium"><TerminalSquare className="size-4" />Console</span>
-      {panel && server && <>
-        <Link to={serverSectionRoute(panel.id, server.identifier, "files")} className="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground hover:text-foreground"><File className="size-4" />Fichiers</Link>
-        <Link to={serverSectionRoute(panel.id, server.identifier, "databases")} className="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground hover:text-foreground"><Database className="size-4" />Bases de données</Link>
-      </>}
-    </nav>
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/25 px-4 py-2">
       <span className="mr-auto font-mono text-[11px] text-muted-foreground">Wings · {lines.length} entrée(s)</span>
       <Button size="sm" variant={autoScroll ? "secondary" : "ghost"} className="h-8 gap-1.5 text-xs" onClick={() => setAutoScroll(value => !value)} aria-pressed={autoScroll}><ArrowDown className="size-3.5" /> Défilement {autoScroll ? "actif" : "arrêté"}</Button>
@@ -206,5 +202,7 @@ export default function ServerConsolePage() {
       <Button type="submit" className="gap-2" disabled={!connected || server?.suspended || !command.trim()}><Send className="size-4" /> Envoyer</Button>
     </form>
     <p className="px-4 pb-3 text-xs text-muted-foreground">Connexion via Wings WebSocket avec les permissions du compte Client API. Les serveurs suspendus ou les fournisseurs sans endpoint compatible peuvent refuser la connexion.</p>
-  </section>;
+    </section>
+    </DialogContent>
+  </Dialog>;
 }

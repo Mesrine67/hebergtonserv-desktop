@@ -23,7 +23,7 @@ describe("Server state recognition",()=>{
 });
 describe("Sanitized API diagnostic text",()=>{
   it("renders bounded structured event entries without adding payloads",()=>{
-    const text=formatDiagnosticEntries([{timestamp:"2026-11-02T10:00:00Z",level:"warning",operation:"panel_resources",code:"api_rate_limit",message:"Ressources indisponibles"}]);
+    const text=formatDiagnosticEntries([{event_id:1,schema_version:1,timestamp:"2026-11-02T10:00:00Z",level:"warning",operation:"panel_resources",code:"api_rate_limit",message:"Ressources indisponibles"}]);
     expect(text).toContain("api_rate_limit");
     expect(text).toContain("Ressources indisponibles");
     expect(text).not.toContain("Authorization");

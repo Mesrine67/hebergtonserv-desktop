@@ -2,6 +2,7 @@ use chrono::Utc;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 const CAPACITY: usize = 1500;
@@ -10,6 +11,8 @@ const MAX_DIAGNOSTIC_DEPTH: usize = 12;
 
 #[derive(Clone, Serialize)]
 pub struct DiagnosticEntry {
+    pub event_id: u64,
+    pub schema_version: u8,
     pub timestamp: String,
     pub level: &'static str,
     pub operation: String,
@@ -20,6 +23,7 @@ pub struct DiagnosticEntry {
 }
 
 static JOURNAL: OnceLock<Mutex<VecDeque<DiagnosticEntry>>> = OnceLock::new();
+static NEXT_EVENT_ID: AtomicU64 = AtomicU64::new(1);
 
 fn journal() -> &'static Mutex<VecDeque<DiagnosticEntry>> {
     JOURNAL.get_or_init(|| Mutex::new(VecDeque::with_capacity(CAPACITY)))
@@ -28,6 +32,16 @@ fn journal() -> &'static Mutex<VecDeque<DiagnosticEntry>> {
 /// Only trusted, constant messages and machine-readable error codes.
 /// Never pass URLs, response bodies, headers, server names or credentials here.
 pub fn record(level: &'static str, operation: &'static str, code: &str, message: &'static str) {
+    record_detailed(level, operation, code, message, None);
+}
+
+fn record_detailed(
+    level: &'static str,
+    operation: &'static str,
+    code: &str,
+    message: &'static str,
+    details: Option<Value>,
+) {
     let allowed = matches!(level, "info" | "warning" | "error");
     if !allowed
         || code.len() > 64
@@ -41,14 +55,35 @@ pub fn record(level: &'static str, operation: &'static str, code: &str, message:
         if entries.len() == CAPACITY {
             entries.pop_front();
         }
-        entries.push_back(DiagnosticEntry {
-            timestamp: Utc::now().to_rfc3339(),
-            level,
-            operation: operation.to_string(),
-            code: code.to_string(),
-            message: message.to_string(),
-            details: None,
-        });
+        entries.push_back(new_entry(level, operation, code, message, details));
+    }
+}
+
+fn new_entry(
+    level: &'static str,
+    operation: &str,
+    code: &str,
+    message: &str,
+    details: Option<Value>,
+) -> DiagnosticEntry {
+    DiagnosticEntry {
+        event_id: NEXT_EVENT_ID.fetch_add(1, Ordering::Relaxed),
+        schema_version: 1,
+        timestamp: Utc::now().to_rfc3339(),
+        level,
+        operation: operation.to_string(),
+        code: code.to_string(),
+        message: message.to_string(),
+        details,
+    }
+}
+
+fn push_entry(entry: DiagnosticEntry) {
+    if let Ok(mut entries) = journal().lock() {
+        if entries.len() == CAPACITY {
+            entries.pop_front();
+        }
+        entries.push_back(entry);
     }
 }
 
@@ -67,21 +102,25 @@ pub fn record_batch_summary(total: usize, failures: usize) {
         if entries.len() == CAPACITY {
             entries.pop_front();
         }
-        entries.push_back(DiagnosticEntry {
-            timestamp: Utc::now().to_rfc3339(),
-            level: if failures == 0 { "info" } else { "warning" },
-            operation: "panel_resources".into(),
-            code: "batch_summary".into(),
-            message,
-            details: None,
-        });
+        entries.push_back(new_entry(
+            if failures == 0 { "info" } else { "warning" },
+            "panel_resources",
+            "batch_summary",
+            &message,
+            Some(serde_json::json!({
+                "requested": total,
+                "succeeded": total - failures,
+                "failed": failures,
+                "identifiers_included": false,
+            })),
+        ));
     }
 }
 
 /// The webview can emit only fixed console lifecycle events; no arbitrary
 /// strings, server output, WebSocket tokens or URLs are accepted.
 #[tauri::command]
-pub fn record_console_connection_event(event: String) {
+pub fn record_console_connection_event(event: String, provider: Option<String>) {
     let (level, code, message) = match event.as_str() {
         "ws_connected" => ("info", "ws_connected", "Connexion Wings établie"),
         "ws_authenticated" => ("info", "ws_authenticated", "Authentification Wings réussie"),
@@ -96,7 +135,71 @@ pub fn record_console_connection_event(event: String) {
         "ws_send_failed" => ("warning", "ws_send_failed", "Envoi WebSocket échoué"),
         _ => return,
     };
-    record(level, "console_websocket", code, message);
+    let provider = match provider.as_deref().map(str::to_ascii_lowercase).as_deref() {
+        Some("wisp") => "wisp",
+        Some("pterodactyl") => "pterodactyl",
+        _ => "unknown",
+    };
+    let details = match event.as_str() {
+        "ws_connected" => serde_json::json!({
+            "transport": "websocket",
+            "endpoint_security": "wss_tls",
+            "phase": "connection_open",
+            "provider": provider,
+            "authentication": "pending",
+            "url_logged": false,
+        }),
+        "ws_authenticated" => serde_json::json!({
+            "transport": "websocket",
+            "endpoint_security": "wss_tls",
+            "phase": "authentication",
+            "provider": provider,
+            "panel_event": "auth success",
+            "outcome": "success",
+            "credential_source": "ephemeral_client_api_token",
+            "credential_saved_or_logged": false,
+            "initial_streams_requested": ["send logs", "send stats"],
+        }),
+        "ws_closed" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "connection_closed",
+            "provider": provider,
+            "close_code_or_reason": "not_exposed_by_client",
+        }),
+        "ws_connect_failed" => serde_json::json!({
+            "transport": "websocket",
+            "endpoint_security": "wss_tls",
+            "phase": "handshake",
+            "provider": provider,
+            "outcome": "failed",
+            "url_and_error_text_logged": false,
+        }),
+        "ws_auth_failed" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "authentication",
+            "provider": provider,
+            "outcome": "rejected",
+            "credential_source": "ephemeral_client_api_token",
+            "credential_and_server_output_logged": false,
+        }),
+        "ws_expired" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "token_lifecycle",
+            "provider": provider,
+            "outcome": "expired_or_expiring",
+            "reconnect_requested": true,
+            "token_logged": false,
+        }),
+        "ws_send_failed" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "client_send",
+            "provider": provider,
+            "outcome": "failed",
+            "command_text_logged": false,
+        }),
+        _ => return,
+    };
+    record_detailed(level, "console_websocket", code, message, Some(details));
 }
 
 /// A deliberately strict vocabulary: no untrusted text, arguments, credentials,
@@ -185,7 +288,18 @@ pub fn record_app_event(source: String, code: String) {
         ),
         _ => return,
     };
-    record(level, operation, event, description);
+    record_detailed(
+        level,
+        operation,
+        event,
+        description,
+        Some(serde_json::json!({
+            "source": operation,
+            "event": event,
+            "arguments_recorded": false,
+            "personal_data_recorded": false,
+        })),
+    );
 }
 
 /// Timing and outcome only. This allowlist prevents untrusted invocations
@@ -251,23 +365,23 @@ pub fn record_command_event(operation: String, outcome: String, duration_ms: u32
     } else {
         ("info", "command_ok")
     };
-    let entry = DiagnosticEntry {
-        timestamp: Utc::now().to_rfc3339(),
+    let entry = new_entry(
         level,
-        operation: operation.clone(),
-        code: code.to_owned(),
-        message: format!(
+        &operation,
+        code,
+        &format!(
             "Commande Tauri {} ({} ms) ; arguments et réponse exclus.",
             outcome, duration_ms
         ),
-        details: None,
-    };
-    if let Ok(mut events) = journal().lock() {
-        if events.len() == CAPACITY {
-            events.pop_front();
-        }
-        events.push_back(entry);
-    }
+        Some(serde_json::json!({
+            "outcome": outcome,
+            "duration_ms": duration_ms,
+            "slow_threshold_ms": 1500,
+            "arguments_recorded": false,
+            "result_recorded": false,
+        })),
+    );
+    push_entry(entry);
 }
 
 fn sensitive_diagnostic_key(key: &str) -> bool {
@@ -415,26 +529,38 @@ pub fn record_api_exchange(
     {
         return;
     }
-    let entry = DiagnosticEntry {
-        timestamp: Utc::now().to_rfc3339(),
+    let entry = new_entry(
         level,
-        operation: operation.to_string(),
-        code: code.to_owned(),
-        message: message.to_owned(),
-        details: Some(bounded_api_details(
+        operation,
+        code,
+        message,
+        Some(bounded_api_details(
             exchange.method,
             exchange.status,
             exchange.duration_ms,
             exchange.content_type,
             exchange.response,
         )),
-    };
-    if let Ok(mut entries) = journal().lock() {
-        if entries.len() == CAPACITY {
-            entries.pop_front();
-        }
-        entries.push_back(entry);
+    );
+    push_entry(entry);
+}
+
+pub fn record_task_snapshot(process_count: usize, total_memory_kib: u64) {
+    if process_count > 100_000 {
+        return;
     }
+    push_entry(new_entry(
+        "info",
+        "windows_tasks",
+        "snapshot_ok",
+        "Liste des processus Windows récupérée",
+        Some(serde_json::json!({
+            "process_count": process_count,
+            "total_memory_kib": total_memory_kib,
+            "process_names_or_pids_recorded": false,
+            "source": "tasklist.exe",
+        })),
+    ));
 }
 
 #[tauri::command]
@@ -452,51 +578,58 @@ pub fn clear_panel_diagnostics() {
     }
 }
 
-fn formatted_log() -> String {
-    let mut contents =
-        String::from("# HébergTonServ Desktop — diagnostic API (sans données sensibles)\n");
-    for entry in list_panel_diagnostics() {
-        contents.push_str(&format!(
-            "{} [{}] {} {}: {}\n",
-            entry.timestamp, entry.level, entry.operation, entry.code, entry.message
-        ));
-        if let Some(details) = entry.details {
-            contents.push_str("  Détails API expurgés :\n");
-            contents
-                .push_str(&serde_json::to_string_pretty(&details).unwrap_or_else(|_| "{}".into()));
-            contents.push('\n');
-        }
-        let hint = match entry.code.as_str() {
-            "api_validation_error" => {
-                "HTTP 400/422 : paramètres invalides ou état incompatible, vérifier la suspension et les droits."
-            }
-            "api_auth_failed" => "HTTP 401 : authentification Client API refusée.",
-            "api_forbidden" => "HTTP 403 : autorisation Client API insuffisante.",
-            "api_not_found" => "HTTP 404 : serveur ou endpoint inconnu.",
-            "api_rate_limited" => "HTTP 429 : limitation de fréquence.",
-            "batch_partial" => "Une ou plusieurs requêtes du lot ont échoué.",
-            _ => "Consulter les permissions, le statut et les journaux du panel.",
-        };
-        contents.push_str(&format!("  Diagnostic : {hint}\n"));
-    }
-    contents
-}
-
 #[tauri::command]
-pub async fn export_panel_diagnostics(path: String) -> Result<(), String> {
+pub async fn export_panel_diagnostics(path: String, format: String) -> Result<(), String> {
     let output = std::path::Path::new(&path);
     if path.len() > 4096
         || !matches!(
             output.extension().and_then(|x| x.to_str()),
-            Some("txt" | "log")
+            Some("txt" | "log" | "json")
         )
     {
-        return Err("Choisissez un fichier .txt ou .log.".to_string());
+        return Err("Choisissez un fichier .txt, .log ou .json.".to_string());
     }
     if !output.is_absolute() {
         return Err("Un chemin absolu est nécessaire.".to_string());
     }
-    tokio::fs::write(output, formatted_log())
+    if !matches!(format.as_str(), "json" | "txt") {
+        return Err("Format d’export non pris en charge.".to_string());
+    }
+    let contents = if format == "json" {
+        let entries = list_panel_diagnostics();
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 1,
+            "application": "HébergTonServ Desktop",
+            "version": env!("CARGO_PKG_VERSION"),
+            "exported_at": Utc::now().to_rfc3339(),
+            "entry_count": entries.len(),
+            "events": entries,
+        }))
+        .map_err(|_| "Sérialisation JSON impossible.".to_string())?
+    } else {
+        let mut text = String::from("# HébergTonServ Desktop — journal global schema v1\n");
+        for entry in list_panel_diagnostics() {
+            text.push_str(&format!(
+                "{} [{}] #{} schema={} {} {}: {}\n",
+                entry.timestamp,
+                entry.level,
+                entry.event_id,
+                entry.schema_version,
+                entry.operation,
+                entry.code,
+                entry.message
+            ));
+            if let Some(details) = entry.details {
+                text.push_str("  Détails expurgés :\n");
+                text.push_str(
+                    &serde_json::to_string_pretty(&details).unwrap_or_else(|_| "{}".into()),
+                );
+                text.push('\n');
+            }
+        }
+        text.into_bytes()
+    };
+    tokio::fs::write(output, contents)
         .await
         .map_err(|_| "Export impossible. Vérifiez les autorisations du dossier.".to_string())
 }
@@ -515,8 +648,8 @@ mod tests {
             .lock()
             .expect("test journal lock poisoned");
         clear_panel_diagnostics();
-        record_console_connection_event("ws_connected".into());
-        record_console_connection_event("token=do-not-record".into());
+        record_console_connection_event("ws_connected".into(), Some("wisp".into()));
+        record_console_connection_event("token=do-not-record".into(), None);
         let events = list_panel_diagnostics();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].operation, "console_websocket");

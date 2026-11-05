@@ -19,7 +19,9 @@ import { WorkspaceNavigationProvider } from "@/lib/workspace-navigation";
 import { DesktopHelpPanels } from "@/components/desktop-help-panels";
 import { DesktopTaskManager } from "@/components/desktop-task-manager";
 import { recordAppEvent } from "@/lib/app-diagnostics";
+import { useTheme } from "next-themes";
 import { PanelDiagnostics } from "@/components/panel-diagnostics";
+import { ServerExplorerTabs } from "@/components/server-explorer-tabs";
 import "./App.css";
 import "./theme-presets.css";
 import "./welcome-motion.css";
@@ -43,6 +45,17 @@ const ServerConsolePage = lazy(() => import("./pages/ServerConsolePage"));
 const ServerManagementPage = lazy(() => import("./pages/ServerManagementPage"));
 
 const queryClient = new QueryClient();
+
+function ThemeAwareToaster() {
+  const { resolvedTheme } = useTheme();
+  return <Toaster
+    richColors
+    closeButton
+    position="bottom-right"
+    theme={resolvedTheme === "light" ? "light" : "dark"}
+    toastOptions={{ className: "border-border bg-card text-card-foreground", descriptionClassName: "text-muted-foreground" }}
+  />;
+}
 
 const routeLabels: Record<string, string> = {
   "/home": "Accueil",
@@ -75,6 +88,7 @@ function Workspace() {
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
       <DesktopTitlebar navigation title={current} />
+      <ServerExplorerTabs />
       <DesktopHelpPanels />
       <DesktopTaskManager />
       <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />
@@ -230,7 +244,7 @@ export default function App() {
                 )}
               </div>
             </BrowserRouter>
-            <Toaster richColors position="top-right" />
+            <ThemeAwareToaster />
           </TooltipProvider>
           </AppUpdaterProvider>
         </ThemeStyleProvider>

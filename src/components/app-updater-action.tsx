@@ -1,9 +1,9 @@
-import { ArrowDownToLine, CheckCircle2, LoaderCircle, RefreshCw, WifiOff } from "lucide-react";
+import { ArrowDownToLine, CheckCircle2, History, LoaderCircle, RefreshCw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppUpdater } from "@/lib/app-updater";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import "./update-badge.css";
@@ -76,6 +76,10 @@ export function AppUpdaterAction() {
           </p>}
           <p className="text-[11px] text-muted-foreground">Détection automatique ; installation uniquement après confirmation.</p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event("hts:open-changelog"))}>
+          <History data-icon="inline-start" /> Nouveautés et changelog
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
