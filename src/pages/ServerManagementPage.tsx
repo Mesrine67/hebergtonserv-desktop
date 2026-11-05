@@ -4,6 +4,7 @@ import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownAZ, ArrowLeft, ChevronRight, Copy, Database, Eye, EyeOff, ExternalLink, File, RefreshCw, Search, TerminalSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PanelFileTree } from "@/components/panel-file-tree";
+import { ServerCodeEditor } from "@/components/server-code-editor";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -34,6 +35,41 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   const [showHidden, setShowHidden] = useState(false);
   const filesFetching = useIsFetching({ queryKey: ["panel-server-files", panel?.id, requestId] }) > 0;
   const content = useQuery({ queryKey: ["panel-server-file", panel?.id, requestId, selected], queryFn: () => commands.readPanelServerFile(panel!.id, requestId, selected!), enabled: Boolean(panel && requestId && selected && section === "files"), staleTime: 0 });
+  const [draftByFile, setDraftByFile] = useState<Record<string, string>>({});
+  const [savingFile, setSavingFile] = useState(false);
+  const original = content.data ?? "";
+  const draft = selected && Object.prototype.hasOwnProperty.call(draftByFile, selected)
+    ? draftByFile[selected] : original;
+  const dirty = Boolean(selected && content.isSuccess && draft !== original);
+  const saveFile = async () => {
+    if (!panel || !requestId || !selected || !dirty || savingFile || !content.isSuccess) return;
+    if (new TextEncoder().encode(draft).length > 1024 * 1024) {
+      toast.error("Le fichier dépasse la taille maximale de 1 Mio de l'éditeur.");
+      return;
+    }
+    setSavingFile(true);
+    try {
+      // Prevent silently overwriting changes made in WISP or by another editor.
+      const latest = await commands.readPanelServerFile(panel.id, requestId, selected);
+      if (latest !== original) {
+        toast.warning("Le fichier a changé sur le serveur. Vérifiez les modifications avant de réessayer.");
+        await queryClient.invalidateQueries({ queryKey: ["panel-server-file", panel.id, requestId, selected] });
+        return;
+      }
+      await commands.writePanelServerFile(panel.id, requestId, selected, draft);
+      queryClient.setQueryData(["panel-server-file", panel.id, requestId, selected], draft);
+      setDraftByFile(previous => {
+        const next = { ...previous };
+        delete next[selected];
+        return next;
+      });
+      toast.success("Fichier enregistré sur le serveur.");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSavingFile(false);
+    }
+  };
   const databases = useQuery({ queryKey: ["panel-server-databases", panel?.id, requestId], queryFn: () => commands.listPanelServerDatabases(panel!.id, requestId), enabled: Boolean(panel && requestId && section === "databases"), staleTime: 15_000 });
   const breadcrumbs = useMemo(() => path.split("/").filter(Boolean), [path]);
   const title = section === "files" ? "Fichiers" : "Bases de données";
@@ -77,7 +113,30 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       </aside>
       <article className="min-h-[420px] overflow-hidden rounded-xl border bg-card">
         <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><span className="truncate">{part}</span>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
-        {selected ? <><div className="border-b px-4 py-2 font-mono text-xs text-muted-foreground">{selected}</div>{content.isLoading ? <p className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p> : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p> : <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-xs leading-5">{content.data}</pre>}</> : <div className="grid h-[min(60vh,620px)] place-content-center text-center"><File className="mx-auto mb-3 size-8 text-muted-foreground"/><p className="font-medium">Aucun fichier ouvert</p><p className="mt-1 text-sm text-muted-foreground">Choisissez un fichier lisible dans l’arborescence.</p></div>}
+        {selected ? (
+          <div className="min-w-0 space-y-2 px-3 pb-3">
+            <div className="truncate py-2 font-mono text-xs text-muted-foreground" title={selected}>{selected}</div>
+            {content.isLoading ? <p role="status" className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p>
+              : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p>
+              : content.isSuccess ? (
+                <ServerCodeEditor
+                  key={selected}
+                  path={selected}
+                  value={draft}
+                  original={original}
+                  onChange={value => setDraftByFile(previous => ({ ...previous, [selected]: value }))}
+                  onSave={() => void saveFile()}
+                  saving={savingFile}
+                />
+              ) : null}
+          </div>
+        ) : (
+          <div className="grid h-[min(60vh,620px)] place-content-center text-center">
+            <File className="mx-auto mb-3 size-8 text-muted-foreground"/>
+            <p className="font-medium">Aucun fichier ouvert</p>
+            <p className="mt-1 text-sm text-muted-foreground">Choisissez un fichier lisible dans l'arborescence.</p>
+          </div>
+        )}
       </article>
     </div>}
 

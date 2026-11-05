@@ -75,6 +75,8 @@ pub trait PanelProvider: Send + Sync + 'static {
 
     async fn read_server_file(&self, identifier: &str, path: &str) -> Result<String>;
 
+    async fn write_server_file(&self, identifier: &str, path: &str, content: &str) -> Result<()>;
+
     async fn list_server_databases(&self, identifier: &str) -> Result<Vec<PanelDatabase>>;
 
     async fn list_api_keys(&self) -> Result<Capability<Vec<PanelApiKey>>>;

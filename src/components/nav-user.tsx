@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronsUpDown, Computer, KeyRound, Settings2, ShieldCheck } from "lucide-react";
+import { BookOpen, ChevronsUpDown, Computer, KeyRound, Settings2, ShieldCheck } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Link } from "react-router-dom";
@@ -72,6 +72,9 @@ export function NavUser() {
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="hts-floating-menu-item">
               <Link to="/ssh-keys"><KeyRound className="size-4" />Mes clés SSH</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="hts-floating-menu-item">
+              <Link to="/documentation"><BookOpen className="size-4" />Documentation</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <p className="px-2 py-1.5 text-[11px] text-muted-foreground">

@@ -1,27 +1,16 @@
-import {
-  GitBranch, KeyRound, ServerCog, Settings2,
-} from "lucide-react";
-import { Link } from "react-router-dom";
+import { GitBranch, KeyRound, ServerCog } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
 import { version as buildVersion } from "../../package.json";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
 
 const sections = [
   {
-    title: "SSH",
-    icon: KeyRound,
+    title: "SSH", icon: KeyRound,
     items: [
       { title: "Clés SSH", url: "/ssh-keys" },
       { title: "Configuration", url: "/ssh-config" },
@@ -29,8 +18,7 @@ const sections = [
     ],
   },
   {
-    title: "Infrastructure",
-    icon: ServerCog,
+    title: "Infrastructure", icon: ServerCog,
     items: [
       { title: "Panels", url: "/panels" },
       { title: "Compte du panel", url: "/panel/account" },
@@ -38,45 +26,20 @@ const sections = [
     ],
   },
   {
-    title: "Développement",
-    icon: GitBranch,
+    title: "Développement", icon: GitBranch,
     items: [{ title: "Git / GH", url: "/git" }],
-  },
-  {
-    title: "Application",
-    icon: Settings2,
-    items: [
-      { title: "Paramètres", url: "/settings" },
-      { title: "Sécurité", url: "/security" },
-    ],
   },
 ];
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const [version, setVersion] = useState(buildVersion);
   useEffect(() => {
-    if (isTauri()) {
-      getVersion().then(setVersion, () => setVersion(buildVersion));
-    }
+    if (isTauri()) void getVersion().then(setVersion, () => setVersion(buildVersion));
   }, []);
   return (
     <Sidebar variant="sidebar" collapsible="icon" embedded className="hts-sidebar" {...props}>
       <SidebarHeader>
-        <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
-          <SidebarMenu className="min-w-0 flex-1">
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="HébergTonServ Desktop">
-              <Link to="/home">
-                <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar group-data-[collapsible=icon]:size-7"><img src="/hebergtonserv-mark.png" alt="" className="size-full object-contain" /></span>
-                <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">HébergTonServ</span>
-                  <span className="truncate text-xs text-sidebar-foreground/60">Desktop · Gestionnaire</span>
-                </span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          </SidebarMenu>
-        </div>
+        <WorkspaceSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={sections} />

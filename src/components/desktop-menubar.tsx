@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { ArrowLeft, ArrowRight, BookOpen, Command, GitBranch, HelpCircle, Home, KeyRound, ListTree, Moon, PanelLeftClose, RefreshCw, ScrollText, Settings2, ShieldCheck, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSidebar } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import {
   Menubar, MenubarMenu, MenubarTrigger, MenubarContent,
   MenubarItem, MenubarSeparator, MenubarShortcut,
@@ -26,6 +26,12 @@ export function DesktopMenubar() {
         <Tooltip><TooltipTrigger asChild>
           <Button size="icon-sm" variant="ghost" className="size-7" aria-label="Avancer" disabled={!history.canForward} onClick={history.forward}><ArrowRight className="size-3.5" /></Button>
         </TooltipTrigger><TooltipContent>Avancer · Alt + →</TooltipContent></Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SidebarTrigger className="ml-1 size-7 shrink-0" aria-label="Afficher ou masquer la navigation" />
+          </TooltipTrigger>
+          <TooltipContent>Afficher ou masquer la navigation · Ctrl+B</TooltipContent>
+        </Tooltip>
       </div>
       <Menubar className="hts-main-menubar h-8 gap-0 border-0 bg-transparent p-0 shadow-none">
         <MenubarMenu>
