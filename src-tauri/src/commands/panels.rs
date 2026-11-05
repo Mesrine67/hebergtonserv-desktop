@@ -741,6 +741,28 @@ pub async fn read_panel_server_file(
 }
 
 #[tauri::command]
+pub async fn write_panel_server_file(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+    path: String,
+    content: String,
+) -> Result<()> {
+    validate_server_path(&identifier, &path)?;
+    // Enforce a bound before attempting to build a JSON or text/plain request.
+    if content.len() > crate::security::url::MAX_REQUEST_BODY_BYTES / 2 {
+        return Err(app_error(
+            "api_request_too_large",
+            "Fichier trop volumineux pour l'éditeur intégré.",
+        ));
+    }
+    server_provider(&state, &id)
+        .await?
+        .write_server_file(&identifier, &path, &content)
+        .await
+}
+
+#[tauri::command]
 pub async fn list_panel_server_databases(
     state: tauri::State<'_, AppState>,
     id: String,

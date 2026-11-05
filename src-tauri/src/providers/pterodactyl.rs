@@ -172,28 +172,24 @@ impl PanelProvider for PterodactylProvider {
         let query = url::form_urlencoded::Serializer::new(String::new())
             .append_pair("file", path)
             .finish();
-        let response = client
-            .send_json::<Value>(
-                reqwest::Method::GET,
-                &format!("/api/client/servers/{identifier}/files/contents?{query}"),
-                None,
+        client
+            .fetch_text(&format!(
+                "/api/client/servers/{identifier}/files/contents?{query}"
+            ))
+            .await
+    }
+
+    async fn write_server_file(&self, identifier: &str, path: &str, content: &str) -> Result<()> {
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("file", path)
+            .finish();
+        client
+            .send_text(
+                &format!("/api/client/servers/{identifier}/files/write?{query}"),
+                content,
             )
-            .await?;
-        response
-            .as_str()
-            .map(str::to_string)
-            .or_else(|| {
-                response
-                    .get("content")
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-            })
-            .ok_or_else(|| {
-                crate::errors::app_error(
-                    "api_invalid_response",
-                    "Contenu de fichier Pterodactyl invalide.",
-                )
-            })
+            .await
     }
 
     async fn list_server_databases(&self, identifier: &str) -> Result<Vec<PanelDatabase>> {

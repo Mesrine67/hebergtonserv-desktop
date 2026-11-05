@@ -1,112 +1,80 @@
-import { useCallback, useEffect, useState } from "react";
-import { ArrowDownToLine, CheckCircle2, LoaderCircle, RefreshCw } from "lucide-react";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { getVersion } from "@tauri-apps/api/app";
-import { isTauri } from "@tauri-apps/api/core";
-import { toast } from "sonner";
+import { ArrowDownToLine, CheckCircle2, LoaderCircle, RefreshCw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { notifyDesktop } from "@/lib/notifications";
+import { useAppUpdater } from "@/lib/app-updater";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { version as buildVersion } from "../../package.json";
+import "./update-badge.css";
 
 export function AppUpdaterAction() {
-  const [current, setCurrent] = useState(buildVersion);
-  const [available, setAvailable] = useState<Update | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    if (!isTauri()) return;
-    void getVersion().then(setCurrent, () => {});
-  }, []);
-
-  const checkForUpdates = useCallback(async () => {
-    if (!isTauri()) { toast.info("Les mises à jour nécessitent l'application Windows."); return; }
-    setBusy(true);
-    try {
-      const candidate = await check();
-      if (available) await available.close();
-      setAvailable(candidate);
-      setChecked(true);
-      if (candidate) {
-        toast.info(`Mise à jour ${candidate.version} disponible`);
-        notifyDesktop("Mise à jour disponible", `La version ${candidate.version} de HébergTonServ Desktop est disponible.`, "update");
-      }
-      else toast.success("HébergTonServ Desktop est à jour.");
-    } catch {
-      toast.error("Recherche impossible. Vérifiez votre connexion et GitHub Releases.");
-    } finally { setBusy(false); }
-  }, [available]);
-
-  useEffect(() => {
-    const handler = () => { void checkForUpdates(); };
-    window.addEventListener("hts:check-for-updates", handler);
-    return () => window.removeEventListener("hts:check-for-updates", handler);
-  }, [checkForUpdates]);
-
-  async function install() {
-    if (!available || !isTauri()) return;
-    setBusy(true);
-    setProgress(0);
-    try {
-      await available.downloadAndInstall((event) => {
-        if (event.event === "Progress") {
-          setProgress((old) => old + event.data.chunkLength);
-        }
-      });
-      toast.info("Mise à jour installée. Redémarrez l'application si nécessaire.");
-    } catch {
-      toast.error("Installation impossible. L'application actuelle reste utilisable.");
-    } finally { setBusy(false); }
-  }
-
+  const updater = useAppUpdater();
+  const busy = updater.status === "checking" || updater.status === "installing";
+  const available = Boolean(updater.availableVersion);
   return (
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <Button type="button" size="icon-sm" variant="ghost"
+              data-testid="update-toolbar-button"
               className="relative size-8 shrink-0"
-              aria-label={available ? `Mise à jour ${available.version} disponible` : "Mises à jour HébergTonServ"}>
+              aria-label={available
+                ? "Mise à jour v" + updater.availableVersion + " disponible"
+                : "Mises à jour HébergTonServ"}>
               {busy ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowDownToLine className="size-4" />}
-              {available && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-sidebar" />}
+              {available && (
+                <span data-testid="update-notification-badge" className="hts-update-badge" aria-hidden="true">
+                  <span className="hts-update-badge-dot" />
+                </span>
+              )}
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="bottom">Mises à jour HébergTonServ</TooltipContent>
+        <TooltipContent side="bottom">{available ? "Nouvelle version disponible" : "Mises à jour HébergTonServ"}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-72 border bg-popover p-2 shadow-xl">
+      <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-80 max-w-[calc(100vw-1rem)] border bg-popover p-2 shadow-xl">
         <DropdownMenuLabel className="text-xs font-semibold">Mises à jour de l'application</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="space-y-3 px-2 py-3 text-xs">
-          <p className="text-muted-foreground">Version installée : <strong className="text-foreground">v{current}</strong></p>
+          <p className="text-muted-foreground">Version installée : <strong className="text-foreground">v{updater.currentVersion}</strong></p>
           {available ? (
-            <p className="flex items-center gap-2 text-foreground">
+            <p role="status" className="flex items-center gap-2 text-foreground">
               <ArrowDownToLine className="size-4 shrink-0 text-primary" />
-              Nouvelle version v{available.version} disponible
+              Nouvelle version v{updater.availableVersion} disponible.
             </p>
-          ) : checked ? (
-            <p className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="size-4" /> Aucune mise à jour disponible.</p>
+          ) : updater.status === "current" ? (
+            <p className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="size-4" /> Vous utilisez la dernière version.</p>
+          ) : updater.status === "error" ? (
+            <p role="status" className="flex items-center gap-2 text-destructive"><WifiOff className="size-4" /> Vérification impossible. Réessayez plus tard.</p>
           ) : (
-            <p className="text-muted-foreground">Recherchez une version Windows signée sur GitHub.</p>
+            <p className="text-muted-foreground">{busy ? "Vérification ou installation en cours…" : "Vérification automatique au démarrage et toutes les heures."}</p>
           )}
-          {progress > 0 && <p aria-live="polite">Téléchargé : {(progress / 1048576).toFixed(1)} Mo</p>}
+          {available && updater.releaseNotes && (
+            <div className="max-h-28 overflow-auto whitespace-pre-wrap rounded-md border bg-secondary/20 p-2 leading-relaxed text-muted-foreground">
+              {updater.releaseNotes}
+            </div>
+          )}
+          {updater.status === "installing" && (
+            <p role="status" aria-live="polite">Téléchargé : {(updater.downloadedBytes / 1048576).toFixed(1)} Mo
+              {updater.totalBytes ? " / " + (updater.totalBytes / 1048576).toFixed(1) + " Mo" : ""}
+            </p>
+          )}
           <Button id="hts-update-check" className="w-full" variant="outline" size="sm" disabled={busy}
-            onClick={() => void checkForUpdates()}>
-            <RefreshCw className={`size-4 ${busy ? "animate-spin" : ""}`} />
-            {busy ? "Opération en cours…" : "Vérifier maintenant"}
+            onClick={() => void updater.checkForUpdates(false)}>
+            <RefreshCw className={"size-4 " + (busy ? "animate-spin" : "")} />
+            {updater.status === "checking" ? "Vérification…" : "Vérifier maintenant"}
           </Button>
           {available && (
-            <Button className="w-full" size="sm" disabled={busy} onClick={() => void install()}>
-              <ArrowDownToLine className="size-4" /> Installer v{available.version}
+            <Button className="w-full" size="sm" disabled={busy} onClick={() => void updater.installUpdate()}>
+              <ArrowDownToLine className="size-4" /> Installer v{updater.availableVersion}
             </Button>
           )}
-          <p className="text-[11px] text-muted-foreground">Aucune installation sans votre confirmation.</p>
+          {updater.checkedAt !== null && <p className="text-[11px] text-muted-foreground">
+            Dernière vérification : {new Date(updater.checkedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </p>}
+          <p className="text-[11px] text-muted-foreground">Détection automatique ; installation uniquement après confirmation.</p>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

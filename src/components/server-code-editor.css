@@ -1,0 +1,16 @@
+.hts-code-editor { isolation: isolate; }
+.hts-code-gutter { min-width: 3rem; background: color-mix(in oklch,var(--muted) 20%,var(--background)); }
+.hts-code-overlay { tab-size: 2; color: var(--foreground); pointer-events: none; }
+.hts-code-input {
+  tab-size: 2;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--foreground);
+  background: transparent;
+}
+.hts-code-input::selection { background: color-mix(in oklch,var(--primary) 30%,transparent); }
+.hts-code-input:focus { outline: none; }
+.hts-code-string { color: var(--chart-2); }
+.hts-code-number { color: var(--chart-3); }
+.hts-code-keyword { color: var(--chart-4); }
+.hts-code-comment { color: var(--muted-foreground); }

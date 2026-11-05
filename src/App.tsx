@@ -11,6 +11,7 @@ import { version as buildVersion } from "../package.json";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { DesktopTitlebar } from "@/components/desktop-titlebar";
+import { AppUpdaterProvider } from "@/lib/app-updater";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeStyleProvider } from "@/lib/theme-style";
@@ -203,6 +204,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="hts-ui-theme">
         <ThemeStyleProvider>
+          <AppUpdaterProvider>
           <TooltipProvider delayDuration={150}>
             <BrowserRouter>
               <div data-window-closing={isClosing ? "true" : undefined} className="hts-window-boot relative h-dvh min-h-0 overflow-hidden bg-background">
@@ -230,6 +232,7 @@ export default function App() {
             </BrowserRouter>
             <Toaster richColors position="top-right" />
           </TooltipProvider>
+          </AppUpdaterProvider>
         </ThemeStyleProvider>
       </ThemeProvider>
     </QueryClientProvider>

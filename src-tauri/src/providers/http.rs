@@ -561,6 +561,109 @@ impl ApiClient {
         })
     }
 
+    /// Pterodactyl returns raw text rather than JSON for file contents.
+    /// Keep authorization in Rust, and bound streamed responses.
+    pub(crate) async fn fetch_text(&self, path: &str) -> Result<String> {
+        let base = crate::security::url::validate_panel_url(&self.base_url, self.allow_local)?;
+        let resolved = crate::security::url::resolve_allowed_addrs(&base, self.allow_local).await?;
+        let host = base
+            .host_str()
+            .ok_or_else(|| app_error("invalid_url", "Hôte du panneau manquant."))?;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(20))
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none())
+            .no_proxy()
+            .https_only(true)
+            .resolve_to_addrs(host, &resolved)
+            .build()
+            .map_err(|_| app_error("api_client", "Client HTTP indisponible."))?;
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let mut response = client
+            .get(url)
+            .headers(standard_panel_headers(&self.accept)?)
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(|_| app_error("api_network", "Impossible de joindre le panel."))?;
+        if !response.status().is_success() {
+            return Err(http_error(
+                http_error_code(response.status()),
+                "Le panel a refusé la lecture du fichier.",
+            ));
+        }
+        if response
+            .content_length()
+            .is_some_and(|size| size > MAX_RESPONSE_BYTES as u64)
+        {
+            return Err(app_error(
+                "api_response_too_large",
+                "Fichier trop volumineux.",
+            ));
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|_| app_error("api_network", "Lecture de fichier impossible."))?
+        {
+            append_bounded_response_chunk(&mut bytes, &chunk)?;
+        }
+        String::from_utf8(bytes).map_err(|_| {
+            app_error(
+                "api_invalid_response",
+                "Le fichier n'est pas du texte UTF-8.",
+            )
+        })
+    }
+
+    /// Pterodactyl expects raw text/plain rather than JSON for file writes.
+    /// Credentials stay in the Rust provider, and DNS resolutions are pinned
+    /// using the same validation as read-only API requests.
+    pub(crate) async fn send_text(&self, path: &str, content: &str) -> Result<()> {
+        if content.len() > crate::security::url::MAX_REQUEST_BODY_BYTES {
+            return Err(app_error(
+                "api_request_too_large",
+                "Fichier trop volumineux.",
+            ));
+        }
+        let base = crate::security::url::validate_panel_url(&self.base_url, self.allow_local)?;
+        let resolved = crate::security::url::resolve_allowed_addrs(&base, self.allow_local).await?;
+        let host = base
+            .host_str()
+            .ok_or_else(|| app_error("invalid_url", "Hôte du panneau manquant."))?;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(20))
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none())
+            .no_proxy()
+            .https_only(true)
+            .resolve_to_addrs(host, &resolved)
+            .build()
+            .map_err(|_| app_error("api_client", "Client HTTP indisponible."))?;
+        let mut headers = standard_panel_headers(&self.accept)?;
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("text/plain; charset=utf-8"),
+        );
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let response = client
+            .post(url)
+            .headers(headers)
+            .bearer_auth(&self.token)
+            .body(content.to_owned())
+            .send()
+            .await
+            .map_err(|_| app_error("api_network", "Impossible de joindre le panel."))?;
+        if !response.status().is_success() {
+            return Err(http_error(
+                http_error_code(response.status()),
+                "Le panel a refusé l'enregistrement du fichier.",
+            ));
+        }
+        Ok(())
+    }
+
     /// Centralized, sanitized telemetry for every Client API request.
     pub(crate) async fn send_json<T: DeserializeOwned>(
         &self,

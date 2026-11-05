@@ -300,6 +300,7 @@ export const commands = {
   getPanelThumbnail: (id: string, thumbnailUrl: string) => invoke<string>("get_panel_thumbnail", { id, thumbnailUrl }),
   listPanelServerFiles: (id: string, identifier: string, path: string) => invoke<PanelFileEntry[]>("list_panel_server_files", { id, identifier, path }),
   readPanelServerFile: (id: string, identifier: string, path: string) => invoke<string>("read_panel_server_file", { id, identifier, path }),
+  writePanelServerFile: (id: string, identifier: string, path: string, content: string) => invoke<void>("write_panel_server_file", { id, identifier, path, content }),
   listPanelServerDatabases: (id: string, identifier: string) => invoke<PanelDatabase[]>("list_panel_server_databases", { id, identifier }),
   listPanelServerSubusers: (id: string, identifier: string) =>
     invoke<PanelCapability<PanelSubuser[]>>("list_panel_server_subusers", { id, identifier }),

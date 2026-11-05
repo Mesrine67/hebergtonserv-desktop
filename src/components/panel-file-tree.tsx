@@ -13,14 +13,15 @@ export function PanelFileTree(props: TreeProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const files = useQuery({ queryKey: ["panel-server-files", props.panelId, props.serverId, props.path], queryFn: () => commands.listPanelServerFiles(props.panelId, props.serverId, props.path), staleTime: 15_000 });
   const visible = (files.data ?? []).filter(entry => (props.showHidden || !entry.name.startsWith(".")) && (entry.kind === "directory" || entry.name.toLocaleLowerCase().includes(props.filter.trim().toLocaleLowerCase()))).sort((a, b) => Number(b.kind === "directory") - Number(a.kind === "directory") || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  useEffect(() => setActiveIndex(index => Math.min(index, Math.max(0, visible.length - 1))), [visible.length, props.path, props.filter, props.showHidden]);
   if (files.isLoading) return <p className="p-2 text-xs text-muted-foreground">Chargement du dossier…</p>;
   if (files.isError) return <p role="alert" className="p-2 text-xs text-destructive">{errorMessage(files.error)}</p>;
   if (!visible.length) return <p className="p-2 text-xs text-muted-foreground">{files.data?.length ? "Aucun résultat dans ce dossier." : "Ce dossier est vide."}</p>;
-  useEffect(() => setActiveIndex(index => Math.min(index, Math.max(0, visible.length - 1))), [visible.length, props.path, props.filter, props.showHidden]);
+
   const activate = (entry: PanelFileEntry) => {
     if (entry.kind === "directory") {
       setActiveIndex(visible.findIndex(item => item.path === entry.path));
-      document.getElementById(`tree-folder-${CSS.escape(entry.path)}`)?.click();
+      document.getElementById(`tree-folder-${entry.path}`)?.click();
     }
     else props.onSelect(entry);
   };
@@ -32,17 +33,17 @@ export function PanelFileTree(props: TreeProps) {
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault(); setActiveIndex(event.key === "Home" ? 0 : visible.length - 1);
     } else if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault(); activate(visible[activeIndex]);
+      if (visible[activeIndex]) { event.preventDefault(); activate(visible[activeIndex]); }
     } else if (event.key === "ArrowRight" && visible[activeIndex]?.kind === "directory") {
       event.preventDefault();
-      const folder = document.getElementById(`tree-folder-${CSS.escape(visible[activeIndex].path)}`);
+      const folder = document.getElementById(`tree-folder-${visible[activeIndex].path}`);
       if (folder?.getAttribute("aria-expanded") === "false") folder.click();
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
       if (props.path !== "/") {
-        document.getElementById(`tree-folder-${CSS.escape(props.path)}`)?.focus();
+        document.getElementById(`tree-folder-${props.path}`)?.focus();
       } else if (visible[activeIndex]?.kind === "directory") {
-        const folder = document.getElementById(`tree-folder-${CSS.escape(visible[activeIndex].path)}`);
+        const folder = document.getElementById(`tree-folder-${visible[activeIndex].path}`);
         if (folder?.getAttribute("aria-expanded") === "true") folder.click();
       }
     }

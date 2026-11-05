@@ -1,0 +1,36 @@
+/* Compact animated notification dot, visible only for a verified available update. */
+.hts-update-badge {
+  position: absolute;
+  top: .05rem;
+  right: .05rem;
+  display: grid;
+  place-items: center;
+  width: .56rem;
+  height: .56rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--sidebar);
+  transform-origin: center;
+  animation: hts-update-pop .36s cubic-bezier(.2,1.65,.45,1) both;
+  pointer-events: none;
+}
+.hts-update-badge-dot { width: .19rem; height: .19rem; border-radius: inherit; background: var(--primary-foreground); }
+.hts-update-badge::after {
+  content: "";
+  position: absolute;
+  inset: -.23rem;
+  border: 1.5px solid var(--primary);
+  border-radius: 9999px;
+  animation: hts-update-ring 2.8s ease-out 2 forwards;
+}
+@keyframes hts-update-pop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes hts-update-ring {
+  0%, 5% { transform: scale(.6); opacity: .85; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hts-update-badge, .hts-update-badge::after { animation: none; }
+}

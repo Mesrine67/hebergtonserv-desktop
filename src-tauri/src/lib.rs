@@ -247,6 +247,7 @@ pub fn run() {
             commands::panels::list_panel_server_subusers,
             commands::panels::list_panel_server_files,
             commands::panels::read_panel_server_file,
+            commands::panels::write_panel_server_file,
             commands::panels::list_panel_server_databases,
             commands::panels::get_panel_server_resources,
             commands::panels::get_panel_resources_batch,

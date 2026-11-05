@@ -10,7 +10,6 @@ import { AppUpdaterAction } from "@/components/app-updater-action";
 import { DiscussionAction } from "@/components/discussion-action";
 import { NotificationsAction } from "@/components/notifications-action";
 import { DesktopMenubar } from "@/components/desktop-menubar";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Props = {
@@ -18,21 +17,6 @@ type Props = {
   navigation?: boolean;
   welcome?: boolean;
 };
-
-function TitlebarSidebarRail() {
-  // Window chrome is not part of the collapsible navigation column.
-  // Keep the application title anchored in both navigation states.
-  return (
-    <div className="hts-titlebar-rail flex h-full w-[var(--sidebar-width-icon)] shrink-0 items-center justify-center bg-transparent">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SidebarTrigger className="size-8" aria-label="Afficher ou masquer la navigation" />
-        </TooltipTrigger>
-        <TooltipContent>Afficher ou masquer la navigation</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-}
 
 export function DesktopTitlebar({ navigation = false, welcome = false }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -101,10 +85,6 @@ export function DesktopTitlebar({ navigation = false, welcome = false }: Props) 
 
   return (
     <header className={`hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2 ${welcome ? "hts-titlebar--welcome" : ""}`}>
-      {navigation && (
-        <TitlebarSidebarRail />
-      )}
-
       <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
       {navigation && <DesktopMenubar />}
       <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />

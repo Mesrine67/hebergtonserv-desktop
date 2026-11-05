@@ -129,6 +129,18 @@ impl PanelProvider for WispProvider {
             })
     }
 
+    async fn write_server_file(&self, identifier: &str, path: &str, content: &str) -> Result<()> {
+        let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
+        let _: serde_json::Value = client
+            .send_json(
+                reqwest::Method::POST,
+                &format!("/api/client/servers/{identifier}/files/write"),
+                Some(&serde_json::json!({ "path": path, "content": content })),
+            )
+            .await?;
+        Ok(())
+    }
+
     async fn list_server_databases(&self, identifier: &str) -> Result<Vec<PanelDatabase>> {
         let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let response = client
