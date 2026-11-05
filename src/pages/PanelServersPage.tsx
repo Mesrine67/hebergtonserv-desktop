@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/page-shell";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardTitle } from "@/components/ui/card";
 import { getServiceKind, serviceIcons } from "@/lib/server-service-visuals";
 import "./server-cards.css";
 import { Progress } from "@/components/ui/progress";
@@ -98,15 +98,13 @@ function Stat({icon: Icon, label, value, percent}: {
   percent?: number;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-md border bg-muted/25 px-2.5 py-2.5">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="text-[0.6875rem] font-medium">{label}</span>
+    <div className="hts-server-card-stat min-w-0 border-r border-border/50 px-1.5 last:border-r-0">
+      <div className="flex items-center gap-1 text-muted-foreground">
+        <Icon className="size-3 shrink-0" aria-hidden="true" />
+        <span className="truncate text-[0.625rem]">{label}</span>
       </div>
-      <p className="min-h-8 text-xs/4 font-semibold tabular-nums text-card-foreground">{value}</p>
-      {percent != null && (
-        <Progress value={percent} aria-label={`${label} utilisé`} className="h-1" />
-      )}
+      <p className="mt-1 truncate text-[0.6875rem] font-semibold tabular-nums text-card-foreground" title={value}>{value}</p>
+      {percent != null && <Progress value={percent} aria-label={label + " utilisé"} className="mt-1 h-0.5" />}
     </div>
   );
 }
@@ -126,6 +124,14 @@ export function ServerCard({server, resources: stats, loading, failed, errorCode
   const [subusersOpen, setSubusersOpen] = useState(false);
   const serviceKind = getServiceKind(server.egg);
   const ServiceIcon = serviceIcons[serviceKind];
+  const thumbnail = useQuery({
+    queryKey: ["panel-egg-thumbnail", panelId, server.thumbnail_url],
+    queryFn: () => commands.getPanelThumbnail(panelId, server.thumbnail_url!),
+    enabled: Boolean(server.thumbnail_url),
+    staleTime: 60 * 60_000,
+    gcTime: 2 * 60 * 60_000,
+    retry: 0,
+  });
   const subusers = useQuery({queryKey: ["panel-server-subusers", panelId, subuserIdentifier], queryFn: () => commands.listPanelServerSubusers(panelId, subuserIdentifier), enabled: subusersOpen, retry: 0});
   const state = stateFor(server, stats);
   // The list endpoint can report a suspended server even when its resources endpoint rejects the request.
@@ -141,53 +147,54 @@ export function ServerCard({server, resources: stats, loading, failed, errorCode
   const stateIcon = state === "online" ? <CircleCheck data-icon="inline-start" className="text-emerald-500" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff data-icon="inline-start" aria-hidden="true" /> : <CircleAlert data-icon="inline-start" className="text-amber-500" aria-hidden="true" />;
   const stateVariant = state === "offline" || state === "suspended" || failed ? "destructive" : "outline";
   return (
-    <Card role="article" data-service-kind={serviceKind} className="hts-server-card group/card gap-0 transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
-      <CardHeader className="hts-server-card-header border-b" data-service-kind={serviceKind}>
-        <span className="hts-server-card-art" aria-hidden="true"><ServiceIcon /></span>
-        <div className="relative z-10 flex min-w-0 items-start gap-3">
-          <div className="hts-server-card-symbol flex size-10 shrink-0 items-center justify-center rounded-lg bg-background/50">
-            <ServiceIcon className="size-5" aria-hidden="true" />
+    <Card role="article" data-service-kind={serviceKind} className="hts-server-card group/card gap-0 py-0 transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
+      <div className="hts-server-card-header border-b">
+        {thumbnail.data && <img className="hts-server-card-thumbnail" src={thumbnail.data} alt="" aria-hidden="true" loading="lazy" />}
+        <div className="hts-server-card-heading relative z-10 flex min-w-0 items-start gap-2">
+          <div className="hts-server-card-symbol flex size-7 shrink-0 items-center justify-center rounded-md bg-background/70 text-primary">
+            <ServiceIcon className="size-4" aria-hidden="true" />
           </div>
-          <div className="grid min-w-0 flex-1 gap-1">
-            <CardTitle role="heading" aria-level={2} className="truncate text-base font-semibold" title={server.name}>{server.name}</CardTitle>
-            <CardDescription className="truncate font-mono" title={address ?? server.node ?? ""}>{address ?? server.node ?? "Adresse indisponible"}{address && server.node ? ` · ${server.node}` : ""}</CardDescription>
-            <span className="font-mono text-[0.6875rem] text-muted-foreground">ID {shortId}</span>
+          <div className="min-w-0 flex-1">
+            <CardTitle role="heading" aria-level={2} className="truncate text-sm font-semibold" title={server.name}>{server.name}</CardTitle>
+            <CardDescription className="mt-0.5 truncate font-mono text-[0.7rem]" title={address ?? server.node ?? ""}>
+              {address ?? server.node ?? "Adresse indisponible"}{address && server.node ? " · " + server.node : ""}
+            </CardDescription>
+            <span className="mt-1 block truncate font-mono text-[0.625rem] text-muted-foreground">ID {shortId}</span>
+          </div>
+          <div className="hts-server-card-trailing flex shrink-0 items-start gap-1.5">
+            <div className="flex min-w-0 flex-col items-end gap-1">
+              <Badge data-testid="server-state-badge" variant={stateVariant} className={cn("whitespace-nowrap bg-background/85 text-foreground", state === "online" && !failed && "border-emerald-500/30", state !== "online" && state !== "offline" && state !== "suspended" && !failed && "border-amber-500/30")}>
+                {stateIcon}{stateText}
+              </Badge>
+              {server.egg && (
+                <Badge data-testid="server-service-badge" variant="outline" className="hts-server-service-badge max-w-28 border-foreground/15 bg-background/85" title={server.egg}>
+                  <span className="block min-w-0 truncate">{server.egg}</span>
+                </Badge>
+              )}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="hts-server-menu-trigger size-7 shrink-0 bg-background/85" aria-label={"Actions du serveur " + server.name} title={"Actions du serveur " + server.name}>
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
+                <DropdownMenuItem onSelect={onOpenConsole}><ExternalLink data-icon="inline-start" /> Ouvrir la console</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onSelect={onOpenFiles}><File data-icon="inline-start" /> Fichiers</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onOpenDatabases}><Database data-icon="inline-start" /> Bases de données</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setSubusersOpen(value => !value)}><Users data-icon="inline-start" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}</DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-        <CardAction className="relative z-10 flex items-start gap-2">
-          <div className="flex min-w-0 flex-col items-end gap-1.5">
-            <Badge data-testid="server-state-badge" variant={stateVariant} className={cn("whitespace-nowrap bg-background/85 text-foreground", state === "online" && !failed && "border-emerald-500/30", state !== "online" && state !== "offline" && state !== "suspended" && !failed && "border-amber-500/30")}>
-              {stateIcon}{stateText}
-            </Badge>
-            {server.egg && (
-              <Badge data-testid="server-service-badge" variant="outline" className="hts-server-service-badge border-foreground/15 bg-background/75" title={server.egg}>
-                <span className="block truncate">{server.egg}</span>
-              </Badge>
-            )}
-            {server.installing && <span className="text-[0.6875rem] text-muted-foreground">Installation en cours</span>}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="icon" className="hts-server-menu-trigger size-8 shrink-0 bg-background/75" aria-label={`Actions du serveur ${server.name}`} title={`Actions du serveur ${server.name}`}>
-                <MoreHorizontal className="size-4" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
-              <DropdownMenuItem onSelect={onOpenConsole}><ExternalLink data-icon="inline-start" /> Ouvrir la console</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={onOpenFiles}><File data-icon="inline-start" /> Fichiers</DropdownMenuItem>
-                <DropdownMenuItem onSelect={onOpenDatabases}><Database data-icon="inline-start" /> Bases de données</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSubusersOpen(value => !value)}><Users data-icon="inline-start" /> {subusersOpen ? "Masquer les sous-utilisateurs" : "Sous-utilisateurs"}</DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardAction>
-      </CardHeader>
+      </div>
       {subusersOpen && <CardContent className="border-t pt-3" aria-live="polite">
         {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p> : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p> : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p> : <SubuserList capability={subusers.data} />}
       </CardContent>}
-      <CardContent className="grid grid-cols-2 gap-1.5 border-t py-3 sm:grid-cols-4">
+      <CardContent className="hts-server-card-metrics grid grid-cols-4 gap-0 border-t py-2">
         <Stat
           icon={Cpu}
           label="CPU"
@@ -217,7 +224,7 @@ export function ServerCard({server, resources: stats, loading, failed, errorCode
         )}
       </CardContent>
       {stats && (stats.network_rx_bytes != null || stats.network_tx_bytes != null) && (
-        <CardFooter className="justify-start gap-1 border-t text-xs text-muted-foreground tabular-nums">
+        <CardFooter className="justify-start gap-1 border-t py-2 text-[0.6875rem] text-muted-foreground tabular-nums">
           Réseau : ↓ {formatBytes(stats.network_rx_bytes)} · ↑ {formatBytes(stats.network_tx_bytes)}
         </CardFooter>
       )}

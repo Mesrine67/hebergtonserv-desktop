@@ -129,6 +129,7 @@ export interface PanelServer {
   suspended: boolean;
   installing: boolean;
   egg?: string | null;
+  thumbnail_url?: string | null;
   limits: {
     memory?: number | null;
     swap?: number | null;
@@ -296,6 +297,7 @@ export const commands = {
   checkPanel: (id: string) => invoke<PanelCheckResult>("check_panel", { id }),
   getPanelAccount: (id: string) => invoke<PanelAccountSummary>("get_panel_account", { id }),
   listPanelServers: (id: string) => invoke<PanelServer[]>("list_panel_servers", { id }),
+  getPanelThumbnail: (id: string, thumbnailUrl: string) => invoke<string>("get_panel_thumbnail", { id, thumbnailUrl }),
   listPanelServerFiles: (id: string, identifier: string, path: string) => invoke<PanelFileEntry[]>("list_panel_server_files", { id, identifier, path }),
   readPanelServerFile: (id: string, identifier: string, path: string) => invoke<string>("read_panel_server_file", { id, identifier, path }),
   listPanelServerDatabases: (id: string, identifier: string) => invoke<PanelDatabase[]>("list_panel_server_databases", { id, identifier }),

@@ -1,28 +1,27 @@
-# Server cards: service artwork and actions
+# Serveurs : vrais thumbnails WISP et cartes compactes
 
-## Interface (v0.4.27+)
+## Pourquoi v0.4.28 ne ressemble pas à WISP
 
-The server list uses a single accessible ellipsis menu per card, containing the existing navigation actions: **Console**, **Files**, **Databases**, and **Subusers**. The menu keeps the existing permission/error handling. The original inline Console/Gérer action row is removed; the service badge now sits immediately below the state badge.
+- La première version créait un pictogramme agrandi et un header trop haut, sans récupérer la bannière de l'egg.
+- Les badges et le menu se partageaient une colonne trop étroite et les quatre métriques occupaient des cadres redondants.
+- WISP stocke un thumbnail par egg : Admin Panel / Service Management / Nests / Egg / Thumbnail.
+  Source : https://gamepanel.notion.site/Thumbnails-132923894b2542f3a162f073f9428b04
 
-## Where the artwork comes from
+## Correctif
 
-The existing `PanelServer.egg` label is already normalized by the Rust provider. It is the only input to the visual mapping in `src/lib/server-service-visuals.ts`. Known types (FiveM/RedM, Minecraft, Node.js, Discord bot, Java, Python, database and common games) render with a bundled Lucide service icon and a CSS-only themed background. Unknown or missing types use a generic server icon.
+- Header compact, texte à gauche, statut et egg à droite, un seul menu Actions.
+- Métriques CPU, mémoire, disque, joueurs et réseau toujours accessibles, sans énormes cases.
+- Bandeau de fond si l'API renvoie un lien de thumbnail explicite ; sinon fond neutre et petite icône.
+- Extraction dans le modèle Rust des propriétés thumbnail_url, thumbnail, banner et de leurs relations. Les propriétés image et docker_image ne servent jamais de bannière.
+- La liste des serveurs WISP inclut déjà allocations,node,egg dans la branche principale et conserve une requête de repli lorsqu'une option est refusée.
+- Commande Rust dédiée : téléchargements HTTPS uniquement, DNS/IP validés, pas de redirections, taille limitée à 768 Kio, MIME image vérifié ; le token ne peut pas être transmis à un domaine externe.
+- React Query mutualise les requêtes par panel et URL, et les images sont décoratives.
 
-**No external images are fetched.** This avoids exposing tokens in URLs, arbitrary third-party tracking, broken images, startup latency, and use of unverified content. The artwork is decorative (`aria-hidden`) and the type/status remain available as readable text. A service's display name is never inferred from the server's arbitrary name.
+## Limites
 
-Pterodactyl's **Egg** is a recipe for a service (name, startup and Docker images). A Docker `image` is an executable container image, **not a card background image**. Wings runs those containers; it is not a media API. Yolks provide runtime images, and game-eggs catalogs recipes. Neither should be queried for each card render. Pterodactyl 2.0 has application-side egg metadata, but fetching it with an administrator token solely to decorate client cards would be an unnecessary security and performance regression. WISP installations may add their own game art; that should be supported only with an explicit trusted, documented field and validation.
+La documentation WISP confirme le thumbnail dans son interface mais ne documente pas exhaustivement les champs du thumbnail dans chaque version de son API. Si l'API n'envoie pas de lien explicite, une card reste neutre : aucun endpoint administrateur n'est deviné et aucun token admin n'est partagé.
 
-## Future support for optional real image art
-
-If a panel provider later exposes an authorized thumbnail URL, add a distinct optional `thumbnail_url` field to the server model (never reuse `docker_image`). Validate the source and scheme on the Rust side; allow only trusted HTTPS hosts or a safe proxy and avoid cross-origin authorization headers. Prefer locally bundled, appropriately licensed artwork as the default. Always keep the decorative icon fallback for missing, blocked, offline or invalid images.
-
-## References
-
-- https://docs.pterodactyl.io/v2/project/how-it-works
-- https://docs.pterodactyl.io/v2/guides/egg-creation/creating-custom-egg
-- https://docs.pterodactyl.io/v2/guides/egg-creation/egg-docker-images
-- https://docs.pterodactyl.io/v2/api/application-api/applicationListEggs
+Autres références :
+- https://gamepanel.notion.site/Servers-2ec8bc84533d44db86d7cdae037c7d7a
 - https://github.com/pterodactyl/panel
-- https://github.com/pterodactyl/wings
 - https://github.com/pterodactyl/yolks
-- https://github.com/pterodactyl/game-eggs

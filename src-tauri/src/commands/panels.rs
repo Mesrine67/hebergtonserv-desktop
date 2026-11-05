@@ -480,6 +480,175 @@ pub async fn list_panel_servers(
     result
 }
 
+/// Thumbnail URLs come from untrusted panel metadata. Validate both an optional
+/// CDN host and relative panel paths before any network request, with no
+/// redirects or credential forwarding to third-party hosts.
+fn thumbnail_target(
+    base: &::url::Url,
+    raw: &str,
+    allow_local_panel: bool,
+) -> Result<(::url::Url, bool)> {
+    if raw.is_empty() || raw.len() > 2048 {
+        return Err(app_error("image_url_invalid", "Image de service invalide."));
+    }
+    let target = base
+        .join(raw)
+        .map_err(|_| app_error("image_url_invalid", "Image de service invalide."))?;
+    if target.scheme() != "https"
+        || target.username() != ""
+        || target.password().is_some()
+        || target.fragment().is_some()
+    {
+        return Err(app_error(
+            "image_url_invalid",
+            "Seules les images HTTPS sont acceptées.",
+        ));
+    }
+    let same_origin = target.origin() == base.origin();
+    // An explicit local-panel exemption cannot be used for arbitrary CDN hosts.
+    let allow_local = same_origin && allow_local_panel;
+    let mut validated = target.clone();
+    validated.set_query(None);
+    url::validate_panel_url(validated.as_str(), allow_local)?;
+    Ok((target, same_origin))
+}
+
+#[tauri::command]
+pub async fn get_panel_thumbnail(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    thumbnail_url: String,
+) -> Result<String> {
+    use base64::Engine as _;
+
+    const MAX_THUMBNAIL_BYTES: usize = 768 * 1024;
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    let base = url::validate_panel_url(&panel.base_url, panel.allow_local)?;
+    let (target, same_origin) = thumbnail_target(&base, &thumbnail_url, panel.allow_local)?;
+    let allowed_local = same_origin && panel.allow_local;
+    let resolved = url::resolve_allowed_addrs(&target, allowed_local).await?;
+    let host = target
+        .host_str()
+        .ok_or_else(|| app_error("image_url_invalid", "Hôte de l'image invalide."))?;
+    let client = reqwest::Client::builder()
+        .https_only(true)
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(12))
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .resolve_to_addrs(host, &resolved)
+        .build()
+        .map_err(|_| app_error("image_unavailable", "Client d'image indisponible."))?;
+    let mut request = client.get(target);
+    if same_origin {
+        // Never forward the bearer token to a remote CDN or other origin.
+        if let Ok(token) = credential_entry(&panel.id).and_then(|key| {
+            key.get_password()
+                .map_err(|_| app_error("panel_keyring", "Accès au panel indisponible."))
+        }) {
+            request = request.bearer_auth(token);
+        }
+    }
+    let mut response = request
+        .send()
+        .await
+        .map_err(|_| app_error("image_unavailable", "Image de service inaccessible."))?;
+    if !response.status().is_success() {
+        return Err(app_error(
+            "image_unavailable",
+            "Image de service indisponible.",
+        ));
+    }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    if !matches!(
+        content_type.as_str(),
+        "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "image/avif"
+    ) {
+        return Err(app_error(
+            "image_type_invalid",
+            "Format d'image non autorisé.",
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_THUMBNAIL_BYTES as u64)
+    {
+        return Err(app_error(
+            "image_too_large",
+            "Image de service trop volumineuse.",
+        ));
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| app_error("image_unavailable", "Lecture de l'image impossible."))?
+    {
+        if chunk.len() > MAX_THUMBNAIL_BYTES.saturating_sub(bytes.len()) {
+            return Err(app_error(
+                "image_too_large",
+                "Image de service trop volumineuse.",
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    if bytes.is_empty() {
+        return Err(app_error("image_unavailable", "Image de service vide."));
+    }
+    Ok(format!(
+        "data:{content_type};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
+#[cfg(test)]
+mod panel_thumbnail_url_tests {
+    use super::thumbnail_target;
+
+    #[test]
+    fn accepts_relative_panel_image_and_public_cdn_without_leaking_origin() {
+        let base = ::url::Url::parse("https://manage.example.com/").unwrap();
+        let (local, same) = thumbnail_target(&base, "/storage/eggs/100.webp", false).unwrap();
+        assert_eq!(
+            local.as_str(),
+            "https://manage.example.com/storage/eggs/100.webp"
+        );
+        assert!(same);
+        let (_, same) =
+            thumbnail_target(&base, "https://images.example.net/fivem.png?ver=2", false).unwrap();
+        assert!(!same);
+    }
+
+    #[test]
+    fn rejects_unsafe_thumbnail_schemes_and_embedded_credentials() {
+        let base = ::url::Url::parse("https://manage.example.com/").unwrap();
+        for raw in [
+            "http://example.net/foo.png",
+            "file:///etc/passwd",
+            "data:image/png;base64,AA==",
+            "https://user:password@example.net/image.webp",
+            "https://images.example.net/image.webp#part",
+        ] {
+            assert!(thumbnail_target(&base, raw, false).is_err(), "{raw}");
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn list_panel_server_subusers(
     state: tauri::State<'_, AppState>,

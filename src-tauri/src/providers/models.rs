@@ -63,6 +63,8 @@ pub struct PanelServer {
     pub suspended: bool,
     pub installing: bool,
     pub egg: Option<String>,
+    /// Optional image URL supplied by the egg metadata (not a Docker image).
+    pub thumbnail_url: Option<String>,
     pub limits: PanelServerLimits,
 }
 
