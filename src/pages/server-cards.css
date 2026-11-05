@@ -1,0 +1,58 @@
+/* A self-contained visual treatment for WISP/Pterodactyl egg names.
+   No remote artwork, extra API credentials, or dynamic untrusted URLs. */
+.hts-server-card-header {
+  --hts-service-color: oklch(0.65 0.08 255);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 7.25rem;
+  background: linear-gradient(
+    115deg,
+    color-mix(in oklch, var(--hts-service-color) 12%, var(--card)) 0%,
+    var(--card) 73%
+  );
+}
+.hts-server-card-header[data-service-kind="fivem"] { --hts-service-color: oklch(0.72 0.14 155); }
+.hts-server-card-header[data-service-kind="minecraft"] { --hts-service-color: oklch(0.66 0.15 140); }
+.hts-server-card-header[data-service-kind="node"] { --hts-service-color: oklch(0.70 0.14 148); }
+.hts-server-card-header[data-service-kind="discord"] { --hts-service-color: oklch(0.66 0.15 278); }
+.hts-server-card-header[data-service-kind="java"] { --hts-service-color: oklch(0.67 0.15 50); }
+.hts-server-card-header[data-service-kind="python"] { --hts-service-color: oklch(0.72 0.12 230); }
+.hts-server-card-header[data-service-kind="database"] { --hts-service-color: oklch(0.71 0.12 225); }
+.hts-server-card-header[data-service-kind="game"] { --hts-service-color: oklch(0.68 0.14 31); }
+
+.hts-server-card-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 80% 30%,
+      color-mix(in oklch, var(--hts-service-color) 19%, transparent),
+      transparent 65%),
+    linear-gradient(120deg, transparent 15%,
+      color-mix(in oklch, var(--hts-service-color) 8%, transparent) 55%,
+      transparent 92%);
+}
+.hts-server-card-art {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  right: 15%;
+  top: -1rem;
+  width: 9.5rem;
+  height: 9.5rem;
+  transform: rotate(-11deg);
+  color: var(--hts-service-color);
+  opacity: .13;
+}
+.hts-server-card-art svg { width: 100%; height: 100%; stroke-width: .9; }
+.hts-server-card-symbol { color: var(--hts-service-color); }
+.hts-server-service-badge { max-width: 9rem; min-width: 0; }
+.hts-server-menu-trigger:hover { background: color-mix(in oklch, var(--hts-service-color) 15%, var(--card)); }
+@media (max-width: 500px) {
+  .hts-server-card-header { min-height: 7.75rem; }
+  .hts-server-card-art { right: 3%; width: 7rem; height: 7rem; }
+  .hts-server-service-badge { max-width: 6.5rem; }
+}

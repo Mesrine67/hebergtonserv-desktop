@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleOff, ExternalLink, Cpu, Database, File, HardDrive, MemoryStick, MoreHorizontal, RefreshCw, Search, Server, Users, } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/page-shell";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { getServiceKind, serviceIcons } from "@/lib/server-service-visuals";
+import "./server-cards.css";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
@@ -109,7 +111,7 @@ function Stat({icon: Icon, label, value, percent}: {
   );
 }
 
-function ServerCard({server, resources: stats, loading, failed, errorCode, onOpenConsole, onOpenFiles, onOpenDatabases, panelId, subuserIdentifier}: {
+export function ServerCard({server, resources: stats, loading, failed, errorCode, onOpenConsole, onOpenFiles, onOpenDatabases, panelId, subuserIdentifier}: {
   server: PanelServer;
   panelId: string;
   subuserIdentifier: string;
@@ -122,6 +124,8 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
   errorCode?: string;
 }) {
   const [subusersOpen, setSubusersOpen] = useState(false);
+  const serviceKind = getServiceKind(server.egg);
+  const ServiceIcon = serviceIcons[serviceKind];
   const subusers = useQuery({queryKey: ["panel-server-subusers", panelId, subuserIdentifier], queryFn: () => commands.listPanelServerSubusers(panelId, subuserIdentifier), enabled: subusersOpen, retry: 0});
   const state = stateFor(server, stats);
   // The list endpoint can report a suspended server even when its resources endpoint rejects the request.
@@ -137,38 +141,40 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
   const stateIcon = state === "online" ? <CircleCheck data-icon="inline-start" className="text-emerald-500" aria-hidden="true" /> : state === "offline" || state === "suspended" ? <CircleOff data-icon="inline-start" aria-hidden="true" /> : <CircleAlert data-icon="inline-start" className="text-amber-500" aria-hidden="true" />;
   const stateVariant = state === "offline" || state === "suspended" || failed ? "destructive" : "outline";
   return (
-    <Card role="article" className="group/card gap-0 transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
-      <CardHeader className="border-b bg-muted/15">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Server aria-hidden="true" />
+    <Card role="article" data-service-kind={serviceKind} className="hts-server-card group/card gap-0 transition-[border-color,box-shadow] hover:ring-primary/25 hover:shadow-md">
+      <CardHeader className="hts-server-card-header border-b" data-service-kind={serviceKind}>
+        <span className="hts-server-card-art" aria-hidden="true"><ServiceIcon /></span>
+        <div className="relative z-10 flex min-w-0 items-start gap-3">
+          <div className="hts-server-card-symbol flex size-10 shrink-0 items-center justify-center rounded-lg bg-background/50">
+            <ServiceIcon className="size-5" aria-hidden="true" />
           </div>
           <div className="grid min-w-0 flex-1 gap-1">
-            <CardTitle role="heading" aria-level={2} className="truncate text-base font-semibold">{server.name}</CardTitle>
-            <CardDescription className="truncate font-mono">{address ?? server.node ?? "Adresse indisponible"}{address && server.node ? ` · ${server.node}` : ""}</CardDescription>
+            <CardTitle role="heading" aria-level={2} className="truncate text-base font-semibold" title={server.name}>{server.name}</CardTitle>
+            <CardDescription className="truncate font-mono" title={address ?? server.node ?? ""}>{address ?? server.node ?? "Adresse indisponible"}{address && server.node ? ` · ${server.node}` : ""}</CardDescription>
             <span className="font-mono text-[0.6875rem] text-muted-foreground">ID {shortId}</span>
           </div>
         </div>
-        <CardAction>
-          <Badge variant={stateVariant} className={cn("bg-background/80 text-foreground", state === "online" && !failed && "border-emerald-500/30", state !== "online" && state !== "offline" && state !== "suspended" && !failed && "border-amber-500/30")}>
-            {stateIcon}{stateText}
-          </Badge>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="grid gap-3 py-3">
-        {server.egg && <div className="flex min-w-0 items-center gap-2">
-          <Badge variant="outline" className="max-w-full truncate">{server.egg}</Badge>
-          {server.installing && <CardDescription>Installation en cours</CardDescription>}
-        </div>}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={onOpenConsole} aria-label={`Ouvrir la console du serveur ${server.name}`}>
-            <ExternalLink data-icon="inline-start" /> Console
-          </Button>
+        <CardAction className="relative z-10 flex items-start gap-2">
+          <div className="flex min-w-0 flex-col items-end gap-1.5">
+            <Badge data-testid="server-state-badge" variant={stateVariant} className={cn("whitespace-nowrap bg-background/85 text-foreground", state === "online" && !failed && "border-emerald-500/30", state !== "online" && state !== "offline" && state !== "suspended" && !failed && "border-amber-500/30")}>
+              {stateIcon}{stateText}
+            </Badge>
+            {server.egg && (
+              <Badge data-testid="server-service-badge" variant="outline" className="hts-server-service-badge border-foreground/15 bg-background/75" title={server.egg}>
+                <span className="block truncate">{server.egg}</span>
+              </Badge>
+            )}
+            {server.installing && <span className="text-[0.6875rem] text-muted-foreground">Installation en cours</span>}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="sm" aria-label={`Options du serveur ${server.name}`}><MoreHorizontal data-icon="inline-start" /> Gérer</Button>
+              <Button type="button" variant="outline" size="icon" className="hts-server-menu-trigger size-8 shrink-0 bg-background/75" aria-label={`Actions du serveur ${server.name}`} title={`Actions du serveur ${server.name}`}>
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
+              <DropdownMenuItem onSelect={onOpenConsole}><ExternalLink data-icon="inline-start" /> Ouvrir la console</DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem onSelect={onOpenFiles}><File data-icon="inline-start" /> Fichiers</DropdownMenuItem>
                 <DropdownMenuItem onSelect={onOpenDatabases}><Database data-icon="inline-start" /> Bases de données</DropdownMenuItem>
@@ -176,8 +182,8 @@ function ServerCard({server, resources: stats, loading, failed, errorCode, onOpe
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </CardContent>
+        </CardAction>
+      </CardHeader>
       {subusersOpen && <CardContent className="border-t pt-3" aria-live="polite">
         {subusers.isPending ? <p className="text-xs text-muted-foreground">Lecture des sous-utilisateurs…</p> : subusers.isError ? <p role="alert" className="text-xs text-destructive">{errorMessage(subusers.error)}</p> : !subusers.data?.supported ? <p className="text-xs text-muted-foreground">{subusers.data?.message ?? "Fonction non documentée pour ce panel."}</p> : <SubuserList capability={subusers.data} />}
       </CardContent>}
