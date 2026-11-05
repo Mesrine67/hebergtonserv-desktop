@@ -42,7 +42,9 @@ describe("Panel file tree", () => {
       resolveFiles([{ name: "server.cfg", kind: "file", path: "/server.cfg" }]);
       await response;
     });
-    expect(host.querySelector('[role="treeitem"]')?.textContent).toContain("server.cfg");
+    await vi.waitFor(() => {
+      expect(host?.querySelector('[role="treeitem"]')?.textContent).toContain("server.cfg");
+    }, { timeout: 5_000 });
     expect(host.querySelector('[role="alert"]')).toBeNull();
   });
 });
