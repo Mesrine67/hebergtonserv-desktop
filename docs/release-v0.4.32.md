@@ -14,6 +14,15 @@
 
 - Ajout d’un export JSON structuré contenant la version de l’application, l’heure d’export, le nombre d’événements et les diagnostics expurgés.
 - L’export texte existant reste disponible; les détails de réponse sont filtrés avant leur ajout au journal.
+- Ajout d’identifiants d’événement et d’une version de schéma, ainsi que de détails whitelistes pour chaque phase WebSocket (connexion, authentification, expiration et envoi), les appels de commandes et les captures Windows.
+- Copie JSON directe, détail des événements et export texte enrichi disponibles pour le diagnostic temporaire pré-stabilisation.
+
+## Interface
+
+- Notifications affichées en bas à droite et accordées au thème actif de l’application.
+- Raccourcis clavier dans un panneau dédié depuis le menu Aide; le changelog est accessible depuis « Mises à jour de l’application ».
+- Paramètres et Sécurité présentés sous forme de panneaux flottants.
+- Gestionnaire de tâches enrichi avec tri, filtre, sessions, fréquence de rafraîchissement, export CSV et aperçu des processus les plus consommateurs; lecture seule.
 
 ## Interface et validation
 

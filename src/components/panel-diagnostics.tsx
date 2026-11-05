@@ -10,20 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { version as appVersion } from "../../package.json";
 
 export interface DiagnosticEntry {
+  event_id: number;
+  schema_version: number;
   timestamp: string;
   level: "info" | "warning" | "error";
   operation: string;
   code: string;
   message: string;
-  details?: {
-    request?: { method?: string };
-    duration_ms?: number;
-    response?: {
-      status?: number;
-      content_type?: string;
-      json?: unknown;
-    };
-  } | null;
+  details?: Record<string, unknown> | null;
 }
 function diagnosticHint(code: string): string {
   switch (code) {
@@ -52,8 +46,11 @@ function diagnosticHint(code: string): string {
 }
 export function formatDiagnosticEntries(entries: DiagnosticEntry[]) {
   return ["# HébergTonServ Desktop — Journal global de l’application (sans secrets)", ...entries.map(e =>
-    `${e.timestamp} [${e.level}] ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}${e.details ? `\n  Détails API expurgés :\n${JSON.stringify(e.details, null, 2).split("\n").map(line => `    ${line}`).join("\n")}` : ""}`
+    `${e.timestamp} [${e.level}] #${e.event_id} schema=${e.schema_version} ${e.operation} ${e.code}: ${e.message}\n  Diagnostic : ${diagnosticHint(e.code)}${e.details ? `\n  Détails structurés expurgés :\n${JSON.stringify(e.details, null, 2).split("\n").map(line => `    ${line}`).join("\n")}` : ""}`
   )].join("\n") + "\n";
+}
+export function formatDiagnosticJson(entries: DiagnosticEntry[]) {
+  return JSON.stringify({ schema_version: 1, application: "HébergTonServ Desktop", version: appVersion, exported_at: new Date().toISOString(), entry_count: entries.length, events: entries }, null, 2);
 }
 export function formatAiDiagnosticEntries(entries: DiagnosticEntry[], target: "chatgpt" | "codex") {
   const alerts = entries.filter(e=>e.level!=="info");
@@ -64,7 +61,7 @@ export function formatAiDiagnosticEntries(entries: DiagnosticEntry[], target: "c
     "Entrées : " + entries.length + ", avertissements et erreurs : " + alerts.length + ".",
     "Analyser les causes, proposer des tests et des corrections sans supposer les informations absentes.",
     "## Événements récents (200 maximum)",
-    ...entries.slice(-100).map(e=>e.timestamp + " [" + e.level + "] " + e.operation + " / " + e.code + ": " + e.message + (e.details ? "\n" + JSON.stringify(e.details, null, 2) : "")),
+    ...entries.slice(-100).map(e=>e.timestamp + " [" + e.level + "] #" + e.event_id + " schema=" + e.schema_version + " " + e.operation + " / " + e.code + ": " + e.message + (e.details ? "\n" + JSON.stringify(e.details, null, 2) : "")),
   ];
   return header.join("\n") + "\n";
 }
@@ -99,7 +96,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
     setBusy(true);
     try {
       const path=await save({title:"Exporter le journal de diagnostic",defaultPath:`hebergtonserv-diagnostic.${format}`,filters:format === "json" ? [{name:"Journal JSON",extensions:["json"]}] : [{name:"Journal texte",extensions:["txt","log"]}]});
-      if(path){await invoke("export_panel_diagnostics",{path});setFeedback("Journal enregistré.");}
+      if(path){await invoke("export_panel_diagnostics",{path, format});setFeedback("Journal enregistré.");}
     }catch{setFeedback("Enregistrement impossible.");}
     finally{setBusy(false);}
   }
@@ -119,6 +116,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
       <div className="flex flex-wrap gap-2 px-4">
         <Button size="sm" variant="outline" onClick={()=>void refresh()}><RefreshCw className="size-4"/> Actualiser</Button>
         <Button size="sm" variant="outline" onClick={()=>void copy()}><Clipboard className="size-4"/> Copier</Button>
+        <Button size="sm" variant="outline" disabled={!shown.length} onClick={async()=>{try{const json=formatDiagnosticJson(shown);if(isTauri())await writeText(json);else await navigator.clipboard.writeText(json);setFeedback("JSON structuré copié.");}catch{setFeedback("Copie JSON impossible.");}}}><Braces className="size-4"/> Copier JSON</Button>
         <Button size="sm" variant="secondary" disabled={!shown.length} onClick={()=>void copyAi("chatgpt")}><Bot className="size-4"/> Copier pour ChatGPT</Button>
         <Button size="sm" variant="secondary" disabled={!shown.length} onClick={()=>void copyAi("codex")}><Braces className="size-4"/> Copier pour Codex</Button>
         <Button size="sm" variant="outline" disabled={busy || !isTauri()} onClick={()=>void exportFile("txt")}><Download className="size-4"/> Exporter TXT</Button>
@@ -142,9 +140,9 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
               {expanded.includes(`${entry.timestamp}-${i}`)?<ChevronDown className="size-3.5"/>:<ChevronRight className="size-3.5"/>}
               <span className="font-mono text-[11px] text-muted-foreground">{new Date(entry.timestamp).toLocaleString("fr-FR")}</span>
               <span className={entry.level==="error"?"text-destructive":entry.level==="warning"?"text-amber-500":"text-primary"}>{entry.level}</span>
-              <p className="font-semibold">{entry.operation} · {entry.code} — <span className="font-normal text-muted-foreground">{entry.message}</span></p>
+              <p className="font-semibold">#{entry.event_id} · {entry.operation} · {entry.code} — <span className="font-normal text-muted-foreground">{entry.message}</span></p>
             </button>
-            {expanded.includes(`${entry.timestamp}-${i}`)&&<div className="mt-2 grid gap-2 rounded-md border bg-muted/35 p-3 font-mono text-xs break-all"><p>Date UTC : {entry.timestamp}</p><p>Niveau : {entry.level}</p><p>Opération : {entry.operation}</p><p>Code : {entry.code}</p><p>Résumé : {entry.message}</p><p>Diagnostic probable : {diagnosticHint(entry.code)}</p>{entry.details&&<section className="space-y-1"><p className="font-semibold">Détails de la requête et réponse JSON expurgée</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded border bg-background p-2">{JSON.stringify(entry.details,null,2)}</pre></section>}<p className="text-muted-foreground">Les jetons, noms, identifiants, adresses réseau, chemins et contenus textuels libres sont masqués dans le JSON.</p><Button variant="outline" size="sm" className="w-fit" onClick={()=>void (isTauri()?writeText(formatDiagnosticEntries([entry])):navigator.clipboard.writeText(formatDiagnosticEntries([entry])))}>Copier cet événement</Button></div>}
+            {expanded.includes(`${entry.timestamp}-${i}`)&&<div className="mt-2 grid gap-2 rounded-md border bg-muted/35 p-3 font-mono text-xs break-all"><p>Date UTC : {entry.timestamp}</p><p>Identifiant événement : {entry.event_id}</p><p>Version schéma : {entry.schema_version}</p><p>Niveau : {entry.level}</p><p>Opération : {entry.operation}</p><p>Code : {entry.code}</p><p>Résumé : {entry.message}</p><p>Diagnostic probable : {diagnosticHint(entry.code)}</p>{entry.details&&<section className="space-y-1"><p className="font-semibold">Détails de la requête et réponse JSON expurgée</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded border bg-background p-2">{JSON.stringify(entry.details,null,2)}</pre></section>}<p className="text-muted-foreground">Les jetons, noms, identifiants, adresses réseau, chemins et contenus textuels libres sont masqués dans le JSON.</p><Button variant="outline" size="sm" className="w-fit" onClick={()=>void (isTauri()?writeText(formatDiagnosticJson([entry])):navigator.clipboard.writeText(formatDiagnosticJson([entry])))}>Copier cet événement en JSON</Button></div>}
 
           </div>)}</div>}
         </div>

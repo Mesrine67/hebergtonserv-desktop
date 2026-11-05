@@ -70,7 +70,6 @@ export function DesktopMenubar() {
           <MenubarContent className="hts-desktop-menubar-menu min-w-56">
             <MenubarItem onSelect={() => navigate("/documentation")}><BookOpen /> Documentation intégrée</MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-discussion"))}><HelpCircle /> Discussion / assistance</MenubarItem>
-            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-changelog"))}><ListTree /> Nouveautés / Changelog</MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-shortcuts"))}><Command /> Afficher les raccourcis clavier <MenubarShortcut>Ctrl+/</MenubarShortcut></MenubarItem>
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-api-journal"))}><ScrollText /> Journal des API</MenubarItem>
             <MenubarSeparator />

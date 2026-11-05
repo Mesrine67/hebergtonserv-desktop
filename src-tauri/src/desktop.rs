@@ -60,6 +60,8 @@ pub struct DesktopTask {
     pid: u32,
     name: String,
     memory_kib: u64,
+    session_name: String,
+    session_number: String,
 }
 
 /// Parse tasklist CSV output; double-quoted fields can contain commas.
@@ -117,6 +119,8 @@ pub async fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
                         name: fields[0].clone(),
                         pid,
                         memory_kib,
+                        session_name: fields[2].trim().to_owned(),
+                        session_number: fields[3].trim().to_owned(),
                     });
                 }
             }
@@ -127,13 +131,9 @@ pub async fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
             .await
             .map_err(|_| "Lecture des processus Windows trop longue (8 s).".to_string())?
             .map_err(|_| "Lecture des processus Windows interrompue.".to_string())?;
-        if result.is_ok() {
-            crate::diagnostics::record(
-                "info",
-                "windows_tasks",
-                "snapshot_ok",
-                "Liste des processus Windows récupérée",
-            );
+        if let Ok(tasks) = &result {
+            let total_memory_kib = tasks.iter().map(|task| task.memory_kib).sum();
+            crate::diagnostics::record_task_snapshot(tasks.len(), total_memory_kib);
         } else {
             crate::diagnostics::record(
                 "warning",

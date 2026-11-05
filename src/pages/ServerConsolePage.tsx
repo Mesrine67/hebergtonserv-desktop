@@ -67,7 +67,7 @@ export default function ServerConsolePage() {
     let removeListener: (() => void) | undefined;
     let ws: WebSocket | undefined;
     let stage: "credentials" | "socket" | "authentication" = "credentials";
-    const report = (event: string) => { void invoke("record_console_connection_event", { event }).catch(() => undefined); };
+    const report = (event: string) => { void invoke("record_console_connection_event", { event, provider: panel.provider }).catch(() => undefined); };
     const run = async () => {
       setStatus("Connexion…");
       try {
@@ -161,7 +161,7 @@ export default function ServerConsolePage() {
     try {
       await connection.current.send(JSON.stringify({ event: "send command", args: [value] }));
       setCommand("");
-    } catch { append("Commande non transmise : connexion indisponible."); void invoke("record_console_connection_event", {event: "ws_send_failed"}).catch(() => undefined); }
+    } catch { append("Commande non transmise : connexion indisponible."); void invoke("record_console_connection_event", {event: "ws_send_failed", provider: panel?.provider}).catch(() => undefined); }
   }
 
   return <Dialog open onOpenChange={open => { if (!open) navigate(serverListRoute(requestedPanel ?? panel?.id ?? null)); }}>
