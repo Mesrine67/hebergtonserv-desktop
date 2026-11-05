@@ -16,6 +16,10 @@
     var(--hello-stroke-delay, 0ms) both;
 }
 
+.hts-hello-writing:not([data-playing="true"]) path {
+  animation-play-state: paused;
+}
+
 .hts-hello-writing path[data-accent="true"] {
   stroke: var(--primary);
 }
@@ -44,15 +48,6 @@
 .hts-welcome-screen[data-leaving="true"] {
   opacity: 0;
   transform: translateY(-8px) scale(1.005);
-  pointer-events: none;
-}
-
-.hts-welcome-screen::before {
-  content: "";
-  position: absolute;
-  inset: 7% 4%;
-  border: 1px solid color-mix(in oklch, var(--border) 45%, transparent);
-  border-radius: var(--radius-xl);
   pointer-events: none;
 }
 
@@ -96,6 +91,16 @@
   line-height: 1.5;
 }
 
+/* Keep the centered content stationary when the button becomes available. */
+.hts-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 96px;
+  width: 100%;
+}
+
 .hts-welcome-start {
   margin-top: 8px;
   min-height: 38px;
@@ -126,7 +131,6 @@
 @media (max-width: 600px) {
   .hts-hello-writing { width: min(91vw, 600px); }
   .hts-welcome-inner { gap: 10px; padding: 20px; }
-  .hts-welcome-screen::before { inset: 2%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
