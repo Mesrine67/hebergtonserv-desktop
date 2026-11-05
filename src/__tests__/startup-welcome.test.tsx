@@ -71,6 +71,35 @@ describe("HébergTonServ handwritten welcome effect", () => {
     expect(dismiss).not.toHaveBeenCalled();
   });
 
+  it("keeps strokes paused and the button unavailable until window visibility triggers playback", async () => {
+    vi.useFakeTimers();
+    const dismiss = vi.fn();
+    await act(async () => root.render(<StartupWelcome onDismiss={dismiss} startAnimation={false} />));
+    const svg = container.querySelector('[data-slot="hello-effect"]');
+    expect(svg?.getAttribute("data-playing")).toBeNull();
+    await act(async () => { vi.advanceTimersByTime(7000); });
+    expect(container.querySelector(".hts-welcome-start")).toBeNull();
+
+    await act(async () => root.render(<StartupWelcome onDismiss={dismiss} startAnimation />));
+    expect(svg?.getAttribute("data-playing")).toBe("true");
+    await act(async () => { vi.advanceTimersByTime(3600); });
+    expect(container.querySelector(".hts-welcome-start")).toBeNull();
+    await act(async () => { vi.advanceTimersByTime(200); });
+    expect(container.querySelector(".hts-welcome-start")).not.toBeNull();
+  });
+
+  it("reserves the action area before and after handwriting completion", async () => {
+    vi.useFakeTimers();
+    const dismiss = vi.fn();
+    await act(async () => root.render(<StartupWelcome onDismiss={dismiss} />));
+    const actions = container.querySelector(".hts-welcome-actions");
+    expect(actions).not.toBeNull();
+    expect(actions?.childElementCount).toBe(0);
+    await act(async () => { vi.advanceTimersByTime(3900); });
+    expect(container.querySelector(".hts-welcome-actions")).toBe(actions);
+    expect(actions?.querySelector(".hts-welcome-start")).not.toBeNull();
+  });
+
   it("provides a fallback when WebView2 does not emit animationend", async () => {
     vi.useFakeTimers();
     const dismiss = vi.fn();

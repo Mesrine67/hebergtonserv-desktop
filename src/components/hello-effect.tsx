@@ -32,9 +32,10 @@ interface HelloEffectProps {
   onComplete: () => void;
   speed?: number;
   className?: string;
+  play?: boolean;
 }
 
-export default function HelloEffect({ onComplete, speed = 1, className = "" }: HelloEffectProps) {
+export default function HelloEffect({ onComplete, speed = 1, className = "", play = true }: HelloEffectProps) {
   const finished = useRef(false);
   const playbackSpeed = Number.isFinite(speed) && speed > 0 ? Math.min(4, Math.max(0.4, speed)) : 1;
   const totalDuration = BASE_DURATION_MS / playbackSpeed;
@@ -55,6 +56,7 @@ export default function HelloEffect({ onComplete, speed = 1, className = "" }: H
   }, [onComplete]);
 
   useEffect(() => {
+    if (!play) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       complete();
       return;
@@ -63,7 +65,7 @@ export default function HelloEffect({ onComplete, speed = 1, className = "" }: H
     // Normal completion follows the final drawn SVG path, not a fixed timer.
     const fallback = window.setTimeout(complete, totalDuration + 500);
     return () => window.clearTimeout(fallback);
-  }, [complete, totalDuration]);
+  }, [complete, totalDuration, play]);
 
   return (
     <svg
@@ -72,10 +74,11 @@ export default function HelloEffect({ onComplete, speed = 1, className = "" }: H
       role="img"
       aria-label="HébergTonServ"
       data-slot="hello-effect"
+      data-playing={play ? "true" : undefined}
       data-testid="hello-writing"
       preserveAspectRatio="xMidYMid meet"
       onAnimationEnd={(event) => {
-        if ((event.target as Element).getAttribute("data-last") === "true") complete();
+        if (play && (event.target as Element).getAttribute("data-last") === "true") complete();
       }}
     >
       {frames.map((stroke) => (

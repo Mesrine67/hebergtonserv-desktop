@@ -115,6 +115,7 @@ function Workspace() {
 
 export default function App() {
   const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [introAnimationStarted, setIntroAnimationStarted] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const closingRef = useRef(false);
   const [entering, setEntering] = useState(false);
@@ -152,19 +153,37 @@ export default function App() {
   const dismissWelcome = useCallback(() => setWelcomeVisible(false), []);
 
   useEffect(() => {
-    if (!isTauri()) return;
-    // Show only after React has rendered the actual welcome scene.
-    // Avoids a blank WebView2 frame on cold Windows launches.
+    // WebView2 can finish its first React render while the native window is still hidden.
+    // Start the handwriting 500ms after Tauri confirms the window was shown.
+    let disposed = false;
     let secondFrame = 0;
+    let animationTimer = 0;
+    const beginAfterWindowShown = () => {
+      if (disposed) return;
+      animationTimer = window.setTimeout(() => {
+        if (!disposed) setIntroAnimationStarted(true);
+      }, 500);
+    };
     const firstFrame = requestAnimationFrame(() => {
       secondFrame = requestAnimationFrame(() => {
+        if (!isTauri()) {
+          beginAfterWindowShown();
+          return;
+        }
         recordAppEvent("lifecycle", "window_ready");
-        void invoke("show_ready_main_window").catch((error: unknown) => {
+        void invoke("show_ready_main_window").then(beginAfterWindowShown).catch((error: unknown) => {
           console.error("[desktop] ready window", error);
+          // Never leave the introduction stuck if the native acknowledgement fails.
+          beginAfterWindowShown();
         });
       });
     });
-    return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+      window.clearTimeout(animationTimer);
+    };
   }, []);
   const onAuthenticated = useCallback(() => {
     recordAppEvent("auth", "session_authenticated");
@@ -203,7 +222,7 @@ export default function App() {
                   <div className="hts-intro-overlay" data-leaving={entering ? "true" : undefined}>
                     <DesktopTitlebar welcome />
                     <div className="relative min-h-0 flex-1">
-                      <StartupWelcome onEnter={() => setEntering(true)} onDismiss={dismissWelcome} />
+                      <StartupWelcome onEnter={() => setEntering(true)} onDismiss={dismissWelcome} startAnimation={introAnimationStarted} />
                     </div>
                   </div>
                 )}
