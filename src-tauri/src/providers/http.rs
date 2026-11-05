@@ -246,6 +246,56 @@ fn parse_server_resources(value: Value) -> Result<PanelServerResources> {
     })
 }
 
+/// WISP's configurable egg thumbnails are separate from Docker container
+/// images. Extract only explicit image-art fields, including common relationship
+/// wrappers. Unknown panel versions simply return None.
+fn thumbnail_field(value: &Value) -> Option<String> {
+    let attrs = value.get("attributes").unwrap_or(value);
+    for key in [
+        "thumbnail_url",
+        "thumbnailUrl",
+        "thumbnail",
+        "banner_url",
+        "bannerUrl",
+        "banner",
+        "background_url",
+        "backgroundUrl",
+        "background",
+    ] {
+        let Some(candidate) = attrs.get(key) else {
+            continue;
+        };
+        let text = candidate
+            .as_str()
+            .or_else(|| candidate.get("url").and_then(Value::as_str))
+            .or_else(|| candidate.get("src").and_then(Value::as_str))
+            .or_else(|| candidate.get("path").and_then(Value::as_str));
+        if let Some(text) = text {
+            let text = text.trim();
+            if !text.is_empty() && text.len() <= 2048 {
+                return Some(text.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn server_thumbnail(value: &Value) -> Option<String> {
+    let attrs = value.get("attributes").unwrap_or(value);
+    let relationships = attrs.get("relationships").unwrap_or(&Value::Null);
+    thumbnail_field(attrs)
+        .or_else(|| attrs.get("egg").and_then(thumbnail_field))
+        .or_else(|| attrs.get("egg_data").and_then(thumbnail_field))
+        .or_else(|| relationships.get("egg").and_then(thumbnail_field))
+        .or_else(|| {
+            relationships
+                .get("egg")
+                .and_then(|value| value.get("data"))
+                .and_then(thumbnail_field)
+        })
+        .or_else(|| attrs.get("meta").and_then(thumbnail_field))
+}
+
 fn parse_server(value: Value) -> Result<PanelServer> {
     let attrs = value.get("attributes").unwrap_or(&value);
     let id = server_string(attrs, &["uuid", "id"]).ok_or_else(|| {
@@ -277,8 +327,9 @@ fn parse_server(value: Value) -> Result<PanelServer> {
     let egg = server_string(attrs, &["egg", "image"]).or_else(|| {
         included
             .get("egg")
-            .and_then(|v| v.get("attributes"))
-            .and_then(|v| server_string(v, &["name"]))
+            .and_then(|value| value.get("data").or(Some(value)))
+            .and_then(|value| value.get("attributes"))
+            .and_then(|value| server_string(value, &["name"]))
     });
     let name = server_string(attrs, &["name"]).unwrap_or_else(|| identifier.clone());
     Ok(PanelServer {
@@ -303,6 +354,7 @@ fn parse_server(value: Value) -> Result<PanelServer> {
             .and_then(Value::as_bool)
             .unwrap_or(false),
         egg,
+        thumbnail_url: server_thumbnail(&value),
         limits,
     })
 }
@@ -1106,6 +1158,46 @@ mod tests {
         assert_eq!(
             parse_server(server).unwrap().connect_address.as_deref(),
             Some("192.0.2.2:2222")
+        );
+    }
+
+    #[test]
+    fn extracts_egg_thumbnail_from_wisp_and_pterodactyl_relationships() {
+        let server = serde_json::json!({
+            "object": "server",
+            "attributes": {
+                "uuid": "server-123",
+                "uuid_short": "abcdef01",
+                "name": "FiveM",
+                "relationships": {
+                    "egg": {"data": {"object": "egg", "attributes": {
+                        "name": "FiveM & RedM",
+                        "thumbnail": {"url": "/storage/eggs/fivem.webp"},
+                        "docker_images": {"main": "ghcr.io/pterodactyl/yolks:nodejs"}
+                    }}}
+                }
+            }
+        });
+        let parsed = parse_server(server).unwrap();
+        assert_eq!(
+            parsed.thumbnail_url.as_deref(),
+            Some("/storage/eggs/fivem.webp")
+        );
+        assert_eq!(parsed.egg.as_deref(), Some("FiveM & RedM"));
+
+        let docker = serde_json::json!({
+            "uuid": "server-456",
+            "name": "NodeJS",
+            "image": "ghcr.io/pterodactyl/yolks:nodejs"
+        });
+        assert!(parse_server(docker).unwrap().thumbnail_url.is_none());
+        let direct = serde_json::json!({
+            "uuid": "server-789", "name": "Minecraft",
+            "thumbnail_url": "https://cdn.example.com/game.webp"
+        });
+        assert_eq!(
+            parse_server(direct).unwrap().thumbnail_url.as_deref(),
+            Some("https://cdn.example.com/game.webp")
         );
     }
 

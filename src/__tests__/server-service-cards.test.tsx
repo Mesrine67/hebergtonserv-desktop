@@ -6,12 +6,13 @@ import { getServiceKind } from "../lib/server-service-visuals";
 import { ServerCard } from "../pages/PanelServersPage";
 import type { PanelServer } from "../lib/tauri";
 
-const sample = (egg?: string | null, status = "1"): PanelServer => ({
+const sample = (egg?: string | null, status = "1", thumbnailUrl?: string): PanelServer => ({
   id: "12345678-1234-1234-1234-123456789012",
   identifier: "12345678",
   name: "Example Server",
   status,
   egg,
+  thumbnail_url: thumbnailUrl,
   connect_address: "example.org:30120",
   node: "Game4",
   suspended: false,
@@ -19,12 +20,15 @@ const sample = (egg?: string | null, status = "1"): PanelServer => ({
   limits: { memory: 1024, disk: 4096, cpu: 100 },
 });
 
-function renderCard(egg?: string | null, status = "1") {
+function renderCard(egg?: string | null, status = "1", thumbnailUrl?: string, dataUrl?: string) {
   const queryClient = new QueryClient();
+  if (thumbnailUrl && dataUrl) {
+    queryClient.setQueryData(["panel-egg-thumbnail", "demo", thumbnailUrl], dataUrl);
+  }
   const html = renderToStaticMarkup(
     <QueryClientProvider client={queryClient}>
       <ServerCard
-        server={sample(egg, status)}
+        server={sample(egg, status, thumbnailUrl)}
         panelId="demo"
         subuserIdentifier="12345678"
         onOpenConsole={() => {}}
@@ -79,9 +83,25 @@ describe("Server card layout", () => {
     expect(service?.textContent).toContain("FiveM & RedM");
     expect(status?.parentElement).toBe(service?.parentElement);
     expect(status?.nextElementSibling).toBe(service);
-    expect(header?.getAttribute("data-service-kind")).toBe("fivem");
-    expect(header?.querySelector('[aria-hidden="true"].hts-server-card-art svg')).not.toBeNull();
+    expect(dom.querySelector('[role="article"]')?.getAttribute("data-service-kind")).toBe("fivem");
+    expect(header?.querySelector(".hts-server-card-art")).toBeNull();
+    expect(dom.querySelectorAll(".hts-server-card-stat")).toHaveLength(4);
     expect(dom.querySelectorAll('[role="article"]')).toHaveLength(1);
+  });
+
+  it("renders a validated egg image from the React Query cache", () => {
+    const url = "https://images.example.com/fivem.webp";
+    const dom = renderCard("FiveM & RedM", "1", url, "data:image/webp;base64,AA==");
+    const image = dom.querySelector<HTMLImageElement>(".hts-server-card-thumbnail");
+    expect(image?.getAttribute("src")).toBe("data:image/webp;base64,AA==");
+    expect(image?.getAttribute("alt")).toBe("");
+    expect(dom.querySelectorAll('[role="article"]')).toHaveLength(1);
+  });
+
+  it("uses a neutral fallback when no thumbnail exists", () => {
+    const dom = renderCard("FiveM & RedM");
+    expect(dom.querySelector(".hts-server-card-thumbnail")).toBeNull();
+    expect(dom.querySelector(".hts-server-card-art")).toBeNull();
   });
 
   it("renders a generic local icon when egg is missing and keeps offline state", () => {
