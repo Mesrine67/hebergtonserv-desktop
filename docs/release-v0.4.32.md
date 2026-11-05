@@ -28,3 +28,9 @@
 
 - Composant shadcn/ui Tabs ajouté selon la configuration Mira/Radix existante.
 - Vérifications locales : typecheck, lint, tests frontend, build et contrôles Rust/Tauri.
+
+## Préparation de publication
+
+- Version synchronisée : `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` et `src-tauri/tauri.conf.json` en `0.4.32`.
+- Fonctionnalités intégrées dans la PR #113 (`772d21c`).
+- Après validation des contrôles de cette préparation, créer le tag annoté `v0.4.32` sur le commit fusionné de `main`. Le workflow Windows construira et vérifiera les installateurs signés avant de publier la release.
