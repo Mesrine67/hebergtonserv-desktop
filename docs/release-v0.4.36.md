@@ -10,6 +10,7 @@
 - Les onglets d’explorateurs de fichiers sont intégrés à la rangée de la titlebar, à côté des menus, et restent visibles pendant toute la navigation.
 - La sélection de fichier et les modifications non enregistrées restent en cache mémoire lors d’une navigation entre pages ; l’onglet affiche un indicateur et ne peut pas être fermé avant enregistrement ou annulation.
 - La page Fichiers utilise maintenant toute la hauteur disponible : l’arborescence et le code défilent dans leurs propres panneaux, y compris quand la fenêtre est maximisée.
+- Le titre de page Fichiers est retiré pour libérer l’espace ; l’action Actualiser est intégrée à la barre d’outils de l’éditeur.
 
 ## Vérification et livraison
 

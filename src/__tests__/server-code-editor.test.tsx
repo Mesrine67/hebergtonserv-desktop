@@ -29,7 +29,7 @@ describe("Server code editor", () => {
     const onSave = vi.fn();
     const onChange = vi.fn();
     await act(async () => root?.render(<ServerCodeEditor path="/server.cfg" value="test=2"
-      original="test=1" onChange={onChange} onSave={onSave} saving={false}/>));
+      original="test=1" onChange={onChange} onSave={onSave} saving={false} onRefresh={vi.fn()} refreshing={false}/>));
     expect(host.textContent).toContain("Modifié");
     expect(onSave).not.toHaveBeenCalled();
     const saveButton = [...host.querySelectorAll("button")].find(node => node.textContent?.includes("Enregistrer"));

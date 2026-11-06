@@ -84,7 +84,6 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   };
   const databases = useQuery({ queryKey: ["panel-server-databases", panel?.id, requestId], queryFn: () => commands.listPanelServerDatabases(panel!.id, requestId), enabled: Boolean(panel && requestId && section === "databases"), staleTime: 15_000 });
   const breadcrumbs = useMemo(() => path.split("/").filter(Boolean), [path]);
-  const title = section === "files" ? "Fichiers" : "Bases de données";
   const databaseCount = databases.data?.length ?? 0;
   const databaseLimit = server?.limits.databases;
   const databaseUsage = databaseLimit == null ? null : Math.min(100, databaseLimit === 0 ? 100 : databaseCount / databaseLimit * 100);
@@ -110,11 +109,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     }
   }, [section, panel?.id, server?.identifier, selected]);
 
-  return <section className={section === "files" ? "flex min-h-0 flex-1 flex-col gap-3" : "space-y-4"}>
-    {section === "files" && <header className="flex flex-wrap items-center gap-3">
-      <div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wide text-muted-foreground">{panel?.name ?? "Panel"} · {server?.name ?? "Serveur"}</p><h1 className="text-2xl font-semibold">{title}</h1></div>
-      {section === "files" && <Button variant="outline" size="sm" onClick={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })} disabled={filesFetching}><RefreshCw className={`mr-2 size-4 ${filesFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
-    </header>}
+  return <section className={section === "files" ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}>
 
     {!panel && panels.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce panel n’est pas configuré. Retournez à la liste et sélectionnez un compte.</p>}
     {panel && !server && servers.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce serveur n’est pas accessible depuis le panel sélectionné.</p>}
@@ -159,6 +154,8 @@ export default function ServerManagementPage({ section }: { section: Section }) 
                   }}
                   onSave={() => void saveFile()}
                   saving={savingFile}
+                  refreshing={filesFetching}
+                  onRefresh={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })}
                 />
               ) : null}
           </div>

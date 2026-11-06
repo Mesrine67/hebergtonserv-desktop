@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, Copy, RotateCcw, Save, WrapText } from "lucide-react";
+import { Check, Copy, RefreshCw, RotateCcw, Save, WrapText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
@@ -46,9 +46,11 @@ type Props = {
   onChange: (value: string) => void;
   onSave: () => void;
   saving: boolean;
+  onRefresh: () => void;
+  refreshing: boolean;
 };
 
-export function ServerCodeEditor({ path, value, original, onChange, onSave, saving }: Props) {
+export function ServerCodeEditor({ path, value, original, onChange, onSave, saving, onRefresh, refreshing }: Props) {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const overlay = useRef<HTMLPreElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
@@ -112,6 +114,7 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
         <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium" title={path}>{fileName}</span>
         <span className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{serverFileLanguage(path)}</span>
         {dirty && <span role="status" className="text-[10px] text-amber-500">Modifié</span>}
+        <Button type="button" variant="ghost" size="sm" onClick={onRefresh} disabled={refreshing} aria-label="Actualiser les fichiers du serveur"><RefreshCw className={refreshing ? "animate-spin" : ""}/>Actualiser</Button>
         <Button type="button" variant="ghost" size="icon-sm" onClick={() => setShowNumbers(v => !v)} aria-label="Afficher ou masquer les numéros de ligne" aria-pressed={showNumbers}>#</Button>
         <Button type="button" variant="ghost" size="icon-sm" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap}><WrapText className="size-3.5"/></Button>
         <Button type="button" variant="ghost" size="icon-sm" onClick={() => void copyCode()} aria-label="Copier le code">{copied ? <Check className="size-3.5"/> : <Copy className="size-3.5"/>}</Button>
