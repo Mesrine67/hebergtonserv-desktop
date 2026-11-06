@@ -75,6 +75,11 @@ function Workspace() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const location = useLocation();
+  const isConsolePanel = /^\/panel\/servers\/[^/]+$/.test(location.pathname);
+  const isDatabasePanel = /^\/panel\/servers\/[^/]+\/databases$/.test(location.pathname);
+  const backgroundLocation = isConsolePanel || isDatabasePanel
+    ? { ...location, pathname: "/panel/servers" }
+    : location;
   useEffect(() => {
     const openJournal = () => setApiJournalOpen(true);
     const openSettings = () => { setSecurityOpen(false); setSettingsOpen(true); };
@@ -90,13 +95,15 @@ function Workspace() {
   }, []);
   useEffect(() => {
     document.getElementById("workspace-scroll")?.scrollTo({ top: 0 });
+  }, [backgroundLocation.pathname]);
+  useEffect(() => {
     recordAppEvent("navigation", "route_changed");
   }, [location.pathname]);
   const current = routeLabels[location.pathname] ?? (location.pathname.endsWith("/files") ? "Fichiers du serveur" : location.pathname.endsWith("/databases") ? "Bases de données du serveur" : location.pathname.startsWith("/panel/servers/") ? "Console serveur" : "Clés SSH");
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
-      <DesktopTitlebar navigation title={current} onOpenChangelog={() => setChangelogOpen(true)} />
+      <DesktopTitlebar navigation title={current} onOpenChangelog={() => setChangelogOpen(true)} tabs={<ServerExplorerTabs />} />
       <DesktopHelpPanels changelogOpen={changelogOpen} onChangelogOpenChange={setChangelogOpen} />
       <DesktopTaskManager />
       <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />
@@ -107,12 +114,11 @@ function Workspace() {
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
       <SidebarInset className="hts-workspace-panel flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
-        <ServerExplorerTabs />
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
-          <div className={`mx-auto w-full ${["/panel/servers", "/panel/account"].includes(location.pathname) ? "max-w-screen-2xl" : "max-w-6xl"}`}>
-            <div key={location.pathname} className="hts-route-scene">
+          <div className={`mx-auto w-full ${["/panel/servers", "/panel/account"].includes(backgroundLocation.pathname) ? "max-w-screen-2xl" : "max-w-6xl"}`}>
+            <div key={backgroundLocation.pathname} className="hts-route-scene">
             <Suspense fallback={<p role="status" className="px-4 py-6 text-sm text-muted-foreground">Chargement de la page…</p>}>
-            <Routes>
+            <Routes location={backgroundLocation}>
               <Route path="/" element={<Navigate to="/home" replace />} />
               <Route path="/home" element={<HomePage />} />
               <Route path="/documentation" element={<DocumentationPage />} />
@@ -122,12 +128,14 @@ function Workspace() {
               <Route path="/panels" element={<PanelsPage />} />
               <Route path="/panel/account" element={<PanelAccountPage />} />
               <Route path="/panel/servers" element={<PanelServersPage />} />
-              <Route path="/panel/servers/:identifier" element={<ServerConsolePage />} />
               <Route path="/panel/servers/:identifier/files" element={<ServerManagementPage section="files" />} />
-              <Route path="/panel/servers/:identifier/databases" element={<ServerManagementPage section="databases" />} />
               <Route path="/git" element={<GitHubPage />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
+            {(isConsolePanel || isDatabasePanel) && <Routes>
+              <Route path="/panel/servers/:identifier" element={<ServerConsolePage />} />
+              <Route path="/panel/servers/:identifier/databases" element={<ServerManagementPage section="databases" />} />
+            </Routes>}
             </Suspense>
             </div>
           </div>

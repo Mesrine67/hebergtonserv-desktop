@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { commands } from "@/lib/tauri";
 import { isTauri } from "@tauri-apps/api/core";
@@ -17,9 +17,10 @@ type Props = {
   navigation?: boolean;
   welcome?: boolean;
   onOpenChangelog?: () => void;
+  tabs?: ReactNode;
 };
 
-export function DesktopTitlebar({ navigation = false, welcome = false, onOpenChangelog }: Props) {
+export function DesktopTitlebar({ navigation = false, welcome = false, onOpenChangelog, tabs }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
   const appWindow = useMemo(() => {
     try {
@@ -85,7 +86,8 @@ export function DesktopTitlebar({ navigation = false, welcome = false, onOpenCha
   }
 
   return (
-    <header className={`hts-titlebar relative z-[10001] flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2 ${welcome ? "hts-titlebar--welcome" : ""}`}>
+    <div className={`hts-titlebar-shell relative z-[10001] flex shrink-0 flex-col border-0 bg-sidebar ${welcome ? "hts-titlebar--welcome" : ""}`}>
+    <header className="hts-titlebar relative flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2">
       <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
       {navigation && <DesktopMenubar />}
       <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />
@@ -123,5 +125,7 @@ export function DesktopTitlebar({ navigation = false, welcome = false, onOpenCha
         </div>
       )}
     </header>
+    {tabs}
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Activity, ArrowDownAZ, ArrowDownWideNarrow, ArrowUpWideNarrow, Copy, Cpu, HardDrive, RefreshCw, Search, X } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -110,12 +110,7 @@ export function DesktopTaskManager() {
     } catch (reason) { setError(errorMessage(reason)); }
   }
 
-  return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogContent className="flex h-[min(88vh,850px)] w-[min(96vw,1180px)] max-w-none flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-none">
-      <DialogHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
-        <DialogTitle className="flex items-center gap-2 text-base"><Cpu className="size-5 text-primary" /> Gestionnaire de tâches</DialogTitle>
-        <DialogDescription>Vue Windows en lecture seule avec CPU par processus, mémoire et sessions. Les noms et mesures restent locaux.</DialogDescription>
-      </DialogHeader>
+  return <FloatingPanel open={open} onOpenChange={setOpen} title={<span className="flex items-center gap-2 text-base"><Cpu className="size-5 text-primary" /> Gestionnaire de tâches</span>} description="Vue Windows en lecture seule avec CPU par processus, mémoire et sessions. Les noms et mesures restent locaux." className="h-[min(88vh,850px)] w-[min(96vw,1180px)]">
       <div className="grid shrink-0 gap-2 border-b border-border bg-muted/20 p-4 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><Activity className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">Processus visibles</p><p className="text-sm font-semibold tabular-nums">{fmt.format(filtered.length)} <span className="font-normal text-muted-foreground">/ {fmt.format(items.length)}</span></p></div></div>
         <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><HardDrive className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">Mémoire recensée</p><p className="text-sm font-semibold tabular-nums">{mib(totalMemory)}</p></div></div>
@@ -189,6 +184,5 @@ export function DesktopTaskManager() {
         <span>Lecture seule · aucune tâche n’est arrêtée.</span>
         <span>{lastRefresh ? `Dernière actualisation : ${new Date(lastRefresh).toLocaleTimeString("fr-FR")}` : "En attente du premier relevé"} · {fmt.format(items.length)} processus</span>
       </footer>
-    </DialogContent>
-  </Dialog>;
+  </FloatingPanel>;
 }

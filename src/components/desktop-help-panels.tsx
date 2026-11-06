@@ -5,7 +5,7 @@ import { BookOpen, CalendarClock, Command, ExternalLink, History, Search, Refres
 import { version as buildVersion } from "../../package.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { recordAppEvent } from "@/lib/app-diagnostics";
 
 type Release = { tag_name: string; name: string; body: string; published_at: string | null; html_url: string };
@@ -113,12 +113,7 @@ export function DesktopHelpPanels({
   }
 
   return <>
-    <Dialog open={changelogOpen} onOpenChange={onChangelogOpenChange}>
-      <DialogContent className="flex h-[min(85vh,780px)] w-[min(94vw,1000px)] max-w-none flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-none">
-        <DialogHeader className="shrink-0 border-b p-5 pr-12">
-          <DialogTitle className="flex items-center gap-2"><History className="size-4 text-primary" /> Nouveautés et changelog</DialogTitle>
-          <DialogDescription>Notes de version de HébergTonServ Desktop · version installée {buildVersion}.</DialogDescription>
-        </DialogHeader>
+    <FloatingPanel open={changelogOpen} onOpenChange={onChangelogOpenChange} title={<span className="flex items-center gap-2"><History className="size-4 text-primary" /> Nouveautés et changelog</span>} description={`Notes de version de HébergTonServ Desktop · version installée ${buildVersion}.`} className="h-[min(85vh,780px)] w-[min(94vw,1000px)]">
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <aside className="flex w-36 shrink-0 flex-col border-r bg-sidebar sm:w-48" aria-label="Versions publiées">
             <p className="px-4 pb-2 pt-4 text-[10px] font-semibold uppercase text-muted-foreground">Versions</p>
@@ -144,15 +139,9 @@ export function DesktopHelpPanels({
             </article>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FloatingPanel>
 
-    <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
-      <DialogContent className="h-[min(82dvh,680px)] w-[min(94vw,700px)] max-w-none gap-0 p-0 sm:max-w-none">
-        <DialogHeader className="shrink-0 border-b px-6 py-5 pr-14">
-          <DialogTitle className="flex items-center gap-2 text-base"><span className="flex size-8 items-center justify-center rounded-lg border bg-primary/10 text-primary"><Command className="size-4" /></span> Raccourcis clavier</DialogTitle>
-          <DialogDescription>Retrouvez les commandes disponibles et leur contexte d’utilisation.</DialogDescription>
-        </DialogHeader>
+    <FloatingPanel open={shortcutsOpen} onOpenChange={setShortcutsOpen} title={<span className="flex items-center gap-2 text-base"><span className="flex size-8 items-center justify-center rounded-lg border bg-primary/10 text-primary"><Command className="size-4" /></span> Raccourcis clavier</span>} description="Retrouvez les commandes disponibles et leur contexte d’utilisation." className="h-[min(82dvh,680px)] w-[min(94vw,700px)]">
         <div className="shrink-0 border-b p-4">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -182,7 +171,6 @@ export function DesktopHelpPanels({
           {!shortcuts.some(item => `${item.group} ${item.title} ${item.keys.join(" ")} ${item.detail}`.toLocaleLowerCase().includes(shortcutFilter.trim().toLocaleLowerCase())) && <p className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">Aucun raccourci ne correspond à cette recherche.</p>}
         </div>
         <p className="flex shrink-0 items-start gap-2 border-t px-5 py-3 text-[11px] leading-relaxed text-muted-foreground"><BookOpen className="mt-0.5 size-4 shrink-0 text-primary" /> Les raccourcis contextuels ne s’activent que lorsque leur page est ouverte. Les commandes de Windows restent gérées par le système.</p>
-      </DialogContent>
-    </Dialog>
+    </FloatingPanel>
   </>;
 }

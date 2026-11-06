@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { File, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { serverListRoute, serverSectionRoute } from "@/lib/panel-navigation";
 
 type ExplorerTab = { panelId: string; serverIdentifier: string; label: string };
@@ -58,20 +57,20 @@ export function ServerExplorerTabs() {
     }
   }
 
-  const activeEntry = tabs.find(tab => tabValue(tab) === activeTab);
-
-  return <div className="flex h-10 w-full min-w-0 shrink-0 items-end gap-1 overflow-hidden border-b bg-sidebar px-3" aria-label="Onglets des explorateurs de fichiers">
-    <Tabs value={activeTab} onValueChange={value => {
-      const tab = tabs.find(item => tabValue(item) === value);
-      if (tab) navigate(serverSectionRoute(tab.panelId, tab.serverIdentifier, "files"));
-    }} className="min-w-0 flex-1">
-      <TabsList variant="line" className="h-9 w-max min-w-full justify-start overflow-x-auto rounded-none p-0">
-        {tabs.map(tab => <TabsTrigger key={tabValue(tab)} value={tabValue(tab)} className="max-w-52 shrink-0 justify-start gap-2 px-3 data-active:after:bg-primary" title={`${tab.label} — explorateur de fichiers`}>
-            <File data-icon="inline-start"/><span className="truncate">{tab.label}</span>
-          </TabsTrigger>)}
-      </TabsList>
-    </Tabs>
-    <Button type="button" variant="ghost" size="icon" className="mb-1 size-7 shrink-0" aria-label={activeEntry ? `Fermer l’explorateur ${activeEntry.label}` : "Fermer l’explorateur actif"} title="Fermer l’explorateur actif" disabled={!activeEntry} onClick={() => { if (activeEntry) closeTab(activeEntry); }}><X /></Button>
-    <Button type="button" variant="ghost" size="icon" className="mb-1 size-7 shrink-0" aria-label="Ouvrir un autre explorateur de fichiers" title="Choisir un autre serveur" onClick={() => navigate(serverListRoute(params.get("panel")))}><Plus /></Button>
+  return <div className="hts-titlebar-tabs flex h-10 w-full min-w-0 shrink-0 items-center gap-1 border-b bg-sidebar px-2" aria-label="Onglets des explorateurs de fichiers">
+    <div role="tablist" aria-label="Explorateurs de fichiers ouverts" className="flex h-full min-w-0 flex-1 items-end gap-1 overflow-x-auto">
+      {tabs.map(tab => {
+        const value = tabValue(tab);
+        const selected = value === activeTab;
+        return <div key={value} className={`group flex h-8 max-w-60 min-w-32 shrink-0 items-center rounded-t-md border border-b-0 ${selected ? "border-border bg-background" : "border-transparent bg-transparent hover:bg-accent/60"}`}>
+          <button type="button" role="tab" aria-selected={selected} className="flex h-full min-w-0 flex-1 items-center gap-2 px-3 text-left text-xs" title={`${tab.label} — explorateur de fichiers`} onClick={() => navigate(serverSectionRoute(tab.panelId, tab.serverIdentifier, "files"))}>
+            <File className="size-3.5 shrink-0" /><span className="truncate">{tab.label}</span>
+          </button>
+          <Button type="button" variant="ghost" size="icon" className="mr-1 size-6 shrink-0 opacity-60 hover:opacity-100" aria-label={`Fermer l’explorateur ${tab.label}`} title={`Fermer ${tab.label}`} onClick={() => closeTab(tab)}><X /></Button>
+        </div>;
+      })}
+    </div>
+    <div className="h-full min-w-2 flex-1 self-stretch" data-tauri-drag-region aria-hidden="true" />
+    <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Ouvrir un autre explorateur de fichiers" title="Choisir un autre serveur" onClick={() => navigate(serverListRoute(params.get("panel")))}><Plus /></Button>
   </div>;
 }
