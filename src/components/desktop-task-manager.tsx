@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { errorMessage } from "@/lib/error-message";
 
-type Task = { pid: number; name: string; memory_kib: number; session_name: string; session_number: string };
-type SortKey = "memory" | "name" | "pid" | "session";
+type Task = { pid: number; name: string; cpu_percent: number | null; memory_kib: number; session_name: string; session_number: string };
+type SortKey = "cpu" | "memory" | "name" | "pid" | "session";
 const fmt = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 const mib = (value: number) => `${fmt.format(value / 1024)} Mio`;
 
@@ -22,7 +22,7 @@ export function DesktopTaskManager() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("memory");
+  const [sortKey, setSortKey] = useState<SortKey>("cpu");
   const [descending, setDescending] = useState(true);
   const [intervalSeconds, setIntervalSeconds] = useState("15");
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
@@ -78,6 +78,7 @@ export function DesktopTaskManager() {
     result.sort((left, right) => {
       let order = 0;
       if (sortKey === "memory") order = left.memory_kib - right.memory_kib;
+      else if (sortKey === "cpu") order = (left.cpu_percent ?? -1) - (right.cpu_percent ?? -1);
       else if (sortKey === "pid") order = left.pid - right.pid;
       else if (sortKey === "session") order = `${left.session_name} ${left.session_number}`.localeCompare(`${right.session_name} ${right.session_number}`, "fr", { numeric: true, sensitivity: "base" });
       else order = left.name.localeCompare(right.name, "fr", { numeric: true, sensitivity: "base" });
@@ -86,6 +87,8 @@ export function DesktopTaskManager() {
     return result;
   }, [items, query, sortKey, descending]);
   const totalMemory = items.reduce((total, task) => total + task.memory_kib, 0);
+  const cpuMeasured = items.filter(task => task.cpu_percent !== null);
+  const totalProcessCpu = cpuMeasured.length ? cpuMeasured.reduce((total, task) => total + (task.cpu_percent ?? 0), 0) : null;
   const sessionCount = new Set(items.map(task => `${task.session_name}:${task.session_number}`)).size;
   const topProcesses = [...items].sort((a, b) => b.memory_kib - a.memory_kib).slice(0, 5);
   const maxMemory = topProcesses[0]?.memory_kib ?? 1;
@@ -98,8 +101,8 @@ export function DesktopTaskManager() {
   async function copyCsv() {
     const quote = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
     const csv = [
-      ["Processus", "PID", "Mémoire (Kio)", "Session", "ID de session"].map(quote).join(";"),
-      ...filtered.map(task => [task.name, task.pid, task.memory_kib, task.session_name, task.session_number].map(quote).join(";")),
+      ["Processus", "PID", "CPU (%)", "Mémoire (Kio)", "Session", "ID de session"].map(quote).join(";"),
+      ...filtered.map(task => [task.name, task.pid, task.cpu_percent ?? "", task.memory_kib, task.session_name, task.session_number].map(quote).join(";")),
     ].join("\r\n");
     try {
       if (isTauri()) await writeText(csv);
@@ -111,12 +114,13 @@ export function DesktopTaskManager() {
     <DialogContent className="flex h-[min(88vh,850px)] w-[min(96vw,1180px)] max-w-none flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-none">
       <DialogHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
         <DialogTitle className="flex items-center gap-2 text-base"><Cpu className="size-5 text-primary" /> Gestionnaire de tâches</DialogTitle>
-        <DialogDescription>Vue Windows en lecture seule avec mémoire, sessions et historique de rafraîchissement local.</DialogDescription>
+        <DialogDescription>Vue Windows en lecture seule avec CPU par processus, mémoire et sessions. Les noms et mesures restent locaux.</DialogDescription>
       </DialogHeader>
       <div className="grid shrink-0 gap-2 border-b border-border bg-muted/20 p-4 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><Activity className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">Processus visibles</p><p className="text-sm font-semibold tabular-nums">{fmt.format(filtered.length)} <span className="font-normal text-muted-foreground">/ {fmt.format(items.length)}</span></p></div></div>
         <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><HardDrive className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">Mémoire recensée</p><p className="text-sm font-semibold tabular-nums">{mib(totalMemory)}</p></div></div>
-        <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><Cpu className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">Sessions Windows</p><p className="text-sm font-semibold tabular-nums">{fmt.format(sessionCount)}</p></div></div>
+        <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><Cpu className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">CPU des processus lisibles</p><p className="text-sm font-semibold tabular-nums">{totalProcessCpu === null ? "En attente…" : `${fmt.format(totalProcessCpu)} %`}</p></div></div>
+        <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2"><Activity className="size-4 text-primary" /><div><p className="text-[10px] text-muted-foreground">Sessions Windows</p><p className="text-sm font-semibold tabular-nums">{fmt.format(sessionCount)}</p></div></div>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <label className="relative min-w-52 flex-1">
@@ -127,6 +131,7 @@ export function DesktopTaskManager() {
         <Select value={sortKey} onValueChange={value => setSortKey(value as SortKey)}>
           <SelectTrigger className="w-40" aria-label="Trier les processus"><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="cpu">CPU</SelectItem>
             <SelectItem value="memory">Mémoire</SelectItem>
             <SelectItem value="name">Nom</SelectItem>
             <SelectItem value="pid">PID</SelectItem>
@@ -151,6 +156,7 @@ export function DesktopTaskManager() {
                 <th className="px-3 py-3 font-medium"><button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => changeSort("name")}>Processus <ArrowDownAZ /></button></th>
                 <th className="px-3 py-3 font-medium"><button type="button" className="hover:text-foreground" onClick={() => changeSort("pid")}>PID</button></th>
                 <th className="px-3 py-3 font-medium"><button type="button" className="hover:text-foreground" onClick={() => changeSort("session")}>Session</button></th>
+                <th className="px-3 py-3 text-right font-medium"><button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => changeSort("cpu")}>CPU <ArrowDownWideNarrow /></button></th>
                 <th className="px-3 py-3 text-right font-medium"><button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => changeSort("memory")}>Mémoire <ArrowDownWideNarrow /></button></th>
               </tr></thead>
               <tbody className="divide-y divide-border/60">
@@ -158,6 +164,7 @@ export function DesktopTaskManager() {
                   <td className="max-w-72 truncate px-3 py-2.5 font-medium"><button type="button" className="max-w-full truncate text-left hover:text-primary" onClick={() => setSelectedPid(value => value === task.pid ? null : task.pid)} aria-expanded={selectedPid === task.pid}>{task.name}</button></td>
                   <td className="px-3 py-2.5 font-mono text-muted-foreground">{task.pid}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{task.session_name} <span className="font-mono">({task.session_number})</span></td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums">{task.cpu_percent === null ? "—" : `${fmt.format(task.cpu_percent)} %`}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{mib(task.memory_kib)}</td>
                 </tr>)}
               </tbody>
@@ -166,7 +173,7 @@ export function DesktopTaskManager() {
           </div>
           {selected && <section className="mt-3 rounded-lg border bg-background p-4" aria-label="Détails du processus sélectionné">
             <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-semibold">{selected.name}</h3><p className="mt-1 text-xs text-muted-foreground">Détails du processus sélectionné</p></div><Button type="button" size="icon" variant="ghost" className="size-7" aria-label="Fermer les détails" onClick={() => setSelectedPid(null)}><X /></Button></div>
-            <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-4"><div><dt className="text-muted-foreground">PID</dt><dd className="mt-1 font-mono">{selected.pid}</dd></div><div><dt className="text-muted-foreground">Session</dt><dd className="mt-1">{selected.session_name}</dd></div><div><dt className="text-muted-foreground">ID de session</dt><dd className="mt-1 font-mono">{selected.session_number}</dd></div><div><dt className="text-muted-foreground">Mémoire</dt><dd className="mt-1 font-mono">{mib(selected.memory_kib)}</dd></div></dl>
+            <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-5"><div><dt className="text-muted-foreground">PID</dt><dd className="mt-1 font-mono">{selected.pid}</dd></div><div><dt className="text-muted-foreground">CPU</dt><dd className="mt-1 font-mono">{selected.cpu_percent === null ? "En attente de la prochaine mesure" : `${fmt.format(selected.cpu_percent)} %`}</dd></div><div><dt className="text-muted-foreground">Session</dt><dd className="mt-1">{selected.session_name}</dd></div><div><dt className="text-muted-foreground">ID de session</dt><dd className="mt-1 font-mono">{selected.session_number}</dd></div><div><dt className="text-muted-foreground">Mémoire</dt><dd className="mt-1 font-mono">{mib(selected.memory_kib)}</dd></div></dl>
           </section>}
         </div>
         <aside className="hidden w-60 shrink-0 border-l bg-sidebar/50 p-3 xl:block" aria-label="Processus les plus consommateurs">

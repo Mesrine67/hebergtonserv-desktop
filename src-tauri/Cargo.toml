@@ -1,6 +1,6 @@
 [package]
 name = "hebergtonserv-desktop"
-version = "0.4.33"
+version = "0.4.34"
 description = "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement"
 authors = ["HébergTonServ <contact@hebergtonserv.com>"]
 edition = "2024"
@@ -50,6 +50,7 @@ ipnet = { version = "=2.12.2", features = ["serde"] }
 base64 = "=0.23.1"
 log = "=0.4.35"
 tauri-plugin-websocket = "2"
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
 tempfile = "=3.27.0"
