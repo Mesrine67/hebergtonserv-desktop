@@ -1,4 +1,7 @@
 use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
 use tauri::{Emitter, Manager};
 
 #[derive(Serialize)]
@@ -59,9 +62,98 @@ pub async fn fetch_changelog() -> Result<Vec<ReleaseInfo>, String> {
 pub struct DesktopTask {
     pid: u32,
     name: String,
+    cpu_percent: Option<f32>,
     memory_kib: u64,
     session_name: String,
     session_number: String,
+}
+
+#[derive(Default)]
+struct CpuSampler {
+    last_sample: Option<Instant>,
+    previous: HashMap<u32, u64>,
+}
+
+static TASK_CPU_SAMPLER: OnceLock<Mutex<CpuSampler>> = OnceLock::new();
+
+fn attach_cpu_percent(tasks: &mut [DesktopTask]) {
+    let now = Instant::now();
+    let sampler = TASK_CPU_SAMPLER.get_or_init(|| Mutex::new(CpuSampler::default()));
+    let Ok(mut sampler) = sampler.lock() else {
+        return;
+    };
+    let elapsed = sampler
+        .last_sample
+        .map(|last| now.duration_since(last).as_secs_f64());
+    let logical_cpus = std::thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1)
+        .max(1) as f64;
+    let mut current = HashMap::with_capacity(tasks.len());
+    for task in tasks.iter_mut() {
+        let Some(total) = process_cpu_time_100ns(task.pid) else {
+            task.cpu_percent = None;
+            continue;
+        };
+        task.cpu_percent = elapsed
+            .filter(|seconds| *seconds > 0.0)
+            .and_then(|seconds| {
+                sampler
+                    .previous
+                    .get(&task.pid)
+                    .map(|previous| (seconds, *previous))
+            })
+            .filter(|(_, previous)| total >= *previous)
+            .map(|(seconds, previous)| {
+                (((total - previous) as f64 / 10_000_000.0 / seconds / logical_cpus) * 100.0)
+                    .clamp(0.0, 100.0) as f32
+            });
+        current.insert(task.pid, total);
+    }
+    sampler.previous = current;
+    sampler.last_sample = Some(now);
+}
+
+#[cfg(target_os = "windows")]
+fn process_cpu_time_100ns(pid: u32) -> Option<u64> {
+    use std::mem::MaybeUninit;
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME};
+    use windows_sys::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    let mut creation = MaybeUninit::<FILETIME>::uninit();
+    let mut exit = MaybeUninit::<FILETIME>::uninit();
+    let mut kernel = MaybeUninit::<FILETIME>::uninit();
+    let mut user = MaybeUninit::<FILETIME>::uninit();
+    let success = unsafe {
+        GetProcessTimes(
+            handle,
+            creation.as_mut_ptr(),
+            exit.as_mut_ptr(),
+            kernel.as_mut_ptr(),
+            user.as_mut_ptr(),
+        )
+    };
+    unsafe { CloseHandle(handle) };
+    if success == 0 {
+        return None;
+    }
+    let kernel = unsafe { kernel.assume_init() };
+    let user = unsafe { user.assume_init() };
+    Some(
+        ((u64::from(kernel.dwHighDateTime) << 32) | u64::from(kernel.dwLowDateTime))
+            .saturating_add((u64::from(user.dwHighDateTime) << 32) | u64::from(user.dwLowDateTime)),
+    )
+}
+
+#[cfg(not(target_os = "windows"))]
+fn process_cpu_time_100ns(_pid: u32) -> Option<u64> {
+    None
 }
 
 /// Parse tasklist CSV output; double-quoted fields can contain commas.
@@ -118,12 +210,14 @@ pub async fn list_desktop_tasks() -> Result<Vec<DesktopTask>, String> {
                     tasks.push(DesktopTask {
                         name: fields[0].clone(),
                         pid,
+                        cpu_percent: None,
                         memory_kib,
                         session_name: fields[2].trim().to_owned(),
                         session_number: fields[3].trim().to_owned(),
                     });
                 }
             }
+            attach_cpu_percent(&mut tasks);
             tasks.sort_by_key(|task| std::cmp::Reverse(task.memory_kib));
             Ok::<Vec<DesktopTask>, String>(tasks)
         });
@@ -213,7 +307,7 @@ pub fn finish_main_window_close(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::csv_fields;
+    use super::{DesktopTask, attach_cpu_percent, csv_fields};
     #[test]
     fn parses_windows_tasklist_csv_with_quoted_commas() {
         assert_eq!(
@@ -224,5 +318,19 @@ mod tests {
             csv_fields("\"A,B.exe\",\"15\",\"Console\",\"1\",\"24,000 K\"")[0],
             "A,B.exe"
         );
+    }
+
+    #[test]
+    fn cpu_sample_starts_unknown_when_process_cannot_be_read() {
+        let mut tasks = vec![DesktopTask {
+            pid: u32::MAX,
+            name: "test".into(),
+            cpu_percent: None,
+            memory_kib: 1,
+            session_name: "Console".into(),
+            session_number: "1".into(),
+        }];
+        attach_cpu_percent(&mut tasks);
+        assert_eq!(tasks[0].cpu_percent, None);
     }
 }
