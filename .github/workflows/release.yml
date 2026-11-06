@@ -11,6 +11,10 @@ on:
         type: boolean
         required: true
         default: true
+      tag:
+        description: Draft release tag to verify or resume (for example v0.4.33).
+        type: string
+        required: true
 
 jobs:
   publish-tauri:
@@ -36,6 +40,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: "Configure isolated application caches on E:"
+        shell: pwsh
+        run: ./scripts/configure-build-caches.ps1 -PersistForGitHub
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
       - name: Verify Rust toolchain
         shell: pwsh
         run: |
@@ -50,24 +64,18 @@ jobs:
           (Get-Command rustc).Source
           (Get-Command cargo).Source
 
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          package-manager-cache: false
-
       - name: Setup pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 12.15.0
           # Unique per attempt: avoid Windows EPERM when a prior pnpm.exe was locked.
-          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+          dest: E:\DevCaches\hebergtonserv-desktop\pnpm-bin\setup-${{ github.run_id }}-${{ github.run_attempt }}
           run_install: false
 
       - name: Install frontend dependencies
         shell: pwsh
         run: |
-          pnpm install --frozen-lockfile --ignore-scripts --reporter append-only
+          pnpm install --frozen-lockfile --ignore-scripts --reporter append-only --store-dir "$env:PNPM_STORE_DIR"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Ensure updater signing is configured
@@ -119,14 +127,28 @@ jobs:
         run: |
           # pnpm/action-setup exports pnpm-specific npm_config_* values. Keep
           # this unrelated global npm install isolated from the runner profile.
-          $npmConfig = Join-Path $env:RUNNER_TEMP 'bun-install.npmrc'
-          Set-Content -LiteralPath $npmConfig -Value 'cache=${RUNNER_TEMP}/bun-npm-cache' -Encoding utf8
-          $env:NPM_CONFIG_USERCONFIG = $npmConfig
+          $env:npm_config_cache = Join-Path 'E:\DevCaches\hebergtonserv-desktop' 'npm-cache'
+          $env:NPM_CONFIG_USERCONFIG = Join-Path 'E:\DevCaches\hebergtonserv-desktop' 'bun-install.npmrc'
+          Set-Content -LiteralPath $env:NPM_CONFIG_USERCONFIG -Value "cache=$($env:npm_config_cache.Replace('\','/'))`nprefix=$($env:NPM_CONFIG_PREFIX.Replace('\','/'))" -Encoding utf8
           Remove-Item Env:npm_config_package_import_method -ErrorAction SilentlyContinue
           Remove-Item Env:npm_config_store_dir -ErrorAction SilentlyContinue
-          npm install --global bun@1.3.3 --ignore-scripts
+          npm install --global bun@1.3.3
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          bun --version
+          $npmRoot = (& npm root --global).Trim()
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($npmRoot)) {
+            throw 'Cannot locate the global npm package root for Bun.'
+          }
+          $bunBin = Join-Path $npmRoot 'bun/bin'
+          $bunExe = Join-Path $bunBin 'bun.exe'
+          $installScript = Join-Path $npmRoot 'bun/install.js'
+          if (Test-Path -LiteralPath $installScript) { & node $installScript }
+          if (-not (Test-Path -LiteralPath $bunExe) -or (Get-Item -LiteralPath $bunExe).Length -lt 1000000) {
+            throw "The Bun installer did not provide a valid Windows executable: $bunExe"
+          }
+          $env:PATH = "$bunBin;$env:PATH"
+          $bunBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $bunExe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build standalone runner manager for Windows
         shell: pwsh
@@ -227,3 +249,183 @@ jobs:
             "- Version: $env:APP_VERSION",
             "- Published release: $env:RELEASE_URL"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+  resume-draft-release:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    runs-on: [self-hosted, Windows, X64]
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.1-x86_64-pc-windows-msvc
+      RELEASE_TAG: ${{ inputs.tag }}
+
+    steps:
+      - name: Checkout main without removing existing release build outputs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          clean: false
+
+      - name: "Configure isolated application caches on E:"
+        shell: pwsh
+        run: ./scripts/configure-build-caches.ps1 -PersistForGitHub
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Verify draft tag and existing signed app artifacts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $config = Get-Content -LiteralPath 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          if ($env:RELEASE_TAG -ne ('v' + $config.version)) {
+            throw 'Requested draft tag does not match the checked out application version.'
+          }
+          $release = gh release view $env:RELEASE_TAG --json isDraft,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.tagName -ne $env:RELEASE_TAG -or -not $release.isDraft) {
+            throw "Expected an existing draft release for $env:RELEASE_TAG."
+          }
+          $assets = @(gh release view $env:RELEASE_TAG --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($required in @('latest.json')) {
+            if ($assets -notcontains $required) { throw "Missing existing Tauri asset: $required" }
+          }
+          if (-not ($assets | Where-Object { $_ -like '*setup.exe' }) -or
+              -not ($assets | Where-Object { $_ -like '*setup.exe.sig' }) -or
+              -not ($assets | Where-Object { $_ -like '*.msi' }) -or
+              -not ($assets | Where-Object { $_ -like '*.msi.sig' })) {
+            throw 'The existing draft does not contain all signed NSIS/MSI artifacts.'
+          }
+          $manifest = gh release download $env:RELEASE_TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to download latest.json from the draft release.' }
+          $manifest = Get-Content (Join-Path $env:RUNNER_TEMP 'latest.json') -Raw | ConvertFrom-Json
+          if ($manifest.version -ne $config.version) { throw 'Draft updater manifest version mismatch.' }
+          $targetExe = Join-Path $env:CARGO_TARGET_DIR 'release/hebergtonserv-desktop.exe'
+          if (-not (Test-Path -LiteralPath $targetExe)) {
+            $targetExe = 'src-tauri/target/release/hebergtonserv-desktop.exe'
+          }
+          if (-not (Test-Path -LiteralPath $targetExe)) {
+            throw 'Existing release build output is missing; refusing to publish an incomplete recovery.'
+          }
+
+      - name: Install Bun for standalone runner manager
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        run: |
+          $env:npm_config_cache = Join-Path 'E:\DevCaches\hebergtonserv-desktop' 'npm-cache'
+          $env:NPM_CONFIG_USERCONFIG = Join-Path 'E:\DevCaches\hebergtonserv-desktop' 'bun-install.npmrc'
+          Set-Content -LiteralPath $env:NPM_CONFIG_USERCONFIG -Value "cache=$($env:npm_config_cache.Replace('\','/'))`nprefix=$($env:NPM_CONFIG_PREFIX.Replace('\','/'))" -Encoding utf8
+          Remove-Item Env:npm_config_package_import_method -ErrorAction SilentlyContinue
+          Remove-Item Env:npm_config_store_dir -ErrorAction SilentlyContinue
+          npm install --global bun@1.3.3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $npmRoot = (& npm root --global).Trim()
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($npmRoot)) {
+            throw 'Cannot locate the global npm package root for Bun.'
+          }
+          $bunBin = Join-Path $npmRoot 'bun/bin'
+          $bunExe = Join-Path $bunBin 'bun.exe'
+          $installScript = Join-Path $npmRoot 'bun/install.js'
+          if (Test-Path -LiteralPath $installScript) { & node $installScript }
+          if (-not (Test-Path -LiteralPath $bunExe) -or (Get-Item -LiteralPath $bunExe).Length -lt 1000000) {
+            throw "The Bun installer did not provide a valid Windows executable: $bunExe"
+          }
+          $env:PATH = "$bunBin;$env:PATH"
+          $bunBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $bunExe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build standalone runner manager for Windows
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        run: |
+          & ./scripts/build-runner.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Attach standalone runner manager to draft release
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload $env:RELEASE_TAG 'dist-runner/hebergtonserv-runner-manager.exe' --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload experimental app and checksums
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & ./scripts/release-assets.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Attest release files on GitHub
+        if: ${{ inputs.verifyOnly == false }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: 'dist-release/*'
+
+      - name: Verify draft release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(gh release view $env:RELEASE_TAG --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($required in @('latest.json', 'hebergtonserv-runner-manager.exe', 'SHA256SUMS.txt')) {
+            if ($assets -notcontains $required) { throw "Missing release asset: $required" }
+          }
+          if (-not ($assets | Where-Object { $_ -like '*setup.exe' }) -or
+              -not ($assets | Where-Object { $_ -like '*setup.exe.sig' }) -or
+              -not ($assets | Where-Object { $_ -like '*.msi' }) -or
+              -not ($assets | Where-Object { $_ -like '*.msi.sig' }) -or
+              -not ($assets | Where-Object { $_ -like '*standalone-experimental.exe' })) {
+            throw 'Incomplete signed or standalone release assets; keeping the release in draft.'
+          }
+          if ($assets.Count -ne 8) { throw "Expected eight release assets; found $($assets.Count)." }
+          $manifestPath = Join-Path $env:RUNNER_TEMP 'latest.json'
+          gh release download $env:RELEASE_TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to download the draft updater manifest.' }
+          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          if ($manifest.version -ne $config.version) { throw 'Updater JSON version mismatch.' }
+          foreach ($platform in @('windows-x86_64','windows-x86_64-msi','windows-x86_64-nsis')) {
+            $item = $manifest.platforms.$platform
+            if (-not $item -or -not $item.signature -or -not $item.url) {
+              throw "Missing signed updater entry for $platform"
+            }
+          }
+          Write-Output ("Verified " + $assets.Count + ' draft release assets.')
+
+      - name: Publish verified release for in-app updates
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $release = gh release view $env:RELEASE_TAG --json isDraft,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.tagName -ne $env:RELEASE_TAG -or -not $release.isDraft) {
+            throw "Cannot verify draft release for $env:RELEASE_TAG."
+          }
+          $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          $editArgs = @('release', 'edit', $env:RELEASE_TAG, '--title', "HébergTonServ Desktop $env:RELEASE_TAG", '--draft=false', '--prerelease=false', '--latest')
+          $notesPath = "docs/release-v$($config.version).md"
+          if (Test-Path -LiteralPath $notesPath) { $editArgs += @('--notes-file', $notesPath) }
+          & gh @editArgs
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish $env:RELEASE_TAG." }
+          $published = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease,publishedAt | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $published.isDraft -or $published.isPrerelease -or -not $published.publishedAt) {
+            throw "Release $env:RELEASE_TAG was not publicly published."
+          }
+          Write-Output "Published $env:RELEASE_TAG for Tauri automatic updates."

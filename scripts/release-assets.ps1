@@ -1,10 +1,16 @@
 # Runs only after Tauri signed NSIS/MSI artifacts and runner-manager.exe were uploaded.
 # Exposes the experimental raw Windows executable plus checksums of GitHub-hosted files.
 $ErrorActionPreference = 'Stop'
-if ([string]::IsNullOrWhiteSpace($env:GITHUB_REF_NAME)) { throw 'Release tag missing.' }
 if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { throw 'GitHub release permission missing.' }
-$tag = $env:GITHUB_REF_NAME
-$app = 'src-tauri/target/release/hebergtonserv-desktop.exe'
+$tag = $env:RELEASE_TAG
+if ([string]::IsNullOrWhiteSpace($tag)) { $tag = $env:GITHUB_REF_NAME }
+if ([string]::IsNullOrWhiteSpace($tag)) { throw 'Release tag missing.' }
+$targetRoot = $env:CARGO_TARGET_DIR
+if ([string]::IsNullOrWhiteSpace($targetRoot)) { $targetRoot = 'src-tauri/target' }
+$app = Join-Path $targetRoot 'release/hebergtonserv-desktop.exe'
+if (-not (Test-Path -LiteralPath $app) -and $targetRoot -ne 'src-tauri/target') {
+  $app = 'src-tauri/target/release/hebergtonserv-desktop.exe'
+}
 if (-not (Test-Path -LiteralPath $app)) { throw 'Compiled Tauri application not found.' }
 New-Item -ItemType Directory -Path 'dist-standalone' -Force | Out-Null
 $name = "HebergTonServ-Desktop-$tag-windows-x64-standalone-experimental.exe"
