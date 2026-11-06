@@ -41,6 +41,9 @@ describe("Panel file tree", () => {
     await act(async () => {
       resolveFiles([{ name: "server.cfg", kind: "file", path: "/server.cfg" }]);
       await response;
+      // React Query schedules its observer notification on a separate macrotask.
+      // Flush it inside act so the test waits for the actual React render.
+      await new Promise(resolve => setTimeout(resolve, 20));
     });
     await vi.waitFor(() => {
       expect(host?.querySelector('[role="treeitem"]')?.textContent).toContain("server.cfg");
