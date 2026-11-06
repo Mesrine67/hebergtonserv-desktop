@@ -4,7 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { ChevronDown, ChevronRight, Clipboard, Download, RefreshCw, Trash2, Bot, Braces, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { version as appVersion } from "../../package.json";
@@ -107,12 +107,7 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
     catch {setFeedback("Suppression impossible.");}
     finally{setBusy(false);}
   }
-  return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="z-[10025] flex h-[min(85vh,820px)] w-[min(94vw,1200px)] max-w-none flex-col gap-3 overflow-hidden bg-card p-0 sm:max-w-none">
-      <DialogHeader className="border-b px-5 py-4">
-        <DialogTitle className="flex items-center gap-2"><Activity className="size-4 text-primary"/>Journal de l’application</DialogTitle>
-      <DialogDescription>Journal global : appels HTTP, JSON de réponse expurgé, application, Tauri, Windows et erreurs frontend. Jetons, identifiants et champs privés sont masqués.</DialogDescription>
-      </DialogHeader>
+  return <FloatingPanel open={open} onOpenChange={onOpenChange} title={<span className="flex items-center gap-2"><Activity className="size-4 text-primary"/>Journal de l’application</span>} description="Journal global : appels HTTP, JSON de réponse expurgé, application, Tauri, Windows et erreurs frontend. Jetons, identifiants et champs privés sont masqués." className="h-[min(85vh,820px)] w-[min(94vw,1200px)] gap-3">
       <div className="flex flex-wrap gap-2 px-4">
         <Button size="sm" variant="outline" onClick={()=>void refresh()}><RefreshCw className="size-4"/> Actualiser</Button>
         <Button size="sm" variant="outline" onClick={()=>void copy()}><Clipboard className="size-4"/> Copier</Button>
@@ -148,6 +143,5 @@ export function PanelDiagnostics({open, onOpenChange}: {open:boolean;onOpenChang
         </div>
       </div>
       <p className="border-t px-4 py-3 text-[11px] text-muted-foreground">Historique volatile de 1 500 événements maximum, perdu à la fermeture. Les réponses JSON sont limitées et expurgées avant stockage.</p>
-    </DialogContent>
-  </Dialog>;
+  </FloatingPanel>;
 }

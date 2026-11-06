@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { AnsiLine, plainTerminalLine } from "@/lib/ansi-terminal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { commands } from "@/lib/tauri";
 import { resolvePanel, serverListRoute, serverSectionRoute } from "@/lib/panel-navigation";
@@ -164,8 +165,7 @@ export default function ServerConsolePage() {
     } catch { append("Commande non transmise : connexion indisponible."); void invoke("record_console_connection_event", {event: "ws_send_failed", provider: panel?.provider}).catch(() => undefined); }
   }
 
-  return <Dialog open onOpenChange={open => { if (!open) navigate(serverListRoute(requestedPanel ?? panel?.id ?? null)); }}>
-    <DialogContent aria-describedby="server-console-description" className="flex h-[min(88vh,850px)] w-[min(94vw,1180px)] max-w-none flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-none">
+  return <FloatingPanel open onOpenChange={open => { if (!open) navigate(serverListRoute(requestedPanel ?? panel?.id ?? null)); }} ariaDescribedBy="server-console-description" className="h-[min(88vh,850px)] w-[min(94vw,1180px)]">
     <DialogHeader className="sr-only"><DialogTitle>Console · {server?.name ?? "Serveur"}</DialogTitle><DialogDescription id="server-console-description">Console flottante du serveur, connectée au flux Wings.</DialogDescription></DialogHeader>
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4 pr-14">
@@ -203,6 +203,5 @@ export default function ServerConsolePage() {
     </form>
     <p className="px-4 pb-3 text-xs text-muted-foreground">Connexion via Wings WebSocket avec les permissions du compte Client API. Les serveurs suspendus ou les fournisseurs sans endpoint compatible peuvent refuser la connexion.</p>
     </section>
-    </DialogContent>
-  </Dialog>;
+  </FloatingPanel>;
 }

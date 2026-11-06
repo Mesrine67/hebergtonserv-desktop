@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, LockKeyhole, ShieldAlert, ShieldCheck } from "lucide-react";
 import { SectionCard } from "@/components/page-shell";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { commands } from "@/lib/tauri";
 
 export default function SecurityPage({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -11,12 +11,7 @@ export default function SecurityPage({ open, onOpenChange }: { open: boolean; on
     { label: "Connexions HTTPS uniquement", explanation: "Toutes les requêtes API passent par des connexions chiffrées.", ok: security.data?.https_only },
   ];
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[86dvh] w-[min(94vw,780px)] max-w-none p-0 sm:max-w-none">
-      <DialogHeader className="shrink-0 border-b px-6 py-5 pr-14">
-        <DialogTitle>Sécurité</DialogTitle>
-        <DialogDescription>Contrôlez l’état des protections appliquées à vos connexions SSH et à vos panels d’hébergement.</DialogDescription>
-      </DialogHeader>
+    <FloatingPanel open={open} onOpenChange={onOpenChange} title="Sécurité" description="Contrôlez l’état des protections appliquées à vos connexions SSH et à vos panels d’hébergement." className="max-h-[86dvh] w-[min(94vw,780px)]">
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 md:p-6">
       <SectionCard title="État des protections" description="Ces informations proviennent du backend de l'application." className="max-w-3xl">
         {security.isPending ? <p className="text-sm text-muted-foreground">Vérification des protections…</p>
@@ -40,7 +35,6 @@ export default function SecurityPage({ open, onOpenChange }: { open: boolean; on
         Les jetons API sont gérés par le coffre d'identifiants Windows via Rust. Ils ne sont pas conservés en clair dans les fichiers JSON ou le localStorage.
       </div>
       </div>
-      </DialogContent>
-    </Dialog>
+    </FloatingPanel>
   );
 }

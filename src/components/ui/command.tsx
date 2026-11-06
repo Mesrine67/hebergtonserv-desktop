@@ -1,15 +1,16 @@
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 import { Search } from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
+import { DialogDescription, DialogTitle } from "@/components/ui/dialog"
+import { FloatingPanel } from "@/components/ui/floating-panel"
 import { cn } from "@/lib/utils"
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return <CommandPrimitive data-slot="command" className={cn("flex h-full w-full flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground", className)} {...props} />
 }
 
-function CommandDialog({ title = "Recherche rapide", description = "Recherchez une page ou une action.", children, ...props }: React.ComponentProps<typeof Dialog> & { title?: string; description?: string }) {
-  return <Dialog {...props}><DialogContent className="top-[20%] w-[min(92vw,38rem)] -translate-y-0 overflow-hidden p-0" aria-describedby="command-search-description"><DialogTitle className="sr-only">{title}</DialogTitle><DialogDescription id="command-search-description" className="sr-only">{description}</DialogDescription>{children}</DialogContent></Dialog>
+function CommandDialog({ title = "Recherche rapide", description = "Recherchez une page ou une action.", children, open = false, onOpenChange }: React.ComponentProps<typeof FloatingPanel> & { title?: string; description?: string }) {
+  return <FloatingPanel open={open} onOpenChange={onOpenChange} className="w-[min(92vw,38rem)] p-0" ariaDescribedBy="command-search-description"><DialogTitle className="sr-only">{title}</DialogTitle><DialogDescription id="command-search-description" className="sr-only">{description}</DialogDescription>{children}</FloatingPanel>
 }
 
 function CommandInput({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Input>) {
