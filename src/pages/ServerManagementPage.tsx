@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { PanelFileTree } from "@/components/panel-file-tree";
 import { ServerCodeEditor } from "@/components/server-code-editor";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -88,6 +89,16 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   const databaseLimit = server?.limits.databases;
   const databaseUsage = databaseLimit == null ? null : Math.min(100, databaseLimit === 0 ? 100 : databaseCount / databaseLimit * 100);
   const [revealedPasswords, setRevealedPasswords] = useState<string[]>([]);
+  const [fileExplorerLayout, setFileExplorerLayout] = useState<Record<string, number>>(() => {
+    try {
+      const saved = window.localStorage.getItem("hts-server-files-layout");
+      const layout = saved ? JSON.parse(saved) as Record<string, number> : null;
+      return layout && Number.isFinite(layout.explorer) && Number.isFinite(layout.editor)
+        ? layout : { explorer: 24, editor: 76 };
+    } catch {
+      return { explorer: 24, editor: 76 };
+    }
+  });
   const copyValue = async (value: string, label: string) => {
     try { if (isTauri()) await writeText(value); else await navigator.clipboard.writeText(value); toast.success(`${label} copié.`); }
     catch { toast.error(`Impossible de copier ${label.toLocaleLowerCase()}.`); }
@@ -113,8 +124,13 @@ export default function ServerManagementPage({ section }: { section: Section }) 
 
     {!panel && panels.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce panel n’est pas configuré. Retournez à la liste et sélectionnez un compte.</p>}
     {panel && !server && servers.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce serveur n’est pas accessible depuis le panel sélectionné.</p>}
-    {section === "files" && <div className="grid min-h-0 flex-1 grid-rows-[minmax(150px,0.36fr)_minmax(0,1fr)] gap-3 overflow-hidden lg:grid-cols-[minmax(250px,340px)_minmax(0,1fr)] lg:grid-rows-1">
-      <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
+    {section === "files" && <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 overflow-hidden rounded-xl" defaultLayout={fileExplorerLayout} onLayoutChange={layout => {
+      const next = { explorer: layout.explorer ?? 24, editor: layout.editor ?? 76 };
+      setFileExplorerLayout(next);
+      try { window.localStorage.setItem("hts-server-files-layout", JSON.stringify(next)); } catch { /* storage can be disabled */ }
+    }}>
+      <ResizablePanel id="explorer" defaultSize="24%" minSize="16%" maxSize="42%" className="min-h-0 min-w-0">
+      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
         <div className="space-y-3 border-b px-4 py-3">
           <div><p className="text-sm font-semibold">Parcourir les fichiers</p><p className="mt-1 truncate font-mono text-xs text-muted-foreground">{path}</p></div>
           <label className="relative block"><Search aria-hidden="true" className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"/><input value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrer les dossiers ouverts…" aria-label="Filtrer les fichiers des dossiers ouverts" className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"/></label>
@@ -132,6 +148,9 @@ export default function ServerManagementPage({ section }: { section: Section }) 
           }}/>}
         </div>
       </aside>
+      </ResizablePanel>
+      <ResizableHandle withHandle aria-label="Redimensionner l’arborescence et l’éditeur" />
+      <ResizablePanel id="editor" defaultSize="76%" minSize="38%" className="min-h-0 min-w-0">
       <article className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
         <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><span className="truncate">{part}</span>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
         {selected ? (
@@ -167,7 +186,8 @@ export default function ServerManagementPage({ section }: { section: Section }) 
           </div>
         )}
       </article>
-    </div>}
+      </ResizablePanel>
+    </ResizablePanelGroup>}
 
     {section === "databases" && <FloatingPanel open onOpenChange={open => { if (!open) navigate(serverListRoute(requestedPanel ?? panel?.id ?? null)); }} title={<span className="flex items-center gap-2"><Database className="size-5 text-primary"/>Bases de données · {server?.name ?? "Serveur"}</span>} description="Informations de connexion et quota des bases de données du serveur." className="max-h-[86dvh] w-[min(94vw,1120px)]">
       <div className="flex shrink-0 justify-end px-5 pt-3"><Button variant="outline" size="sm" onClick={() => void databases.refetch()} disabled={databases.isFetching}><RefreshCw className={`mr-2 size-4 ${databases.isFetching ? "animate-spin" : ""}`} />Actualiser</Button></div>
