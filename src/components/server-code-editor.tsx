@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "../../node_modules/monaco-editor/esm/vs/editor/editor.api.js";
 import { useTheme } from "next-themes";
-import { Check, Copy, File, RefreshCw, RotateCcw, Save, WrapText, X } from "lucide-react";
+import { Check, Copy, File, Keyboard, RefreshCw, RotateCcw, Save, WrapText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -123,7 +124,7 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
   }
 
   return (
-    <div className="hts-code-editor flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background">
+    <div className="hts-code-editor flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
       <div className="flex min-w-0 items-stretch border-b bg-muted/20 px-2">
         <div role="tablist" aria-label="Fichiers ouverts dans cet éditeur" className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
           {tabs.map(tab => <div key={tab.path} role="presentation" className={`group flex max-w-56 shrink-0 items-center border-r border-border/60 ${tab.path === path ? "border-t-2 border-t-muted-foreground/60 bg-background" : "border-t-2 border-t-transparent"}`}>
@@ -178,6 +179,22 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t bg-muted/15 px-3 py-1 text-[10px] text-muted-foreground">
         <span className="shrink-0">{lines} ligne(s) · {value.length} caractères</span>
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
+          <Popover>
+            <PopoverTrigger asChild><Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2" aria-label="Raccourcis clavier de l’éditeur" title="Raccourcis clavier"><Keyboard className="size-3.5"/><span className="hidden md:inline">Raccourcis</span></Button></PopoverTrigger>
+            <PopoverContent align="end" side="top" className="w-72 gap-2 p-3">
+              <h3 className="font-medium">Raccourcis de code</h3>
+              <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-muted-foreground">
+                <span>Annuler / rétablir</span><kbd className="font-mono text-foreground">Ctrl+Z / Ctrl+Y</kbd>
+                <span>Rechercher / remplacer</span><kbd className="font-mono text-foreground">Ctrl+F / Ctrl+H</kbd>
+                <span>Commenter la ligne</span><kbd className="font-mono text-foreground">Ctrl+/</kbd>
+                <span>Déplacer la ligne</span><kbd className="font-mono text-foreground">Alt+↑ / Alt+↓</kbd>
+                <span>Copier la ligne vers le bas</span><kbd className="font-mono text-foreground">Shift+Alt+↓</kbd>
+                <span>Sélectionner l’occurrence suivante</span><kbd className="font-mono text-foreground">Ctrl+D</kbd>
+                <span>Enregistrer</span><kbd className="font-mono text-foreground">Ctrl+S</kbd>
+                <span>Insérer une tabulation</span><kbd className="font-mono text-foreground">Tab</kbd>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={onRefresh} disabled={refreshing} aria-label="Actualiser les fichiers du serveur" title="Actualiser les fichiers du serveur"><RefreshCw className={refreshing ? "animate-spin" : "size-3.5"} /></Button>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => setShowNumbers(v => !v)} aria-label="Afficher ou masquer les numéros de ligne" aria-pressed={showNumbers} title="Numéros de ligne">#</Button>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap} title="Retour à la ligne"><WrapText className="size-3.5" /></Button>

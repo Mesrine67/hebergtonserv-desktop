@@ -194,9 +194,9 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       </ResizablePanel>
       <ResizableHandle withHandle aria-label="Redimensionner l’arborescence et l’éditeur" />
       <ResizablePanel id="editor" defaultSize={compactLayout ? "66%" : "76%"} minSize={compactLayout ? "52%" : "38%"} className={`min-h-0 min-w-0 ${compactLayout ? "pt-1" : "pl-1"}`}>
-      <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+      <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {selected ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pb-3">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {content.isLoading ? <p role="status" className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p>
               : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p>
               : content.isSuccess ? (
