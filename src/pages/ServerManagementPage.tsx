@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { errorMessage } from "@/lib/error-message";
 import { commands } from "@/lib/tauri";
 import { resolvePanel, serverListRoute } from "@/lib/panel-navigation";
+import { clearServerFileDraft, getServerExplorerState, getServerFileDraft, setServerExplorerState, setServerFileDraft } from "@/lib/server-file-draft-cache";
 
 type Section = "files" | "databases";
 function apiIdentifier(provider: string, version: string, id: string, identifier: string) {
@@ -40,11 +41,18 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   const [draftByFile, setDraftByFile] = useState<Record<string, string>>({});
   const [savingFile, setSavingFile] = useState(false);
   const original = content.data ?? "";
+  const cachedDraft = panel && server && selected ? getServerFileDraft(panel.id, server.identifier, selected) : undefined;
   const draft = selected && Object.prototype.hasOwnProperty.call(draftByFile, selected)
-    ? draftByFile[selected] : original;
+    ? draftByFile[selected] : cachedDraft ?? original;
   const dirty = Boolean(selected && content.isSuccess && draft !== original);
+  const announceDraftState = (isDirty: boolean) => {
+    if (!panel || !server) return;
+    window.dispatchEvent(new CustomEvent("hts:file-explorer-draft-change", {
+      detail: { panelId: panel.id, serverIdentifier: server.identifier, dirty: isDirty },
+    }));
+  };
   const saveFile = async () => {
-    if (!panel || !requestId || !selected || !dirty || savingFile || !content.isSuccess) return;
+    if (!panel || !server || !requestId || !selected || !dirty || savingFile || !content.isSuccess) return;
     if (new TextEncoder().encode(draft).length > 1024 * 1024) {
       toast.error("Le fichier dépasse la taille maximale de 1 Mio de l'éditeur.");
       return;
@@ -60,6 +68,8 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       }
       await commands.writePanelServerFile(panel.id, requestId, selected, draft);
       queryClient.setQueryData(["panel-server-file", panel.id, requestId, selected], draft);
+      clearServerFileDraft(panel.id, server.identifier, selected);
+      announceDraftState(false);
       setDraftByFile(previous => {
         const next = { ...previous };
         delete next[selected];
@@ -91,6 +101,15 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     }));
   }, [section, panel?.id, server?.identifier, server?.name]);
 
+  useEffect(() => {
+    if (section !== "files" || !panel || !server || selected) return;
+    const cached = getServerExplorerState(panel.id, server.identifier);
+    if (cached?.selected) {
+      setSelected(cached.selected);
+      setPath(cached.path);
+    }
+  }, [section, panel?.id, server?.identifier, selected]);
+
   return <section className="space-y-4">
     {section === "files" && <header className="flex flex-wrap items-center gap-3">
       <div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wide text-muted-foreground">{panel?.name ?? "Panel"} · {server?.name ?? "Serveur"}</p><h1 className="text-2xl font-semibold">{title}</h1></div>
@@ -110,7 +129,12 @@ export default function ServerManagementPage({ section }: { section: Section }) 
           </div>
         </div>
         <div className="max-h-[62vh] overflow-y-auto p-2">
-          {panel && requestId && <PanelFileTree key={`${panel.id}:${requestId}`} panelId={panel.id} serverId={requestId} path="/" selected={selected} filter={fileFilter} showHidden={showHidden} onSelect={entry => { setSelected(entry.path); setPath(entry.path.split("/").slice(0, -1).join("/") || "/"); }}/>}
+          {panel && requestId && <PanelFileTree key={`${panel.id}:${requestId}`} panelId={panel.id} serverId={requestId} path="/" selected={selected} filter={fileFilter} showHidden={showHidden} onSelect={entry => {
+            const nextPath = entry.path.split("/").slice(0, -1).join("/") || "/";
+            setSelected(entry.path);
+            setPath(nextPath);
+            setServerExplorerState(panel.id, server!.identifier, { selected: entry.path, path: nextPath });
+          }}/>}
         </div>
       </aside>
       <article className="min-h-[420px] overflow-hidden rounded-xl border bg-card">
@@ -126,7 +150,13 @@ export default function ServerManagementPage({ section }: { section: Section }) 
                   path={selected}
                   value={draft}
                   original={original}
-                  onChange={value => setDraftByFile(previous => ({ ...previous, [selected]: value }))}
+                  onChange={value => {
+                    setDraftByFile(previous => ({ ...previous, [selected]: value }));
+                    if (value === original) clearServerFileDraft(panel!.id, server!.identifier, selected);
+                    else setServerFileDraft(panel!.id, server!.identifier, selected, value);
+                    setServerExplorerState(panel!.id, server!.identifier, { selected, path });
+                    announceDraftState(value !== original);
+                  }}
                   onSave={() => void saveFile()}
                   saving={savingFile}
                 />
