@@ -312,13 +312,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to download latest.json from the draft release.' }
           $manifest = Get-Content (Join-Path $env:RELEASE_STAGING_DIR 'latest.json') -Raw | ConvertFrom-Json
           if ($manifest.version -ne $config.version) { throw 'Draft updater manifest version mismatch.' }
-      - name: Setup pnpm for the recovery build
+      - name: "Install pnpm on E: without running package hooks"
         if: ${{ inputs.verifyOnly == false }}
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 12.15.0
-          dest: E:\DevCaches\hebergtonserv-desktop\pnpm-bin\recovery-${{ github.run_id }}-${{ github.run_attempt }}
-          run_install: false
+        shell: pwsh
+        run: |
+          npm install --global pnpm@12.15.0 --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $pnpmExe = Join-Path $env:NPM_CONFIG_PREFIX 'node_modules/pnpm/node_modules/@pnpm/exe.win32-x64/pnpm.exe'
+          if (-not (Test-Path -LiteralPath $pnpmExe)) {
+            throw "The native pnpm executable was not installed under $env:NPM_CONFIG_PREFIX."
+          }
+          $pnpmDir = Split-Path -Parent $pnpmExe
+          $pnpmDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $pnpmExe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install app dependencies for the recovery build
         if: ${{ inputs.verifyOnly == false }}
