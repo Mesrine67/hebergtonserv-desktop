@@ -164,6 +164,10 @@ settings:
 
 overrides:
   minimatch: 11.0.1
+  dompurify: 3.4.17
+
+patchedDependencies:
+  monaco-editor@0.57.0: 4aec56ce01fcaf83dff53ca25e51e52c121ae1179612511be63add143dde02d8
 
 importers:
 
@@ -174,7 +178,7 @@ importers:
         version: 5.3.0
       '@monaco-editor/react':
         specifier: 4.7.0
-        version: 4.7.0(monaco-editor@0.57.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 4.7.0(monaco-editor@0.57.0(patch_hash=4aec56ce01fcaf83dff53ca25e51e52c121ae1179612511be63add143dde02d8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@radix-ui/react-alert-dialog':
         specifier: 1.2.1
         version: 1.2.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -270,7 +274,7 @@ importers:
         version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
       monaco-editor:
         specifier: 0.57.0
-        version: 0.57.0
+        version: 0.57.0(patch_hash=4aec56ce01fcaf83dff53ca25e51e52c121ae1179612511be63add143dde02d8)
       next-themes:
         specifier: 0.4.6
         version: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1842,8 +1846,8 @@ packages:
   detect-node-es@1.1.0:
     resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
 
-  dompurify@3.4.15:
-    resolution: {integrity: sha512-EUBjM+B+lkDE41iE82DDSCfkoPGfXx8IxFxPMjNzm/Uk4xDet77rTN9wqlxlVg71kK7XGuUMv6wUxJUwwv+Xyw==}
+  dompurify@3.4.17:
+    resolution: {integrity: sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==}
 
   electron-to-chromium@1.5.467:
     resolution: {integrity: sha512-Nw9X371rtZmYcBSnEijnCDONILjs93biCZO34juC7MBOmK8E+GFnyD4T/WvyrlJkppul7oxg6TwvtKst9SODTw==}
@@ -2955,10 +2959,10 @@ snapshots:
     dependencies:
       state-local: 1.0.7
 
-  '@monaco-editor/react@4.7.0(monaco-editor@0.57.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@monaco-editor/react@4.7.0(monaco-editor@0.57.0(patch_hash=4aec56ce01fcaf83dff53ca25e51e52c121ae1179612511be63add143dde02d8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@monaco-editor/loader': 1.7.0
-      monaco-editor: 0.57.0
+      monaco-editor: 0.57.0(patch_hash=4aec56ce01fcaf83dff53ca25e51e52c121ae1179612511be63add143dde02d8)
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
@@ -4180,7 +4184,7 @@ snapshots:
 
   detect-node-es@1.1.0: {}
 
-  dompurify@3.4.15:
+  dompurify@3.4.17:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -4539,9 +4543,9 @@ snapshots:
       '@isaacs/nonrecursive-glob-match': 1.0.3
       brace-expansion: 5.0.12
 
-  monaco-editor@0.57.0:
+  monaco-editor@0.57.0(patch_hash=4aec56ce01fcaf83dff53ca25e51e52c121ae1179612511be63add143dde02d8):
     dependencies:
-      dompurify: 3.4.15
+      dompurify: 3.4.17
       marked: 14.0.0
 
   ms@2.1.3: {}
