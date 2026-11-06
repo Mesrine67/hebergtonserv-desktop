@@ -33,6 +33,7 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
     env:
       RUSTUP_TOOLCHAIN: 1.99.1-x86_64-pc-windows-msvc
+      RELEASE_STAGING_DIR: E:\DevCaches\hebergtonserv-desktop\releases\${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout repository
@@ -153,7 +154,7 @@ jobs:
       - name: Build standalone runner manager for Windows
         shell: pwsh
         run: |
-          & ./scripts/build-runner.ps1
+          & ./scripts/build-runner.ps1 -OutputDirectory (Join-Path 'E:\DevCaches\hebergtonserv-desktop' 'runner-build')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Attach standalone runner manager to draft release
@@ -161,7 +162,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload $env:GITHUB_REF_NAME "dist-runner/hebergtonserv-runner-manager.exe" --clobber
+          gh release upload $env:GITHUB_REF_NAME 'E:\DevCaches\hebergtonserv-desktop\runner-build\hebergtonserv-runner-manager.exe' --clobber
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload experimental app and checksums
@@ -175,7 +176,7 @@ jobs:
       - name: Attest release files on GitHub
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
-          subject-path: 'dist-release/*'
+          subject-path: '${{ env.RELEASE_STAGING_DIR }}/*'
 
       - name: Verify draft release assets
         shell: pwsh
@@ -196,7 +197,7 @@ jobs:
           if ($assets.Count -ne 8 -or -not ($assets | Where-Object { $_ -like '*standalone-experimental.exe' })) {
             throw 'Expected eight release assets including standalone app and checksums.'
           }
-          $manifest = Get-Content 'dist-release/latest.json' -Raw | ConvertFrom-Json
+          $manifest = Get-Content (Join-Path $env:RELEASE_STAGING_DIR 'latest.json') -Raw | ConvertFrom-Json
           $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
           if ($manifest.version -ne $config.version) { throw 'Updater JSON version mismatch.' }
           foreach ($platform in @('windows-x86_64','windows-x86_64-msi','windows-x86_64-nsis')) {
@@ -261,6 +262,7 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: 1.99.1-x86_64-pc-windows-msvc
       RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_STAGING_DIR: E:\DevCaches\hebergtonserv-desktop\releases\${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout main without removing existing release build outputs
@@ -305,16 +307,35 @@ jobs:
               -not ($assets | Where-Object { $_ -like '*.msi.sig' })) {
             throw 'The existing draft does not contain all signed NSIS/MSI artifacts.'
           }
-          $manifest = gh release download $env:RELEASE_TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          New-Item -ItemType Directory -Path $env:RELEASE_STAGING_DIR -Force | Out-Null
+          $manifest = gh release download $env:RELEASE_TAG --pattern latest.json --dir $env:RELEASE_STAGING_DIR --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Unable to download latest.json from the draft release.' }
-          $manifest = Get-Content (Join-Path $env:RUNNER_TEMP 'latest.json') -Raw | ConvertFrom-Json
+          $manifest = Get-Content (Join-Path $env:RELEASE_STAGING_DIR 'latest.json') -Raw | ConvertFrom-Json
           if ($manifest.version -ne $config.version) { throw 'Draft updater manifest version mismatch.' }
-          $targetExe = Join-Path $env:CARGO_TARGET_DIR 'release/hebergtonserv-desktop.exe'
-          if (-not (Test-Path -LiteralPath $targetExe)) {
-            $targetExe = 'src-tauri/target/release/hebergtonserv-desktop.exe'
-          }
-          if (-not (Test-Path -LiteralPath $targetExe)) {
-            throw 'Existing release build output is missing; refusing to publish an incomplete recovery.'
+      - name: Setup pnpm for the recovery build
+        if: ${{ inputs.verifyOnly == false }}
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12.15.0
+          dest: E:\DevCaches\hebergtonserv-desktop\pnpm-bin\recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          run_install: false
+
+      - name: Install app dependencies for the recovery build
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts --reporter append-only --store-dir "$env:PNPM_STORE_DIR"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Rebuild the standalone Tauri executable
+        if: ${{ inputs.verifyOnly == false }}
+        shell: pwsh
+        run: |
+          pnpm tauri build --no-bundle --ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $app = Join-Path $env:CARGO_TARGET_DIR 'release/hebergtonserv-desktop.exe'
+          if (-not (Test-Path -LiteralPath $app) -or (Get-Item -LiteralPath $app).Length -lt 1000000) {
+            throw "Tauri recovery build did not produce a valid executable under $env:CARGO_TARGET_DIR."
           }
 
       - name: Install Bun for standalone runner manager
@@ -348,7 +369,7 @@ jobs:
         if: ${{ inputs.verifyOnly == false }}
         shell: pwsh
         run: |
-          & ./scripts/build-runner.ps1
+          & ./scripts/build-runner.ps1 -OutputDirectory (Join-Path 'E:\DevCaches\hebergtonserv-desktop' 'runner-build')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Attach standalone runner manager to draft release
@@ -357,7 +378,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload $env:RELEASE_TAG 'dist-runner/hebergtonserv-runner-manager.exe' --clobber
+          gh release upload $env:RELEASE_TAG 'E:\DevCaches\hebergtonserv-desktop\runner-build\hebergtonserv-runner-manager.exe' --clobber
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload experimental app and checksums
@@ -373,7 +394,7 @@ jobs:
         if: ${{ inputs.verifyOnly == false }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
-          subject-path: 'dist-release/*'
+          subject-path: '${{ env.RELEASE_STAGING_DIR }}/*'
 
       - name: Verify draft release assets
         shell: pwsh
@@ -393,8 +414,8 @@ jobs:
             throw 'Incomplete signed or standalone release assets; keeping the release in draft.'
           }
           if ($assets.Count -ne 8) { throw "Expected eight release assets; found $($assets.Count)." }
-          $manifestPath = Join-Path $env:RUNNER_TEMP 'latest.json'
-          gh release download $env:RELEASE_TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          $manifestPath = Join-Path $env:RELEASE_STAGING_DIR 'latest.json'
+          gh release download $env:RELEASE_TAG --pattern latest.json --dir $env:RELEASE_STAGING_DIR --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Unable to download the draft updater manifest.' }
           $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
           $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
