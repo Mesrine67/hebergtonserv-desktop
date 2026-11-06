@@ -1,42 +1,76 @@
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, Copy, RotateCcw, Save, WrapText } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Editor, { loader } from "@monaco-editor/react";
+import * as monaco from "../../node_modules/monaco-editor/esm/vs/editor/editor.api.js";
+import { useTheme } from "next-themes";
+import { Check, Copy, RefreshCw, RotateCcw, Save, WrapText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import "../../node_modules/monaco-editor/min/vs/editor/editor.main.css";
+import "../../node_modules/monaco-editor/esm/vs/language/json/monaco.contribution.js";
+import "../../node_modules/monaco-editor/esm/vs/language/css/monaco.contribution.js";
+import "../../node_modules/monaco-editor/esm/vs/language/html/monaco.contribution.js";
+import "../../node_modules/monaco-editor/esm/vs/language/typescript/monaco.contribution.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/bat/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/cpp/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/csharp/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/dockerfile/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/go/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/graphql/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/hcl/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/ini/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/java/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/kotlin/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/less/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/lua/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/markdown/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/php/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/powershell/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/python/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/ruby/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/rust/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/scss/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/shell/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/sql/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/xml/register.js";
+import "../../node_modules/monaco-editor/esm/vs/languages/definitions/yaml/register.js";
 import "./server-code-editor.css";
 
-const tokenPattern = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\/[^\n]*|#[^\n]*|\b(?:const|let|var|function|return|export|import|if|else|async|await|true|false|null|undefined|class|public|private|use|local|server|name|port)\b|\b\d+(?:\.\d+)?\b)/g;
+loader.config({ monaco });
 
-function highlightCode(source: string): ReactNode[] {
-  const tokens: ReactNode[] = [];
-  let cursor = 0;
-  for (const match of source.matchAll(tokenPattern)) {
-    const index = match.index ?? cursor;
-    if (index > cursor) tokens.push(source.slice(cursor, index));
-    const value = match[0];
-    const kind = value.startsWith("//") || value.startsWith("#") ? "comment"
-      : value.startsWith('"') || value.startsWith("'") ? "string"
-      : /^\d/.test(value) ? "number" : "keyword";
-    tokens.push(<span key={index} className={"hts-code-" + kind}>{value}</span>);
-    cursor = index + value.length;
-  }
-  if (cursor < source.length) tokens.push(source.slice(cursor));
-  if (!tokens.length) tokens.push(source || " ");
-  return tokens;
-}
+const languageByExtension: Record<string, string> = {
+  json: "JSON", jsonc: "JSONC", json5: "JSON5", js: "JavaScript", mjs: "JavaScript", cjs: "JavaScript", jsx: "JavaScript JSX",
+  ts: "TypeScript", mts: "TypeScript", cts: "TypeScript", tsx: "TypeScript JSX", yaml: "YAML", yml: "YAML", lua: "Lua",
+  py: "Python", pyw: "Python", pyi: "Python", sh: "Shell", bash: "Shell", zsh: "Shell", fish: "Shell", toml: "TOML",
+  ini: "INI", properties: "Properties", conf: "Config", cfg: "Config", config: "Config", xml: "XML", svg: "SVG",
+  html: "HTML", htm: "HTML", xhtml: "HTML", css: "CSS", scss: "SCSS", sass: "Sass", less: "Less", sql: "SQL", md: "Markdown",
+  markdown: "Markdown", mdown: "Markdown", rs: "Rust", go: "Go", java: "Java", kt: "Kotlin", kts: "Kotlin", cs: "C#", c: "C",
+  h: "C", cc: "C++", cpp: "C++", hpp: "C++", php: "PHP", phtml: "PHP", rb: "Ruby", rake: "Ruby", ps1: "PowerShell",
+  psm1: "PowerShell", bat: "Batch", cmd: "Batch", diff: "Diff", patch: "Diff", graphql: "GraphQL", gql: "GraphQL", hcl: "HCL",
+  tf: "Terraform", tfvars: "Terraform", log: "Log",
+};
+const knownConfigFiles = new Set([".env", ".env.local", ".env.development", ".env.production", ".gitignore", ".gitattributes", ".editorconfig", ".htaccess", "makefile", "containerfile", "dockerfile", "nginx.conf", "caddyfile"]);
+
+const monacoLanguageByLabel: Record<string, string> = {
+  JSON: "json", JSONC: "json", JSON5: "json", JavaScript: "javascript", "JavaScript JSX": "javascript",
+  TypeScript: "typescript", "TypeScript JSX": "typescript", YAML: "yaml", Lua: "lua", Python: "python", Shell: "shell",
+  TOML: "ini", INI: "ini", Properties: "ini", Configuration: "ini", Config: "ini", XML: "xml", SVG: "xml", HTML: "html",
+  CSS: "css", SCSS: "scss", Sass: "scss", Less: "less", SQL: "sql", Markdown: "markdown", Rust: "rust", Go: "go",
+  Java: "java", Kotlin: "kotlin", "C#": "csharp", C: "cpp", "C++": "cpp", PHP: "php", Ruby: "ruby", PowerShell: "powershell",
+  Batch: "bat", Diff: "plaintext", GraphQL: "graphql", HCL: "hcl", Terraform: "hcl", Dockerfile: "dockerfile", Makefile: "plaintext", Log: "plaintext",
+};
 
 export function serverFileLanguage(path: string): string {
-  const extension = path.split(".").pop()?.toLowerCase() ?? "";
-  const languages: Record<string, string> = {
-    json: "JSON", jsonc: "JSON", json5: "JSON", ts: "TypeScript",
-    tsx: "TypeScript", js: "JavaScript", jsx: "JavaScript",
-    yaml: "YAML", yml: "YAML", lua: "Lua", py: "Python",
-    sh: "Shell", bash: "Shell", toml: "TOML", ini: "INI",
-    cfg: "Config", properties: "Properties", xml: "XML", html: "HTML",
-    css: "CSS", sql: "SQL", md: "Markdown",
-  };
-  return languages[extension] ?? "Texte brut";
+  const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  if (fileName.startsWith(".env.")) return "Config";
+  if (knownConfigFiles.has(fileName)) return ["dockerfile", "containerfile"].includes(fileName) ? "Dockerfile" : fileName === "makefile" ? "Makefile" : "Config";
+  const extension = fileName.includes(".") ? fileName.split(".").pop() ?? "" : fileName;
+  return languageByExtension[extension] ?? "Texte brut";
+}
+
+export function serverFileMonacoLanguage(path: string): string {
+  return monacoLanguageByLabel[serverFileLanguage(path)] ?? "plaintext";
 }
 
 type Props = {
@@ -46,19 +80,33 @@ type Props = {
   onChange: (value: string) => void;
   onSave: () => void;
   saving: boolean;
+  onRefresh: () => void;
+  refreshing: boolean;
 };
 
-export function ServerCodeEditor({ path, value, original, onChange, onSave, saving }: Props) {
-  const textarea = useRef<HTMLTextAreaElement>(null);
-  const overlay = useRef<HTMLPreElement>(null);
-  const gutter = useRef<HTMLDivElement>(null);
+export function ServerCodeEditor({ path, value, original, onChange, onSave, saving, onRefresh, refreshing }: Props) {
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const saveRef = useRef(onSave);
+  const dirtyRef = useRef(false);
+  const savingRef = useRef(false);
   const [wrap, setWrap] = useState(false);
   const [showNumbers, setShowNumbers] = useState(true);
   const [copied, setCopied] = useState(false);
+  const { resolvedTheme } = useTheme();
   const dirty = value !== original;
   const lines = useMemo(() => value.split("\n").length, [value]);
-  const highlighted = useMemo(() => highlightCode(value), [value]);
+  const language = serverFileLanguage(path);
+  const languageId = serverFileMonacoLanguage(path);
   const fileName = path.split("/").pop() ?? path;
+  saveRef.current = onSave;
+  dirtyRef.current = dirty;
+  savingRef.current = saving;
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.updateOptions({ wordWrap: wrap ? "on" : "off", lineNumbers: showNumbers ? "on" : "off" });
+  }, [wrap, showNumbers]);
 
   async function copyCode() {
     try {
@@ -72,78 +120,60 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
     }
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      if (dirty && !saving) onSave();
-    }
-    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      event.preventDefault();
-      const field = event.currentTarget;
-      const start = field.selectionStart;
-      const end = field.selectionEnd;
-      if (event.shiftKey) {
-        const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-        const indentation = value.slice(lineStart).match(/^( {1,2}|\t)/)?.[0] ?? "";
-        if (!indentation) return;
-        onChange(value.slice(0, lineStart) + value.slice(lineStart + indentation.length));
-        requestAnimationFrame(() => {
-          field.selectionStart = Math.max(lineStart, start - indentation.length);
-          field.selectionEnd = Math.max(lineStart, end - indentation.length);
-        });
-        return;
-      }
-      onChange(value.slice(0, start) + "  " + value.slice(end));
-      requestAnimationFrame(() => {
-        field.selectionStart = start + 2;
-        field.selectionEnd = start + 2;
-      });
-    }
-  }
-
   return (
-    <div className="hts-code-editor flex h-[min(62vh,660px)] min-h-[300px] min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+    <div className="hts-code-editor flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background">
       <div className="flex min-w-0 flex-wrap items-center gap-2 border-b bg-muted/20 px-3 py-2">
         <span className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
-          <span className="size-2 rounded-full bg-destructive/60"/>
-          <span className="size-2 rounded-full bg-amber-500/60"/>
-          <span className="size-2 rounded-full bg-emerald-500/60"/>
+          <span className="size-2 rounded-full bg-destructive/60" />
+          <span className="size-2 rounded-full bg-amber-500/60" />
+          <span className="size-2 rounded-full bg-emerald-500/60" />
         </span>
         <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium" title={path}>{fileName}</span>
-        <span className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{serverFileLanguage(path)}</span>
+        <span className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{language}</span>
         {dirty && <span role="status" className="text-[10px] text-amber-500">Modifié</span>}
+        <Button type="button" variant="ghost" size="sm" onClick={onRefresh} disabled={refreshing} aria-label="Actualiser les fichiers du serveur"><RefreshCw className={refreshing ? "animate-spin" : ""} />Actualiser</Button>
         <Button type="button" variant="ghost" size="icon-sm" onClick={() => setShowNumbers(v => !v)} aria-label="Afficher ou masquer les numéros de ligne" aria-pressed={showNumbers}>#</Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap}><WrapText className="size-3.5"/></Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => void copyCode()} aria-label="Copier le code">{copied ? <Check className="size-3.5"/> : <Copy className="size-3.5"/>}</Button>
-        <Button type="button" variant="outline" size="sm" disabled={!dirty || saving} onClick={() => onChange(original)}><RotateCcw className="size-3.5"/> Annuler</Button>
-        <Button type="button" size="sm" disabled={!dirty || saving} onClick={onSave}><Save className="size-3.5"/> {saving ? "Enregistrement…" : "Enregistrer"}</Button>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap}><WrapText className="size-3.5" /></Button>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={() => void copyCode()} aria-label="Copier le code">{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={!dirty || saving} onClick={() => onChange(original)}><RotateCcw className="size-3.5" /> Annuler</Button>
+        <Button type="button" size="sm" disabled={!dirty || saving} onClick={onSave}><Save className="size-3.5" /> {saving ? "Enregistrement…" : "Enregistrer"}</Button>
       </div>
-      <div className="relative flex min-h-0 min-w-0 flex-1">
-        {showNumbers && !wrap && (
-          <div ref={gutter} aria-hidden="true" className="hts-code-gutter shrink-0 overflow-hidden border-r px-2 py-3 text-right font-mono text-xs leading-6 text-muted-foreground/60">
-            {Array.from({ length: lines }, (_, i) => <div key={i}>{i + 1}</div>)}
-          </div>
-        )}
-        <div className="relative min-w-0 flex-1">
-          <pre ref={overlay} aria-hidden="true" className={"hts-code-overlay absolute inset-0 m-0 overflow-hidden px-3 py-3 font-mono text-xs leading-6 " + (wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")}>{highlighted}{"\n"}</pre>
-          <textarea
-            ref={textarea}
-            aria-label={"Éditeur du fichier " + fileName}
-            spellCheck={false}
-            value={value}
-            onChange={event => onChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            onScroll={event => {
-              if (overlay.current) {
-                overlay.current.scrollTop = event.currentTarget.scrollTop;
-                overlay.current.scrollLeft = event.currentTarget.scrollLeft;
-              }
-              if (gutter.current) gutter.current.scrollTop = event.currentTarget.scrollTop;
-            }}
-            wrap={wrap ? "soft" : "off"}
-            className={"hts-code-input absolute inset-0 size-full resize-none overflow-auto bg-transparent px-3 py-3 font-mono text-xs leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring/45 " + (wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")}
-          />
-        </div>
+      <div className="hts-monaco-container min-h-0 min-w-0 flex-1 overflow-hidden">
+        <Editor
+          path={path}
+          value={value}
+          language={languageId}
+          theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+          loading={<div className="grid h-full place-items-center text-xs text-muted-foreground">Chargement de l’éditeur…</div>}
+          onChange={next => onChange(next ?? "")}
+          onMount={editor => {
+            editorRef.current = editor;
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+              if (dirtyRef.current && !savingRef.current) saveRef.current();
+            });
+          }}
+          options={{
+            automaticLayout: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: wrap ? "on" : "off",
+            lineNumbers: showNumbers ? "on" : "off",
+            fontSize: 12,
+            lineHeight: 24,
+            tabSize: 2,
+            insertSpaces: true,
+            detectIndentation: true,
+            renderLineHighlight: "line",
+            roundedSelection: false,
+            padding: { top: 10, bottom: 10 },
+            scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+            folding: true,
+            bracketPairColorization: { enabled: true },
+            guides: { indentation: true, bracketPairs: true },
+            readOnly: false,
+            ariaLabel: `Éditeur du fichier ${fileName}`,
+          }}
+        />
       </div>
       <div className="flex items-center justify-between gap-2 border-t bg-muted/15 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span>{lines} ligne(s) · {value.length} caractères</span>

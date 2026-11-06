@@ -64,11 +64,11 @@ export function NavUser() {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="hts-floating-menu-item">
-              <Link to="/settings"><Settings2 className="size-4" />Paramètres</Link>
+            <DropdownMenuItem className="hts-floating-menu-item" onSelect={() => window.dispatchEvent(new Event("hts:open-settings"))}>
+              <Settings2 className="size-4" />Paramètres
             </DropdownMenuItem>
-            <DropdownMenuItem asChild className="hts-floating-menu-item">
-              <Link to="/security"><ShieldCheck className="size-4" />Sécurité</Link>
+            <DropdownMenuItem className="hts-floating-menu-item" onSelect={() => window.dispatchEvent(new Event("hts:open-security"))}>
+              <ShieldCheck className="size-4" />Sécurité
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="hts-floating-menu-item">
               <Link to="/ssh-keys"><KeyRound className="size-4" />Mes clés SSH</Link>

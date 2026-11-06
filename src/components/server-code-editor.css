@@ -1,16 +1,11 @@
 .hts-code-editor { isolation: isolate; }
-.hts-code-gutter { min-width: 3rem; background: color-mix(in oklch,var(--muted) 20%,var(--background)); }
-.hts-code-overlay { tab-size: 2; color: var(--foreground); pointer-events: none; }
-.hts-code-input {
-  tab-size: 2;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  caret-color: var(--foreground);
-  background: transparent;
-}
-.hts-code-input::selection { background: color-mix(in oklch,var(--primary) 30%,transparent); }
-.hts-code-input:focus { outline: none; }
-.hts-code-string { color: var(--chart-2); }
-.hts-code-number { color: var(--chart-3); }
-.hts-code-keyword { color: var(--chart-4); }
-.hts-code-comment { color: var(--muted-foreground); }
+.hts-monaco-container,
+.hts-monaco-container > section,
+.hts-monaco-container .monaco-editor,
+.hts-monaco-container .overflow-guard { width: 100%; height: 100%; }
+.hts-monaco-container .monaco-editor,
+.hts-monaco-container .monaco-editor-background,
+.hts-monaco-container .margin { background-color: transparent !important; }
+.hts-monaco-container .monaco-editor .line-numbers { color: var(--muted-foreground); }
+.hts-monaco-container .monaco-editor .current-line ~ .line-numbers { color: var(--foreground); }
+.hts-monaco-container .monaco-editor .scroll-decoration { box-shadow: none; }
