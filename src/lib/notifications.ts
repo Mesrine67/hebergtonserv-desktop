@@ -1,3 +1,5 @@
+import { isTauri } from "@tauri-apps/api/core";
+
 export type HtsNotification = {
   id: string;
   title: string;
@@ -36,4 +38,17 @@ export function writeNotifications(items: HtsNotification[]) {
 export function notifyDesktop(title: string, description: string, category: HtsNotification["category"] = "system") {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, { detail: { title, description, category } }));
+  // Keep the in-app inbox as the source of truth. Native notifications are an
+  // optional companion and only work in installed Windows builds.
+  if (isTauri()) {
+    void import("@tauri-apps/plugin-notification").then(async ({
+      isPermissionGranted,
+      requestPermission,
+      sendNotification,
+    }) => {
+      let granted = await isPermissionGranted();
+      if (!granted) granted = (await requestPermission()) === "granted";
+      if (granted) sendNotification({ title, body: description });
+    }).catch(() => undefined);
+  }
 }

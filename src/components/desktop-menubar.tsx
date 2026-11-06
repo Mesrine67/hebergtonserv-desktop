@@ -42,7 +42,7 @@ export function DesktopMenubar() {
             <MenubarItem onSelect={() => navigate("/panels")}><Home /> Panels</MenubarItem>
             <MenubarItem onSelect={() => navigate("/git")}><GitBranch /> Git / GH</MenubarItem>
             <MenubarSeparator />
-            <MenubarItem onSelect={() => navigate("/settings")}><Settings2 /> Paramètres</MenubarItem>
+            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-settings"))}><Settings2 /> Paramètres</MenubarItem>
             <MenubarSeparator />
             <MenubarItem onSelect={() => { if (isTauri()) window.dispatchEvent(new Event("hts:request-close")); }} disabled={!isTauri()}>Fermer la fenêtre</MenubarItem>
           </MenubarContent>
@@ -62,7 +62,7 @@ export function DesktopMenubar() {
             <MenubarItem onSelect={toggleSidebar}><PanelLeftClose /> Afficher / masquer la sidebar <MenubarShortcut>Ctrl+B</MenubarShortcut></MenubarItem>
             <MenubarSeparator />
             <MenubarItem onSelect={() => setTheme(dark ? "light" : "dark")}>{dark ? <Sun /> : <Moon />} {dark ? "Mode clair" : "Mode sombre"}</MenubarItem>
-            <MenubarItem onSelect={() => navigate("/settings")}><Settings2 /> Thèmes et préférences</MenubarItem>
+            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-settings"))}><Settings2 /> Thèmes et préférences</MenubarItem>
           </MenubarContent>
         </MenubarMenu>
         <MenubarMenu>
@@ -76,7 +76,7 @@ export function DesktopMenubar() {
             <MenubarItem disabled={!isTauri()} onSelect={() => window.dispatchEvent(new Event("hts:open-task-manager"))}><ListTree /> Gestionnaire de tâches</MenubarItem>
             <MenubarSeparator />
             <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:check-for-updates"))}><RefreshCw /> Rechercher des mises à jour</MenubarItem>
-            <MenubarItem onSelect={() => navigate("/security")}><ShieldCheck /> Sécurité</MenubarItem>
+            <MenubarItem onSelect={() => window.dispatchEvent(new Event("hts:open-security"))}><ShieldCheck /> Sécurité</MenubarItem>
           </MenubarContent>
         </MenubarMenu>
       </Menubar>

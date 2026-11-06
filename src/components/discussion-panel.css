@@ -2,7 +2,7 @@
   height: min(660px, calc(100dvh - 66px));
   min-height: min(340px, calc(100dvh - 66px));
   border-radius: calc(var(--radius) + 6px);
-  backdrop-filter: blur(18px);
+  backdrop-filter: none;
   -webkit-app-region: no-drag;
 }
 .hts-discussion-panel [data-slot="message-scroller-viewport"] {

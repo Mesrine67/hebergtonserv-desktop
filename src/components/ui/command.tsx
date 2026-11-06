@@ -9,7 +9,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 }
 
 function CommandDialog({ title = "Recherche rapide", description = "Recherchez une page ou une action.", children, ...props }: React.ComponentProps<typeof Dialog> & { title?: string; description?: string }) {
-  return <Dialog {...props}><DialogContent overlayClassName="bg-transparent" className="top-[20%] w-[min(92vw,38rem)] -translate-y-0 overflow-hidden p-0" aria-describedby="command-search-description"><DialogTitle className="sr-only">{title}</DialogTitle><DialogDescription id="command-search-description" className="sr-only">{description}</DialogDescription>{children}</DialogContent></Dialog>
+  return <Dialog {...props}><DialogContent className="top-[20%] w-[min(92vw,38rem)] -translate-y-0 overflow-hidden p-0" aria-describedby="command-search-description"><DialogTitle className="sr-only">{title}</DialogTitle><DialogDescription id="command-search-description" className="sr-only">{description}</DialogDescription>{children}</DialogContent></Dialog>
 }
 
 function CommandInput({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Input>) {

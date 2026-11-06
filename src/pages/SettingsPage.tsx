@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "react-router-dom";
 import { Bell, Monitor, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/page-shell";
@@ -8,9 +7,7 @@ import { commands } from "@/lib/tauri";
 import UpdaterSection from "@/components/UpdaterSection";
 import ThemeStyleSection from "@/components/theme-style-section";
 
-export default function SettingsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
+export default function SettingsPage({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const qc = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: commands.getSettings });
   const update = useMutation({
@@ -36,13 +33,13 @@ export default function SettingsPage() {
   });
   const data = settings.data?.data;
   return (
-    <Dialog open onOpenChange={open => { if (!open) { if (location.key === "default") navigate("/home"); else navigate(-1); } }}>
-      <DialogContent className="max-h-[88vh] w-[min(96vw,960px)] max-w-none overflow-y-auto bg-card p-0 sm:max-w-none">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88dvh] w-[min(96vw,960px)] max-w-none p-0 sm:max-w-none">
       <DialogHeader className="border-b px-6 py-5 pr-14">
         <DialogTitle>Paramètres</DialogTitle>
         <DialogDescription>Personnalisez le comportement de la fenêtre, le démarrage Windows, le thème et les mises à jour de l’application.</DialogDescription>
       </DialogHeader>
-      <div className="space-y-6 p-5 md:p-6">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 md:p-6">
       <SectionCard title="Comportement Windows" description="Les réglages sont appliqués à votre session utilisateur." className="max-w-3xl">
         {settings.isPending ? <p className="text-sm text-muted-foreground">Chargement des paramètres…</p>
           : settings.isError ? <p role="alert" className="text-sm text-destructive">{String(settings.error)}</p>

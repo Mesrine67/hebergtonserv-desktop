@@ -169,7 +169,21 @@ pub fn show_ready_main_window(app: tauri::AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "Fenêtre principale introuvable".to_string())?;
-    window.show().map_err(|error| error.to_string())
+    let size = window.inner_size().map_err(|error| error.to_string())?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    if size.width as f64 / scale < 700.0 || size.height as f64 / scale < 500.0 {
+        window
+            .set_size(tauri::Size::Logical(tauri::LogicalSize::new(1280.0, 820.0)))
+            .map_err(|error| error.to_string())?;
+        window
+            .set_min_size(Some(tauri::Size::Logical(tauri::LogicalSize::new(
+                960.0, 640.0,
+            ))))
+            .map_err(|error| error.to_string())?;
+        window.center().map_err(|error| error.to_string())?;
+    }
+    window.show().map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

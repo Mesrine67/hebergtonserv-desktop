@@ -17,6 +17,7 @@
     "updater:default",
     "dialog:allow-save",
     "clipboard-manager:allow-write-text",
+    "notification:default",
     "websocket:default"
   ]
 }
