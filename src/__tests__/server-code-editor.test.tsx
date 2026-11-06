@@ -19,6 +19,11 @@ describe("Server code editor", () => {
     expect(serverFileLanguage("/resources/server.cfg")).toBe("Config");
     expect(serverFileLanguage("/config/settings.json")).toBe("JSON");
     expect(serverFileLanguage("/my-project/manifest.lua")).toBe("Lua");
+    expect(serverFileLanguage("/txData/admins.JSON")).toBe("JSON");
+    expect(serverFileLanguage("/server/.env.production")).toBe("Config");
+    expect(serverFileLanguage("/server/Dockerfile")).toBe("Dockerfile");
+    expect(serverFileLanguage("/server/main.rs")).toBe("Rust");
+    expect(serverFileLanguage("/server/unknown.bin")).toBe("Texte brut");
     expect(serverFileLanguage("/readme.unknown")).toBe("Texte brut");
   });
 
@@ -31,6 +36,7 @@ describe("Server code editor", () => {
     await act(async () => root?.render(<ServerCodeEditor path="/server.cfg" value="test=2"
       original="test=1" onChange={onChange} onSave={onSave} saving={false} onRefresh={vi.fn()} refreshing={false}/>));
     expect(host.textContent).toContain("Modifié");
+    expect(host.querySelector(".hts-code-property")).not.toBeNull();
     expect(onSave).not.toHaveBeenCalled();
     const saveButton = [...host.querySelectorAll("button")].find(node => node.textContent?.includes("Enregistrer"));
     expect(saveButton).not.toBeUndefined();

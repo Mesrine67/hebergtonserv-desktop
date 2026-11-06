@@ -14,3 +14,7 @@
 .hts-code-number { color: var(--chart-3); }
 .hts-code-keyword { color: var(--chart-4); }
 .hts-code-comment { color: var(--muted-foreground); }
+.hts-code-property { color: var(--chart-1); }
+.hts-code-variable { color: var(--foreground); }
+.hts-code-punctuation { color: var(--muted-foreground); }
+.hts-code-tag { color: var(--chart-5); }
