@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownAZ, ChevronRight, Copy, Database, Eye, EyeOff, ExternalLink, File, RefreshCw, Search } from "lucide-react";
+import { ArrowDownAZ, Copy, Database, Eye, EyeOff, ExternalLink, File, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { PanelFileTree } from "@/components/panel-file-tree";
@@ -35,8 +35,10 @@ export default function ServerManagementPage({ section }: { section: Section }) 
   const requestId = panel && server ? apiIdentifier(panel.provider, panel.pterodactyl_version, server.id, server.identifier) : "";
   const [path, setPath] = useState("/");
   const [selected, setSelected] = useState<string | null>(null);
+  const [openFiles, setOpenFiles] = useState<string[]>([]);
   const [fileFilter, setFileFilter] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const [compactLayout, setCompactLayout] = useState(() => window.matchMedia("(max-width: 1100px)").matches);
   const filesFetching = useIsFetching({ queryKey: ["panel-server-files", panel?.id, requestId] }) > 0;
   const content = useQuery({ queryKey: ["panel-server-file", panel?.id, requestId, selected], queryFn: () => commands.readPanelServerFile(panel!.id, requestId, selected!), enabled: Boolean(panel && requestId && selected && section === "files"), staleTime: 0 });
   const [draftByFile, setDraftByFile] = useState<Record<string, string>>({});
@@ -84,12 +86,11 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     }
   };
   const databases = useQuery({ queryKey: ["panel-server-databases", panel?.id, requestId], queryFn: () => commands.listPanelServerDatabases(panel!.id, requestId), enabled: Boolean(panel && requestId && section === "databases"), staleTime: 15_000 });
-  const breadcrumbs = useMemo(() => path.split("/").filter(Boolean), [path]);
   const databaseCount = databases.data?.length ?? 0;
   const databaseLimit = server?.limits.databases;
   const databaseUsage = databaseLimit == null ? null : Math.min(100, databaseLimit === 0 ? 100 : databaseCount / databaseLimit * 100);
   const [revealedPasswords, setRevealedPasswords] = useState<string[]>([]);
-  const [fileExplorerLayout, setFileExplorerLayout] = useState<Record<string, number>>(() => {
+  const [fileExplorerLayout] = useState<Record<string, number>>(() => {
     try {
       const saved = window.localStorage.getItem("hts-server-files-layout");
       const layout = saved ? JSON.parse(saved) as Record<string, number> : null;
@@ -99,6 +100,24 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       return { explorer: 24, editor: 76 };
     }
   });
+  const pendingFileExplorerLayout = useRef<Record<string, number> | null>(null);
+  const fileExplorerLayoutSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1100px)");
+    const updateLayout = () => setCompactLayout(query.matches);
+    updateLayout();
+    query.addEventListener("change", updateLayout);
+    return () => query.removeEventListener("change", updateLayout);
+  }, []);
+
+  useEffect(() => () => {
+    if (fileExplorerLayoutSaveTimer.current) clearTimeout(fileExplorerLayoutSaveTimer.current);
+    if (pendingFileExplorerLayout.current) {
+      try { window.localStorage.setItem("hts-server-files-layout", JSON.stringify(pendingFileExplorerLayout.current)); }
+      catch { /* storage can be disabled */ }
+    }
+  }, []);
   const copyValue = async (value: string, label: string) => {
     try { if (isTauri()) await writeText(value); else await navigator.clipboard.writeText(value); toast.success(`${label} copié.`); }
     catch { toast.error(`Impossible de copier ${label.toLocaleLowerCase()}.`); }
@@ -117,45 +136,67 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     if (cached?.selected) {
       setSelected(cached.selected);
       setPath(cached.path);
+      setOpenFiles(cached.openFiles?.length ? cached.openFiles : [cached.selected]);
     }
   }, [section, panel?.id, server?.identifier, selected]);
+
+  const selectFile = (filePath: string) => {
+    const nextPath = filePath.split("/").slice(0, -1).join("/") || "/";
+    const nextOpenFiles = openFiles.includes(filePath) ? openFiles : [...openFiles, filePath];
+    setSelected(filePath);
+    setPath(nextPath);
+    setOpenFiles(nextOpenFiles);
+    if (panel && server) {
+      setServerExplorerState(panel.id, server.identifier, { selected: filePath, path: nextPath, openFiles: nextOpenFiles });
+    }
+  };
+
+  const closeFileTab = (filePath: string) => {
+    if (!panel || !server) return;
+    const currentIndex = openFiles.indexOf(filePath);
+    const nextOpenFiles = openFiles.filter(item => item !== filePath);
+    const nextSelected = selected === filePath ? nextOpenFiles[Math.min(currentIndex, nextOpenFiles.length - 1)] ?? null : selected;
+    const nextPath = nextSelected ? nextSelected.split("/").slice(0, -1).join("/") || "/" : "/";
+    setOpenFiles(nextOpenFiles);
+    setSelected(nextSelected);
+    setPath(nextPath);
+    setServerExplorerState(panel!.id, server!.identifier, { selected: nextSelected, path: nextPath, openFiles: nextOpenFiles });
+  };
 
   return <section className={section === "files" ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}>
 
     {!panel && panels.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce panel n’est pas configuré. Retournez à la liste et sélectionnez un compte.</p>}
     {panel && !server && servers.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce serveur n’est pas accessible depuis le panel sélectionné.</p>}
-    {section === "files" && <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 overflow-hidden rounded-xl" defaultLayout={fileExplorerLayout} onLayoutChange={layout => {
+    {section === "files" && <ResizablePanelGroup orientation={compactLayout ? "vertical" : "horizontal"} className="min-h-0 flex-1 overflow-hidden rounded-lg" defaultLayout={fileExplorerLayout} onLayoutChange={layout => {
       const next = { explorer: layout.explorer ?? 24, editor: layout.editor ?? 76 };
-      setFileExplorerLayout(next);
-      try { window.localStorage.setItem("hts-server-files-layout", JSON.stringify(next)); } catch { /* storage can be disabled */ }
+      pendingFileExplorerLayout.current = next;
+      if (fileExplorerLayoutSaveTimer.current) clearTimeout(fileExplorerLayoutSaveTimer.current);
+      fileExplorerLayoutSaveTimer.current = setTimeout(() => {
+        const latest = pendingFileExplorerLayout.current;
+        if (!latest) return;
+        try { window.localStorage.setItem("hts-server-files-layout", JSON.stringify(latest)); } catch { /* storage can be disabled */ }
+        fileExplorerLayoutSaveTimer.current = null;
+      }, 120);
     }}>
-      <ResizablePanel id="explorer" defaultSize="24%" minSize="16%" maxSize="42%" className="min-h-0 min-w-0">
-      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
-        <div className="space-y-3 border-b px-4 py-3">
-          <div><p className="text-sm font-semibold">Parcourir les fichiers</p><p className="mt-1 truncate font-mono text-xs text-muted-foreground">{path}</p></div>
+      <ResizablePanel id="explorer" defaultSize={compactLayout ? "34%" : "24%"} minSize={compactLayout ? "22%" : "16%"} maxSize={compactLayout ? "48%" : "55%"} className="min-h-0 min-w-0">
+      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
+        <div className="space-y-3 border-b p-3">
           <label className="relative block"><Search aria-hidden="true" className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"/><input value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrer les dossiers ouverts…" aria-label="Filtrer les fichiers des dossiers ouverts" className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"/></label>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><ArrowDownAZ className="size-3.5"/>Dossiers puis nom</span>
             <button type="button" onClick={() => setShowHidden(value => !value)} aria-pressed={showHidden} className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-secondary hover:text-foreground">{showHidden ? <Eye className="size-3.5"/> : <EyeOff className="size-3.5"/>}{showHidden ? "Masqués visibles" : "Afficher les masqués"}</button>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {panel && requestId && <PanelFileTree key={`${panel.id}:${requestId}`} panelId={panel.id} serverId={requestId} path="/" selected={selected} filter={fileFilter} showHidden={showHidden} onSelect={entry => {
-            const nextPath = entry.path.split("/").slice(0, -1).join("/") || "/";
-            setSelected(entry.path);
-            setPath(nextPath);
-            setServerExplorerState(panel.id, server!.identifier, { selected: entry.path, path: nextPath });
-          }}/>}
+          {panel && requestId && <PanelFileTree key={`${panel.id}:${requestId}`} panelId={panel.id} serverId={requestId} path="/" selected={selected} filter={fileFilter} showHidden={showHidden} onSelect={entry => selectFile(entry.path)}/>}
         </div>
       </aside>
       </ResizablePanel>
       <ResizableHandle withHandle aria-label="Redimensionner l’arborescence et l’éditeur" />
-      <ResizablePanel id="editor" defaultSize="76%" minSize="38%" className="min-h-0 min-w-0 pl-1">
-      <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
-        <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><span className="truncate">{part}</span>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
+      <ResizablePanel id="editor" defaultSize={compactLayout ? "66%" : "76%"} minSize={compactLayout ? "52%" : "38%"} className={`min-h-0 min-w-0 ${compactLayout ? "pt-1" : "pl-1"}`}>
+      <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
         {selected ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pb-3">
-            <div className="shrink-0 truncate py-2 font-mono text-xs text-muted-foreground" title={selected}>{selected}</div>
             {content.isLoading ? <p role="status" className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p>
               : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p>
               : content.isSuccess ? (
@@ -168,13 +209,20 @@ export default function ServerManagementPage({ section }: { section: Section }) 
                     setDraftByFile(previous => ({ ...previous, [selected]: value }));
                     if (value === original) clearServerFileDraft(panel!.id, server!.identifier, selected);
                     else setServerFileDraft(panel!.id, server!.identifier, selected, value);
-                    setServerExplorerState(panel!.id, server!.identifier, { selected, path });
+                    setServerExplorerState(panel!.id, server!.identifier, { selected, path, openFiles });
                     announceDraftState(value !== original);
                   }}
                   onSave={() => void saveFile()}
                   saving={savingFile}
                   refreshing={filesFetching}
                   onRefresh={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })}
+                  tabs={openFiles.map(filePath => ({
+                    path: filePath,
+                    name: filePath.split("/").filter(Boolean).slice(-1)[0] ?? filePath,
+                    dirty: filePath === selected ? dirty : getServerFileDraft(panel!.id, server!.identifier, filePath) !== undefined,
+                  }))}
+                  onSelectTab={selectFile}
+                  onCloseTab={closeFileTab}
                 />
               ) : null}
           </div>
