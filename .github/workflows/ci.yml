@@ -58,7 +58,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, Windows, X64]
     env:
-      RUSTUP_TOOLCHAIN: 1.95.0-x86_64-pc-windows-msvc
+      RUSTUP_TOOLCHAIN: 1.99.1-x86_64-pc-windows-msvc
     timeout-minutes: 35
     steps:
       - name: Checkout
