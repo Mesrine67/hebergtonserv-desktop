@@ -1,20 +1,21 @@
 import { useEffect, useState } from "react";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { BookOpen, CalendarClock, Command, ExternalLink, History, RefreshCw } from "lucide-react";
+import { BookOpen, CalendarClock, Command, ExternalLink, History, Search, RefreshCw } from "lucide-react";
 import { version as buildVersion } from "../../package.json";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { recordAppEvent } from "@/lib/app-diagnostics";
 
 type Release = { tag_name: string; name: string; body: string; published_at: string | null; html_url: string };
 const shortcuts = [
-  { title: "Revenir à la page précédente", keys: "Alt + ←" },
-  { title: "Aller à la page suivante", keys: "Alt + →" },
-  { title: "Afficher / masquer la navigation", keys: "Ctrl + B" },
-  { title: "Afficher les raccourcis", keys: "Ctrl + /" },
-  { title: "Rechercher des mises à jour", keys: "Aide → Mises à jour" },
-  { title: "Ouvrir le gestionnaire de tâches", keys: "Aide → Gestionnaire de tâches" },
+  { group: "Navigation", title: "Revenir à la page précédente", keys: ["Alt", "←"], detail: "Revient à l’écran précédent de l’application." },
+  { group: "Navigation", title: "Avancer dans l’historique", keys: ["Alt", "→"], detail: "Rouvre l’écran suivant si vous êtes déjà revenu en arrière." },
+  { group: "Navigation", title: "Afficher ou masquer la navigation", keys: ["Ctrl", "B"], detail: "Libère de l’espace pour la page en cours." },
+  { group: "Navigation", title: "Rechercher un serveur", keys: ["Ctrl", "K"], detail: "Ouvre la recherche dans la liste des serveurs." },
+  { group: "Aide", title: "Afficher les raccourcis", keys: ["Ctrl", "/"], detail: "Ouvre ce panneau. Disponible depuis les pages de l’application." },
+  { group: "Dans l’éditeur de fichiers", title: "Enregistrer le fichier", keys: ["Ctrl", "S"], detail: "Enregistre les modifications du fichier actuellement ouvert." },
 ] as const;
 const fallback: Release = {
   tag_name: `v${buildVersion}`,
@@ -39,20 +40,23 @@ function ReleaseNotes({ body }: { body: string }) {
   })}</div>;
 }
 
-export function DesktopHelpPanels() {
-  const [changelogOpen, setChangelogOpen] = useState(false);
+export function DesktopHelpPanels({
+  changelogOpen,
+  onChangelogOpenChange,
+}: {
+  changelogOpen: boolean;
+  onChangelogOpenChange: (open: boolean) => void;
+}) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [shortcutFilter, setShortcutFilter] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [releases, setReleases] = useState<Release[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const openChangelog = () => {
-      setChangelogOpen(true);
-      recordAppEvent("help", "changelog_opened");
-    };
     const openShortcuts = () => {
+      setShortcutFilter("");
       setShortcutsOpen(true);
       recordAppEvent("help", "shortcuts_opened");
     };
@@ -63,11 +67,9 @@ export function DesktopHelpPanels() {
       event.preventDefault();
       openShortcuts();
     }
-    window.addEventListener("hts:open-changelog", openChangelog);
     window.addEventListener("hts:open-shortcuts", openShortcuts);
     window.addEventListener("keydown", keyboard);
     return () => {
-      window.removeEventListener("hts:open-changelog", openChangelog);
       window.removeEventListener("hts:open-shortcuts", openShortcuts);
       window.removeEventListener("keydown", keyboard);
     };
@@ -75,6 +77,8 @@ export function DesktopHelpPanels() {
 
   useEffect(() => {
     if (!changelogOpen) return;
+    setSelectedTag("");
+    recordAppEvent("help", "changelog_opened");
     let active = true;
     setLoading(true);
     setError("");
@@ -109,7 +113,7 @@ export function DesktopHelpPanels() {
   }
 
   return <>
-    <Dialog open={changelogOpen} onOpenChange={setChangelogOpen}>
+    <Dialog open={changelogOpen} onOpenChange={onChangelogOpenChange}>
       <DialogContent className="flex h-[min(85vh,780px)] w-[min(94vw,1000px)] max-w-none flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-none">
         <DialogHeader className="shrink-0 border-b p-5 pr-12">
           <DialogTitle className="flex items-center gap-2"><History className="size-4 text-primary" /> Nouveautés et changelog</DialogTitle>
@@ -144,18 +148,40 @@ export function DesktopHelpPanels() {
     </Dialog>
 
     <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
-      <DialogContent className="w-[min(94vw,650px)] max-w-none bg-card sm:max-w-none">
-        <DialogHeader className="pr-10">
-          <DialogTitle className="flex items-center gap-2"><Command className="size-4 text-primary" /> Raccourcis clavier</DialogTitle>
-          <DialogDescription>Actions disponibles dans l’application.</DialogDescription>
+      <DialogContent className="h-[min(82dvh,680px)] w-[min(94vw,700px)] max-w-none gap-0 p-0 sm:max-w-none">
+        <DialogHeader className="shrink-0 border-b px-6 py-5 pr-14">
+          <DialogTitle className="flex items-center gap-2 text-base"><span className="flex size-8 items-center justify-center rounded-lg border bg-primary/10 text-primary"><Command className="size-4" /></span> Raccourcis clavier</DialogTitle>
+          <DialogDescription>Retrouvez les commandes disponibles et leur contexte d’utilisation.</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[65vh] space-y-2 overflow-y-auto py-2">
-          {shortcuts.map(item => <div key={item.title} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-3">
-            <span className="text-xs">{item.title}</span>
-            <kbd className="shrink-0 rounded border border-border bg-secondary px-2 py-1 font-mono text-[11px]">{item.keys}</kbd>
-          </div>)}
+        <div className="shrink-0 border-b p-4">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input autoFocus value={shortcutFilter} onChange={event => setShortcutFilter(event.target.value)} placeholder="Filtrer les raccourcis…" aria-label="Filtrer les raccourcis clavier" className="h-9 pl-9" />
+          </label>
+          <p className="mt-2 text-[11px] text-muted-foreground">{shortcuts.filter(item => `${item.group} ${item.title} ${item.keys.join(" ")}`.toLocaleLowerCase().includes(shortcutFilter.trim().toLocaleLowerCase())).length} raccourcis affichés</p>
         </div>
-        <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><BookOpen className="mt-0.5 size-4 shrink-0" /> Les raccourcis indisponibles dans votre contexte sont ignorés. Les commandes de Windows restent gérées par le système.</p>
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
+          {(["Navigation", "Aide", "Dans l’éditeur de fichiers"] as const).map(group => {
+            const entries = shortcuts.filter(item => item.group === group && `${item.group} ${item.title} ${item.keys.join(" ")} ${item.detail}`.toLocaleLowerCase().includes(shortcutFilter.trim().toLocaleLowerCase()));
+            if (!entries.length) return null;
+            return <section key={group} aria-label={group}>
+              <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{group}</h3>
+              <div className="divide-y overflow-hidden rounded-lg border bg-background">
+                {entries.map(item => <div key={item.title} className="flex items-center justify-between gap-4 px-3 py-3 transition-colors hover:bg-muted/35 sm:px-4">
+                  <div className="min-w-0"><p className="text-xs font-medium">{item.title}</p><p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{item.detail}</p></div>
+                  <div className="flex shrink-0 items-center gap-1" aria-label={item.keys.join(" + ")}>
+                    {item.keys.map((key, index) => <span key={`${item.title}-${key}`} className="flex items-center gap-1">
+                      {index > 0 && <span aria-hidden="true" className="text-[10px] text-muted-foreground">+</span>}
+                      <kbd className="min-w-7 rounded-md border border-border bg-secondary px-2 py-1.5 text-center font-mono text-[11px] font-semibold text-foreground shadow-[0_1px_0_var(--border)]">{key}</kbd>
+                    </span>)}
+                  </div>
+                </div>)}
+              </div>
+            </section>;
+          })}
+          {!shortcuts.some(item => `${item.group} ${item.title} ${item.keys.join(" ")} ${item.detail}`.toLocaleLowerCase().includes(shortcutFilter.trim().toLocaleLowerCase())) && <p className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">Aucun raccourci ne correspond à cette recherche.</p>}
+        </div>
+        <p className="flex shrink-0 items-start gap-2 border-t px-5 py-3 text-[11px] leading-relaxed text-muted-foreground"><BookOpen className="mt-0.5 size-4 shrink-0 text-primary" /> Les raccourcis contextuels ne s’activent que lorsque leur page est ouverte. Les commandes de Windows restent gérées par le système.</p>
       </DialogContent>
     </Dialog>
   </>;

@@ -8,7 +8,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import "./update-badge.css";
 
-export function AppUpdaterAction() {
+export function AppUpdaterAction({ onOpenChangelog }: { onOpenChangelog?: () => void }) {
   const updater = useAppUpdater();
   const busy = updater.status === "checking" || updater.status === "installing";
   const available = Boolean(updater.availableVersion);
@@ -77,7 +77,7 @@ export function AppUpdaterAction() {
           <p className="text-[11px] text-muted-foreground">Détection automatique ; installation uniquement après confirmation.</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event("hts:open-changelog"))}>
+        <DropdownMenuItem onSelect={() => onOpenChangelog?.()}>
           <History data-icon="inline-start" /> Nouveautés et changelog
         </DropdownMenuItem>
       </DropdownMenuContent>

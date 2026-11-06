@@ -4,9 +4,9 @@
   transform-origin: 50% 45%;
 }
 @keyframes hts-window-arrive {
-  from { opacity: 0; transform: translateY(11px) scale(.986); filter: blur(4px); }
+  from { opacity: 0; transform: translateY(11px) scale(.986); }
   60% { opacity: 1; }
-  to { opacity: 1; transform: none; filter: none; }
+  to { opacity: 1; transform: none; }
 }
 .hts-window-boot > .hts-intro-overlay .hts-titlebar {
   animation: hts-window-chrome 440ms cubic-bezier(.22, 1, .36, 1) 90ms both;
@@ -77,7 +77,7 @@
   border: 1px solid var(--border);
   box-shadow: 0 12px 36px #0003;
   border-radius: calc(var(--radius) + 4px);
-  backdrop-filter: blur(15px);
+  backdrop-filter: none;
   animation: hts-menu-reveal 170ms cubic-bezier(.22,1,.36,1) both;
 }
 @keyframes hts-menu-reveal {

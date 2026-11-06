@@ -265,7 +265,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, body *::-webkit-scrollbar {
   background: color-mix(in oklch, var(--popover) 96%, var(--sidebar) 4%);
   color: var(--popover-foreground);
   box-shadow: 0 10px 32px rgb(0 0 0 / 16%), 0 1px 3px rgb(0 0 0 / 7%);
-  backdrop-filter: blur(16px);
+  backdrop-filter: none;
 }
 .hts-floating-menu [data-slot="dropdown-menu-label"] {
   padding: 0.5rem;

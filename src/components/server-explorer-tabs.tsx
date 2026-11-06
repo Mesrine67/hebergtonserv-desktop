@@ -60,13 +60,13 @@ export function ServerExplorerTabs() {
 
   const activeEntry = tabs.find(tab => tabValue(tab) === activeTab);
 
-  return <div className="flex h-10 shrink-0 items-end gap-1 overflow-hidden border-b bg-sidebar px-3" aria-label="Onglets des explorateurs de fichiers">
+  return <div className="flex h-10 w-full min-w-0 shrink-0 items-end gap-1 overflow-hidden border-b bg-sidebar px-3" aria-label="Onglets des explorateurs de fichiers">
     <Tabs value={activeTab} onValueChange={value => {
       const tab = tabs.find(item => tabValue(item) === value);
       if (tab) navigate(serverSectionRoute(tab.panelId, tab.serverIdentifier, "files"));
     }} className="min-w-0 flex-1">
-      <TabsList variant="line" className="h-9 w-full max-w-full justify-start overflow-x-auto rounded-none p-0">
-        {tabs.map(tab => <TabsTrigger key={tabValue(tab)} value={tabValue(tab)} className="max-w-52 justify-start gap-2 px-3 data-active:after:bg-primary" title={`${tab.label} — explorateur de fichiers`}>
+      <TabsList variant="line" className="h-9 w-max min-w-full justify-start overflow-x-auto rounded-none p-0">
+        {tabs.map(tab => <TabsTrigger key={tabValue(tab)} value={tabValue(tab)} className="max-w-52 shrink-0 justify-start gap-2 px-3 data-active:after:bg-primary" title={`${tab.label} — explorateur de fichiers`}>
             <File data-icon="inline-start"/><span className="truncate">{tab.label}</span>
           </TabsTrigger>)}
       </TabsList>

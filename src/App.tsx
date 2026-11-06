@@ -66,18 +66,27 @@ const routeLabels: Record<string, string> = {
   "/panels": "Panels",
   "/panel/account": "Compte du panel",
   "/panel/servers": "Serveurs",
-  "/settings": "Paramètres",
-  "/security": "Sécurité",
   "/git": "Git / GH",
 };
 
 function Workspace() {
   const [apiJournalOpen, setApiJournalOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
   const location = useLocation();
   useEffect(() => {
     const openJournal = () => setApiJournalOpen(true);
+    const openSettings = () => { setSecurityOpen(false); setSettingsOpen(true); };
+    const openSecurity = () => { setSettingsOpen(false); setSecurityOpen(true); };
     window.addEventListener("hts:open-api-journal", openJournal);
-    return () => window.removeEventListener("hts:open-api-journal", openJournal);
+    window.addEventListener("hts:open-settings", openSettings);
+    window.addEventListener("hts:open-security", openSecurity);
+    return () => {
+      window.removeEventListener("hts:open-api-journal", openJournal);
+      window.removeEventListener("hts:open-settings", openSettings);
+      window.removeEventListener("hts:open-security", openSecurity);
+    };
   }, []);
   useEffect(() => {
     document.getElementById("workspace-scroll")?.scrollTo({ top: 0 });
@@ -87,14 +96,18 @@ function Workspace() {
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
-      <DesktopTitlebar navigation title={current} />
-      <ServerExplorerTabs />
-      <DesktopHelpPanels />
+      <DesktopTitlebar navigation title={current} onOpenChangelog={() => setChangelogOpen(true)} />
+      <DesktopHelpPanels changelogOpen={changelogOpen} onChangelogOpenChange={setChangelogOpen} />
       <DesktopTaskManager />
       <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />
+      {(settingsOpen || securityOpen) && <Suspense fallback={null}>
+        {settingsOpen && <SettingsPage open={settingsOpen} onOpenChange={setSettingsOpen} />}
+        {securityOpen && <SecurityPage open={securityOpen} onOpenChange={setSecurityOpen} />}
+      </Suspense>}
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
-      <SidebarInset className="hts-workspace-panel min-h-0 min-w-0 overflow-hidden bg-background">
+      <SidebarInset className="hts-workspace-panel flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+        <ServerExplorerTabs />
         <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
           <div className={`mx-auto w-full ${["/panel/servers", "/panel/account"].includes(location.pathname) ? "max-w-screen-2xl" : "max-w-6xl"}`}>
             <div key={location.pathname} className="hts-route-scene">
@@ -112,8 +125,6 @@ function Workspace() {
               <Route path="/panel/servers/:identifier" element={<ServerConsolePage />} />
               <Route path="/panel/servers/:identifier/files" element={<ServerManagementPage section="files" />} />
               <Route path="/panel/servers/:identifier/databases" element={<ServerManagementPage section="databases" />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/security" element={<SecurityPage />} />
               <Route path="/git" element={<GitHubPage />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>

@@ -143,13 +143,13 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     </div>}
 
     {section === "databases" && <Dialog open onOpenChange={open => { if (!open) navigate(serverListRoute(requestedPanel ?? panel?.id ?? null)); }}>
-      <DialogContent aria-describedby="server-databases-description" className="max-h-[86vh] w-[min(94vw,1120px)] max-w-none overflow-y-auto bg-card p-0 sm:max-w-none">
-      <DialogHeader className="border-b px-5 py-4 pr-14">
+      <DialogContent aria-describedby="server-databases-description" className="max-h-[86dvh] w-[min(94vw,1120px)] max-w-none p-0 sm:max-w-none">
+      <DialogHeader className="shrink-0 border-b px-5 py-4 pr-14">
         <DialogTitle className="flex items-center gap-2"><Database className="size-5 text-primary"/>Bases de données · {server?.name ?? "Serveur"}</DialogTitle>
         <DialogDescription id="server-databases-description">Informations de connexion et quota des bases de données du serveur.</DialogDescription>
       </DialogHeader>
-      <div className="flex justify-end px-5 pt-3"><Button variant="outline" size="sm" onClick={() => void databases.refetch()} disabled={databases.isFetching}><RefreshCw className={`mr-2 size-4 ${databases.isFetching ? "animate-spin" : ""}`} />Actualiser</Button></div>
-      <section className="overflow-hidden">
+      <div className="flex shrink-0 justify-end px-5 pt-3"><Button variant="outline" size="sm" onClick={() => void databases.refetch()} disabled={databases.isFetching}><RefreshCw className={`mr-2 size-4 ${databases.isFetching ? "animate-spin" : ""}`} />Actualiser</Button></div>
+      <section className="min-h-0 flex-1 overflow-y-auto">
       <div className="flex flex-wrap items-center gap-4 border-b bg-secondary/25 px-5 py-4"><div className="min-w-52 flex-1"><div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold">Bases de données</h2><p className="mt-1 text-sm text-muted-foreground">{databases.data?.length ?? (databases.isLoading ? "…" : "0")} utilisée(s) sur {databaseLimit ?? "quota inconnu"}</p></div>{databaseLimit != null && <span className="font-mono text-sm tabular-nums">{databaseCount}/{databaseLimit}</span>}</div>{databaseUsage != null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Utilisation du quota de bases de données" aria-valuemin={0} aria-valuemax={databaseLimit || 1} aria-valuenow={Math.min(databaseCount, databaseLimit ?? 0)}><div className={`h-full rounded-full transition-all ${databaseUsage >= 100 ? "bg-destructive" : databaseUsage >= 80 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${databaseUsage}%` }}/></div>}</div></div>
       {databases.data && databaseLimit != null && databaseLimit > 0 && databaseCount >= databaseLimit && <p className="border-b bg-destructive/5 px-5 py-3 text-sm text-destructive">Le quota est atteint. Pour ajouter une base, augmentez la limite depuis le panel.</p>}
       {databases.isLoading && <p className="p-6 text-sm text-muted-foreground">Chargement des bases…</p>}

@@ -13,24 +13,19 @@
   "app": {
     "windows": [
       {
-        "label": "overlay",
+        "label": "main",
         "title": "HébergTonServ Desktop",
         "windowClassname": "Tools.fxmp.org",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 960,
-        "minHeight": 640,
+        "width": 520,
+        "height": 360,
+        "minWidth": 520,
+        "minHeight": 360,
         "decorations": false,
-        "visible": false,
+        "visible": true,
         "backgroundColor": "#0f172a",
         "userAgent": "hebergtonserv.desktop/0.4.32",
         "devtools": true,
-        "browserExtensionsEnabled": true,
-        "windowEffects": {
-          "effects": [
-            "acrylic"
-          ]
-        }
+        "browserExtensionsEnabled": true
       }
     ],
     "security": {

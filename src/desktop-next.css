@@ -39,9 +39,9 @@
   transform-origin: 50% 45%;
 }
 @keyframes hts-desktop-exit {
-  0% { opacity: 1; transform: none; filter: blur(0); }
-  45% { opacity: .92; transform: translateY(3px) scale(.997); filter: blur(0); }
-  100% { opacity: 0; transform: translateY(12px) scale(.983); filter: blur(2px); }
+  0% { opacity: 1; transform: none; }
+  45% { opacity: .92; transform: translateY(3px) scale(.997); }
+  100% { opacity: 0; transform: translateY(12px) scale(.983); }
 }
 .hts-task-window { animation: hts-task-enter 350ms cubic-bezier(.22,1,.36,1) both; }
 @keyframes hts-task-enter {

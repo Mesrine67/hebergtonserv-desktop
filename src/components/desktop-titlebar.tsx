@@ -16,9 +16,10 @@ type Props = {
   title?: string;
   navigation?: boolean;
   welcome?: boolean;
+  onOpenChangelog?: () => void;
 };
 
-export function DesktopTitlebar({ navigation = false, welcome = false }: Props) {
+export function DesktopTitlebar({ navigation = false, welcome = false, onOpenChangelog }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
   const appWindow = useMemo(() => {
     try {
@@ -91,7 +92,7 @@ export function DesktopTitlebar({ navigation = false, welcome = false }: Props) 
 
       {navigation && <NotificationsAction />}
       <DiscussionAction />
-      <AppUpdaterAction />
+      <AppUpdaterAction onOpenChangelog={onOpenChangelog} />
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
