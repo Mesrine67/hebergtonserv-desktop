@@ -6,13 +6,13 @@ import { invoke as nativeInvoke } from "@tauri-apps/api/core";
  */
 async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   const started = performance.now();
-  const report = (outcome: "ok" | "error") => {
+  const report = (outcome: "ok" | "error", response?: T) => {
     const durationMs = Math.min(60000, Math.max(0, Math.round(performance.now() - started)));
-    void nativeInvoke("record_command_event", { operation: command, outcome, durationMs }).catch(() => undefined);
+    void nativeInvoke("record_command_event", { operation: command, outcome, durationMs, requestJson: args ?? {}, responseJson: outcome === "ok" ? response ?? null : null }).catch(() => undefined);
   };
   try {
     const result = await nativeInvoke<T>(command, args);
-    report("ok");
+    report("ok", result);
     return result;
   } catch (reason) {
     report("error");
@@ -307,6 +307,12 @@ export const commands = {
   getPanelResourcesBatch: (id: string, requests: { key: string; identifier: string }[]) => invoke<PanelResourceBatchItem[]>("get_panel_resources_batch", { id, requests }),
   getPanelServerResources: (id: string, identifier: string) =>
     invoke<PanelServerResources>("get_panel_server_resources", { id, identifier }),
+  sendPanelServerPowerSignal: (id: string, identifier: string, signal: "start" | "restart" | "stop" | "kill") =>
+    invoke<void>("send_panel_server_power_signal", { id, identifier, signal }),
+  openDetachedConsoleWindow: (panelId: string, serverIdentifier: string) =>
+    invoke<void>("open_detached_console_window", { panelId, serverIdentifier }),
+  exportConsoleLogs: (path: string, contents: string) =>
+    invoke<void>("export_console_logs", { path, contents }),
   setPanelToken: (id: string, token: string) => invoke<void>("set_panel_token", { id, token }),
   panelTokenConfigured: (id: string) => invoke<boolean>("panel_token_configured", { id }),
   createPanelApiKey: (panelId: string, description: string, allowedIps: string[]) =>

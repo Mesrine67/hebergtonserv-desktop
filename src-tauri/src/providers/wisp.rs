@@ -62,6 +62,29 @@ impl PanelProvider for WispProvider {
             .await
     }
 
+    async fn send_server_power_signal(&self, identifier: &str, signal: &str) -> Result<()> {
+        if !identifier
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+            || identifier.is_empty()
+            || identifier.len() > 128
+            || !matches!(signal, "start" | "restart" | "stop" | "kill")
+        {
+            return Err(crate::errors::app_error(
+                "api_invalid_request",
+                "Action serveur invalide.",
+            ));
+        }
+        ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?
+            .send_json::<serde_json::Value>(
+                reqwest::Method::POST,
+                &format!("/api/client/servers/{identifier}/power"),
+                Some(&serde_json::json!({ "signal": signal })),
+            )
+            .await?;
+        Ok(())
+    }
+
     async fn list_server_files(&self, identifier: &str, path: &str) -> Result<Vec<PanelFileEntry>> {
         let client = ApiClient::new(&self.base_url, &self.token, self.accept(), self.allow_local)?;
         let response = client

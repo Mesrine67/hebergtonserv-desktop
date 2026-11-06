@@ -150,8 +150,8 @@ export default function ServerManagementPage({ section }: { section: Section }) 
       </aside>
       </ResizablePanel>
       <ResizableHandle withHandle aria-label="Redimensionner l’arborescence et l’éditeur" />
-      <ResizablePanel id="editor" defaultSize="76%" minSize="38%" className="min-h-0 min-w-0">
-      <article className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
+      <ResizablePanel id="editor" defaultSize="76%" minSize="38%" className="min-h-0 min-w-0 pl-1">
+      <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
         <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><span className="truncate">{part}</span>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
         {selected ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pb-3">

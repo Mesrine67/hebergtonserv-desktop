@@ -701,6 +701,7 @@ impl ApiClient {
                         status: None,
                         duration_ms: started.elapsed().as_millis().min(60_000) as u64,
                         content_type: None,
+                        request: body,
                         response: None,
                     },
                 );
@@ -796,6 +797,7 @@ impl ApiClient {
                     status: Some(status.as_u16()),
                     duration_ms,
                     content_type: content_type.as_deref(),
+                    request: body,
                     response: response_json.as_ref(),
                 },
             );
@@ -813,6 +815,7 @@ impl ApiClient {
                     status: Some(status.as_u16()),
                     duration_ms,
                     content_type: content_type.as_deref(),
+                    request: body,
                     response: None,
                 },
             );
@@ -833,6 +836,7 @@ impl ApiClient {
                         status: Some(status.as_u16()),
                         duration_ms,
                         content_type: content_type.as_deref(),
+                        request: body,
                         response: Some(&response_json),
                     },
                 );
@@ -849,6 +853,7 @@ impl ApiClient {
                         status: Some(status.as_u16()),
                         duration_ms,
                         content_type: content_type.as_deref(),
+                        request: body,
                         response: Some(&response_json),
                     },
                 );

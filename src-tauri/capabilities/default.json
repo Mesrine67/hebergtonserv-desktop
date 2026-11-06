@@ -4,7 +4,8 @@
   "description": "Capability for the main window",
   "windows": [
     "main",
-    "task-manager"
+    "task-manager",
+    "console-*"
   ],
   "permissions": [
     "core:default",

@@ -14,7 +14,7 @@ use crate::state::AppState;
 use crate::storage::Storage;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_window_state::StateFlags;
 
 /// Ask Windows 11 DWM for its native rounded window corners. The compositor
@@ -62,6 +62,40 @@ fn toggle_app_window_maximize(app: tauri::AppHandle) -> Result<(), String> {
             .maximize()
             .map_err(|error| format!("Agrandissement de la fenêtre impossible : {error}"))
     }
+}
+
+#[tauri::command]
+fn open_detached_console_window(
+    app: tauri::AppHandle,
+    panel_id: String,
+    server_identifier: String,
+) -> Result<(), String> {
+    let valid_segment = |value: &str| {
+        !value.is_empty()
+            && value.len() <= 128
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    };
+    if !valid_segment(&panel_id) || !valid_segment(&server_identifier) {
+        return Err("Identifiant de panel ou de serveur invalide.".into());
+    }
+    let label = format!("console-{panel_id}-{server_identifier}");
+    if let Some(window) = app.get_webview_window(&label) {
+        return window
+            .set_focus()
+            .map_err(|_| "Impossible de réactiver la fenêtre console.".to_string());
+    }
+    let route = format!("/panel/servers/{server_identifier}/console?panel={panel_id}&detached=1");
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(route.into()))
+        .title("Console · HébergTonServ")
+        .inner_size(1160.0, 820.0)
+        .min_inner_size(720.0, 480.0)
+        .resizable(true)
+        .center()
+        .build()
+        .map(|_| ())
+        .map_err(|_| "Impossible d’ouvrir la console détachée.".to_string())
 }
 
 #[derive(serde::Serialize)]
@@ -207,6 +241,7 @@ pub fn run() {
             greet,
             get_local_identity,
             toggle_app_window_maximize,
+            open_detached_console_window,
             desktop::fetch_changelog,
             desktop::list_desktop_tasks,
             desktop::open_task_manager,
@@ -250,12 +285,14 @@ pub fn run() {
             commands::panels::write_panel_server_file,
             commands::panels::list_panel_server_databases,
             commands::panels::get_panel_server_resources,
+            commands::panels::send_panel_server_power_signal,
             commands::panels::get_panel_resources_batch,
             commands::panels::get_panel_console_credentials,
             diagnostics::list_panel_diagnostics,
             diagnostics::record_console_connection_event,
             diagnostics::clear_panel_diagnostics,
             diagnostics::export_panel_diagnostics,
+            diagnostics::export_console_logs,
             commands::panels::create_panel_api_key,
             commands::panels::create_panel_ssh_key,
             commands::panels::revoke_panel_api_key,
