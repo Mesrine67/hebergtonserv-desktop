@@ -1,4 +1,4 @@
-type ExplorerState = { selected: string | null; path: string };
+type ExplorerState = { selected: string | null; path: string; openFiles?: string[] };
 
 const drafts = new Map<string, string>();
 const explorerStates = new Map<string, ExplorerState>();

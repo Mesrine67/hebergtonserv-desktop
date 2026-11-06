@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "../../node_modules/monaco-editor/esm/vs/editor/editor.api.js";
 import { useTheme } from "next-themes";
-import { Check, Copy, RefreshCw, RotateCcw, Save, WrapText } from "lucide-react";
+import { Check, Copy, File, Keyboard, RefreshCw, RotateCcw, Save, WrapText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -82,9 +83,12 @@ type Props = {
   saving: boolean;
   onRefresh: () => void;
   refreshing: boolean;
+  tabs?: { path: string; name: string; dirty: boolean }[];
+  onSelectTab?: (path: string) => void;
+  onCloseTab?: (path: string) => void;
 };
 
-export function ServerCodeEditor({ path, value, original, onChange, onSave, saving, onRefresh, refreshing }: Props) {
+export function ServerCodeEditor({ path, value, original, onChange, onSave, saving, onRefresh, refreshing, tabs = [], onSelectTab, onCloseTab }: Props) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const saveRef = useRef(onSave);
   const dirtyRef = useRef(false);
@@ -95,7 +99,6 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
   const { resolvedTheme } = useTheme();
   const dirty = value !== original;
   const lines = useMemo(() => value.split("\n").length, [value]);
-  const language = serverFileLanguage(path);
   const languageId = serverFileMonacoLanguage(path);
   const fileName = path.split("/").pop() ?? path;
   saveRef.current = onSave;
@@ -121,22 +124,20 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
   }
 
   return (
-    <div className="hts-code-editor flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background">
-      <div className="flex min-w-0 flex-wrap items-center gap-2 border-b bg-muted/20 px-3 py-2">
-        <span className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
-          <span className="size-2 rounded-full bg-destructive/60" />
-          <span className="size-2 rounded-full bg-amber-500/60" />
-          <span className="size-2 rounded-full bg-emerald-500/60" />
-        </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium" title={path}>{fileName}</span>
-        <span className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{language}</span>
+    <div className="hts-code-editor flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      <div className="flex min-w-0 items-stretch border-b bg-muted/20 px-2">
+        <div role="tablist" aria-label="Fichiers ouverts dans cet éditeur" className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
+          {tabs.map(tab => <div key={tab.path} role="presentation" className={`group flex max-w-56 shrink-0 items-center border-r border-border/60 ${tab.path === path ? "border-t-2 border-t-muted-foreground/60 bg-background" : "border-t-2 border-t-transparent"}`}>
+            <button type="button" role="tab" aria-selected={tab.path === path} title={tab.path} onClick={() => onSelectTab?.(tab.path)} className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs hover:bg-accent/60">
+              <File className="size-3.5 shrink-0 text-muted-foreground"/><span className="truncate font-mono">{tab.name}</span>{tab.dirty && <span aria-label="Modifications non enregistrées" className="size-2 shrink-0 rounded-full bg-amber-500"/>}
+            </button>
+            <button type="button" aria-label={`Fermer ${tab.name}`} onClick={() => onCloseTab?.(tab.path)} className="mr-1 rounded p-1 text-muted-foreground opacity-70 hover:bg-accent hover:text-foreground group-hover:opacity-100"><X className="size-3.5"/></button>
+          </div>)}
+        </div>
+      </div>
+      <div className="flex min-w-0 items-center gap-2 border-b bg-muted/10 px-3 py-1.5">
+        <span className="min-w-0 flex-1 truncate pr-2 font-mono text-[10px] text-muted-foreground" title={path}>{path}</span>
         {dirty && <span role="status" className="text-[10px] text-amber-500">Modifié</span>}
-        <Button type="button" variant="ghost" size="sm" onClick={onRefresh} disabled={refreshing} aria-label="Actualiser les fichiers du serveur"><RefreshCw className={refreshing ? "animate-spin" : ""} />Actualiser</Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setShowNumbers(v => !v)} aria-label="Afficher ou masquer les numéros de ligne" aria-pressed={showNumbers}>#</Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap}><WrapText className="size-3.5" /></Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => void copyCode()} aria-label="Copier le code">{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}</Button>
-        <Button type="button" variant="outline" size="sm" disabled={!dirty || saving} onClick={() => onChange(original)}><RotateCcw className="size-3.5" /> Annuler</Button>
-        <Button type="button" size="sm" disabled={!dirty || saving} onClick={onSave}><Save className="size-3.5" /> {saving ? "Enregistrement…" : "Enregistrer"}</Button>
       </div>
       <div className="hts-monaco-container min-h-0 min-w-0 flex-1 overflow-hidden">
         <Editor
@@ -175,9 +176,33 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
           }}
         />
       </div>
-      <div className="flex items-center justify-between gap-2 border-t bg-muted/15 px-3 py-1.5 text-[10px] text-muted-foreground">
-        <span>{lines} ligne(s) · {value.length} caractères</span>
-        <span>Tab : indentation · Ctrl+S : enregistrer</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t bg-muted/15 px-3 py-1 text-[10px] text-muted-foreground">
+        <span className="shrink-0">{lines} ligne(s) · {value.length} caractères</span>
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
+          <Popover>
+            <PopoverTrigger asChild><Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2" aria-label="Raccourcis clavier de l’éditeur" title="Raccourcis clavier"><Keyboard className="size-3.5"/><span className="hidden md:inline">Raccourcis</span></Button></PopoverTrigger>
+            <PopoverContent align="end" side="top" className="w-72 gap-2 p-3">
+              <h3 className="font-medium">Raccourcis de code</h3>
+              <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-muted-foreground">
+                <span>Annuler / rétablir</span><kbd className="font-mono text-foreground">Ctrl+Z / Ctrl+Y</kbd>
+                <span>Rechercher / remplacer</span><kbd className="font-mono text-foreground">Ctrl+F / Ctrl+H</kbd>
+                <span>Commenter la ligne</span><kbd className="font-mono text-foreground">Ctrl+/</kbd>
+                <span>Déplacer la ligne</span><kbd className="font-mono text-foreground">Alt+↑ / Alt+↓</kbd>
+                <span>Copier la ligne vers le bas</span><kbd className="font-mono text-foreground">Shift+Alt+↓</kbd>
+                <span>Sélectionner l’occurrence suivante</span><kbd className="font-mono text-foreground">Ctrl+D</kbd>
+                <span>Enregistrer</span><kbd className="font-mono text-foreground">Ctrl+S</kbd>
+                <span>Insérer une tabulation</span><kbd className="font-mono text-foreground">Tab</kbd>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={onRefresh} disabled={refreshing} aria-label="Actualiser les fichiers du serveur" title="Actualiser les fichiers du serveur"><RefreshCw className={refreshing ? "animate-spin" : "size-3.5"} /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => setShowNumbers(v => !v)} aria-label="Afficher ou masquer les numéros de ligne" aria-pressed={showNumbers} title="Numéros de ligne">#</Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap} title="Retour à la ligne"><WrapText className="size-3.5" /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => void copyCode()} aria-label="Copier le code" title="Copier le code">{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}</Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="size-7" disabled={!dirty || saving} onClick={() => onChange(original)} aria-label="Annuler les modifications" title="Annuler les modifications"><RotateCcw className="size-3.5" /></Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={!dirty || saving} onClick={onSave} aria-label="Enregistrer le fichier" title="Enregistrer le fichier"><Save className="size-3.5" /><span className="hidden sm:inline">{saving ? "Enregistrement…" : "Enregistrer"}</span></Button>
+          <span className="hidden whitespace-nowrap pl-1 sm:inline">Ctrl+S · Tab : indentation</span>
+        </div>
       </div>
     </div>
   );

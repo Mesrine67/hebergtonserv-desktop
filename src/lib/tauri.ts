@@ -1,14 +1,17 @@
-import { invoke as nativeInvoke } from "@tauri-apps/api/core";
+import { invoke as nativeInvoke, isTauri } from "@tauri-apps/api/core";
 
 /**
  * Instrument every typed Desktop command without serializing arguments, API
  * credentials, response bodies or exceptions into the diagnostic journal.
  */
 async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) {
+    throw new Error("Cette action nécessite l’application HébergTonServ Desktop. Le mode navigateur sert à prévisualiser l’interface et ne peut pas accéder aux commandes Rust ni au coffre Windows.");
+  }
   const started = performance.now();
   const report = (outcome: "ok" | "error", response?: T) => {
     const durationMs = Math.min(60000, Math.max(0, Math.round(performance.now() - started)));
-    void nativeInvoke("record_command_event", { operation: command, outcome, durationMs, requestJson: args ?? {}, responseJson: outcome === "ok" ? response ?? null : null }).catch(() => undefined);
+    if (isTauri()) void nativeInvoke("record_command_event", { operation: command, outcome, durationMs, requestJson: args ?? {}, responseJson: outcome === "ok" ? response ?? null : null }).catch(() => undefined);
   };
   try {
     const result = await nativeInvoke<T>(command, args);
