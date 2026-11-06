@@ -40,14 +40,9 @@ function ReleaseNotes({ body }: { body: string }) {
   })}</div>;
 }
 
-export function DesktopHelpPanels({
-  changelogOpen,
-  onChangelogOpenChange,
-}: {
-  changelogOpen: boolean;
-  onChangelogOpenChange: (open: boolean) => void;
-}) {
+export function DesktopHelpPanels() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [shortcutFilter, setShortcutFilter] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [releases, setReleases] = useState<Release[]>([]);
@@ -73,6 +68,12 @@ export function DesktopHelpPanels({
       window.removeEventListener("hts:open-shortcuts", openShortcuts);
       window.removeEventListener("keydown", keyboard);
     };
+  }, []);
+
+  useEffect(() => {
+    const openChangelog = () => setChangelogOpen(true);
+    window.addEventListener("hts:open-changelog", openChangelog);
+    return () => window.removeEventListener("hts:open-changelog", openChangelog);
   }, []);
 
   useEffect(() => {
@@ -113,7 +114,7 @@ export function DesktopHelpPanels({
   }
 
   return <>
-    <FloatingPanel open={changelogOpen} onOpenChange={onChangelogOpenChange} title={<span className="flex items-center gap-2"><History className="size-4 text-primary" /> Nouveautés et changelog</span>} description={`Notes de version de HébergTonServ Desktop · version installée ${buildVersion}.`} className="h-[min(85vh,780px)] w-[min(94vw,1000px)]">
+    <FloatingPanel open={changelogOpen} onOpenChange={setChangelogOpen} title={<span className="flex items-center gap-2"><History className="size-4 text-primary" /> Nouveautés et changelog</span>} description={`Notes de version de HébergTonServ Desktop · version installée ${buildVersion}.`} className="h-[min(85vh,780px)] w-[min(94vw,1000px)]">
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <aside className="flex w-36 shrink-0 flex-col border-r bg-sidebar sm:w-48" aria-label="Versions publiées">
             <p className="px-4 pb-2 pt-4 text-[10px] font-semibold uppercase text-muted-foreground">Versions</p>

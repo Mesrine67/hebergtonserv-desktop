@@ -176,6 +176,7 @@
 }
 .hts-titlebar-tabs button { -webkit-app-region: no-drag; }
 .hts-titlebar-tabs [data-tauri-drag-region] { -webkit-app-region: drag; }
+.hts-titlebar-tabs { overflow: hidden; }
 .hts-titlebar-rail { border: 0 !important; background: transparent; }
 .hts-workspace-body {
   min-width: 0;

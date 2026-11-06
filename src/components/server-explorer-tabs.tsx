@@ -45,7 +45,7 @@ export function ServerExplorerTabs() {
     return () => window.removeEventListener("hts:file-explorer-open", openTab);
   }, []);
 
-  if (!tabs.length || !location.pathname.startsWith("/panel/servers/")) return null;
+  const showTabs = tabs.length > 0 && location.pathname.startsWith("/panel/servers/");
 
   function closeTab(tab: ExplorerTab) {
     const next = tabs.filter(item => tabValue(item) !== tabValue(tab));
@@ -57,8 +57,8 @@ export function ServerExplorerTabs() {
     }
   }
 
-  return <div className="hts-titlebar-tabs flex h-10 w-full min-w-0 shrink-0 items-center gap-1 border-b bg-sidebar px-2" aria-label="Onglets des explorateurs de fichiers">
-    <div role="tablist" aria-label="Explorateurs de fichiers ouverts" className="flex h-full min-w-0 flex-1 items-end gap-1 overflow-x-auto">
+  return <div className="hts-titlebar-tabs flex h-full min-w-0 flex-1 items-center gap-1 px-1" aria-label={showTabs ? "Onglets des explorateurs de fichiers" : undefined}>
+    {showTabs && <div role="tablist" aria-label="Explorateurs de fichiers ouverts" className="flex h-full min-w-0 items-center gap-1 overflow-x-auto">
       {tabs.map(tab => {
         const value = tabValue(tab);
         const selected = value === activeTab;
@@ -69,8 +69,8 @@ export function ServerExplorerTabs() {
           <Button type="button" variant="ghost" size="icon" className="mr-1 size-6 shrink-0 opacity-60 hover:opacity-100" aria-label={`Fermer l’explorateur ${tab.label}`} title={`Fermer ${tab.label}`} onClick={() => closeTab(tab)}><X /></Button>
         </div>;
       })}
-    </div>
-    <div className="h-full min-w-2 flex-1 self-stretch" data-tauri-drag-region aria-hidden="true" />
-    <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Ouvrir un autre explorateur de fichiers" title="Choisir un autre serveur" onClick={() => navigate(serverListRoute(params.get("panel")))}><Plus /></Button>
+    </div>}
+    {showTabs && <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Ouvrir un autre explorateur de fichiers" title="Choisir un autre serveur" onClick={() => navigate(serverListRoute(params.get("panel")))}><Plus /></Button>}
+    <div className="hts-titlebar-drag h-full min-w-2 flex-1 self-stretch" data-tauri-drag-region aria-hidden="true" />
   </div>;
 }

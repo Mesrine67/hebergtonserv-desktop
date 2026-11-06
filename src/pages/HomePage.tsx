@@ -25,8 +25,8 @@ export default function HomePage() {
       </Link>)}
     </div>
     <div className="flex flex-wrap gap-2">
-      <Button asChild variant="outline"><Link to="/settings"><Settings2 className="size-4" /> Apparence et paramètres</Link></Button>
-      <Button asChild variant="outline"><Link to="/security"><ShieldCheck className="size-4" /> Sécurité</Link></Button>
+      <Button variant="outline" onClick={() => window.dispatchEvent(new Event("hts:open-settings"))}><Settings2 className="size-4" /> Apparence et paramètres</Button>
+      <Button variant="outline" onClick={() => window.dispatchEvent(new Event("hts:open-security"))}><ShieldCheck className="size-4" /> Sécurité</Button>
     </div>
   </div>;
 }

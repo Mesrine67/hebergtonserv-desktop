@@ -71,7 +71,6 @@ const routeLabels: Record<string, string> = {
 
 function Workspace() {
   const [apiJournalOpen, setApiJournalOpen] = useState(false);
-  const [changelogOpen, setChangelogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const location = useLocation();
@@ -103,8 +102,8 @@ function Workspace() {
   return (
     <SidebarProvider defaultOpen className="hts-workspace-shell h-dvh min-h-0 flex-col overflow-hidden bg-sidebar">
       <WorkspaceNavigationProvider>
-      <DesktopTitlebar navigation title={current} onOpenChangelog={() => setChangelogOpen(true)} tabs={<ServerExplorerTabs />} />
-      <DesktopHelpPanels changelogOpen={changelogOpen} onChangelogOpenChange={setChangelogOpen} />
+      <DesktopTitlebar navigation title={current} onOpenChangelog={() => window.dispatchEvent(new Event("hts:open-changelog"))} tabs={<ServerExplorerTabs />} />
+      <DesktopHelpPanels />
       <DesktopTaskManager />
       <PanelDiagnostics open={apiJournalOpen} onOpenChange={setApiJournalOpen} />
       {(settingsOpen || securityOpen) && <Suspense fallback={null}>

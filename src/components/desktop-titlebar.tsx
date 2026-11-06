@@ -90,7 +90,9 @@ export function DesktopTitlebar({ navigation = false, welcome = false, onOpenCha
     <header className="hts-titlebar relative flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2">
       <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
       {navigation && <DesktopMenubar />}
-      <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />
+      {navigation
+        ? tabs
+        : <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />}
 
       {navigation && <NotificationsAction />}
       <DiscussionAction />
@@ -125,7 +127,6 @@ export function DesktopTitlebar({ navigation = false, welcome = false, onOpenCha
         </div>
       )}
     </header>
-    {tabs}
     </div>
   );
 }
