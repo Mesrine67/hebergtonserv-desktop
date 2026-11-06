@@ -87,12 +87,14 @@ export function DesktopTitlebar({ navigation = false, welcome = false, onOpenCha
 
   return (
     <div className={`hts-titlebar-shell relative z-[10001] flex shrink-0 flex-col border-0 bg-sidebar ${welcome ? "hts-titlebar--welcome" : ""}`}>
-    <header className="hts-titlebar relative flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2">
+    <header className="hts-titlebar relative flex h-11 shrink-0 items-center gap-0 border-0 bg-sidebar pr-2" onDoubleClick={(event) => {
+      if (event.target instanceof HTMLElement && event.target.closest("[data-tauri-drag-region]")) runWindowAction("toggleMaximize");
+    }}>
       <span className="sr-only">HébergTonServ Desktop v{buildVersion}</span>
       {navigation && <DesktopMenubar />}
       {navigation
         ? tabs
-        : <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region onDoubleClick={() => runWindowAction("toggleMaximize")} />}
+        : <div className="hts-titlebar-drag min-w-2 flex-1 self-stretch" data-tauri-drag-region />}
 
       {navigation && <NotificationsAction />}
       <DiscussionAction />

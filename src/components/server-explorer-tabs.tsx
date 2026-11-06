@@ -63,7 +63,7 @@ export function ServerExplorerTabs() {
     return () => window.removeEventListener("hts:file-explorer-draft-change", updateDraft);
   }, []);
 
-  const showTabs = tabs.length > 0 && location.pathname.startsWith("/panel/servers/");
+  const showTabs = tabs.length > 0;
 
   function closeTab(tab: ExplorerTab) {
     if (dirtyTabs.has(tabValue(tab))) {
