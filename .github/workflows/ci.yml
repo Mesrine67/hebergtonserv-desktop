@@ -79,13 +79,6 @@ jobs:
           (Get-Command cargo).Source
           (Get-Command rustc).Source
 
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
-        with:
-          workspaces: src-tauri
-          # PR builds restore cache but do not upload the full Rust target on Windows.
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-
       - name: Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
