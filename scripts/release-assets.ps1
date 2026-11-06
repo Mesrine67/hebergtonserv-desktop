@@ -12,19 +12,21 @@ if (-not (Test-Path -LiteralPath $app) -and $targetRoot -ne 'src-tauri/target') 
   $app = 'src-tauri/target/release/hebergtonserv-desktop.exe'
 }
 if (-not (Test-Path -LiteralPath $app)) { throw 'Compiled Tauri application not found.' }
-New-Item -ItemType Directory -Path 'dist-standalone' -Force | Out-Null
+$staging = $env:RELEASE_STAGING_DIR
+if ([string]::IsNullOrWhiteSpace($staging)) { $staging = 'dist-release' }
+New-Item -ItemType Directory -Path $staging -Force | Out-Null
 $name = "HebergTonServ-Desktop-$tag-windows-x64-standalone-experimental.exe"
-$portable = Join-Path 'dist-standalone' $name
+$portable = Join-Path $staging $name
 Copy-Item -LiteralPath $app -Destination $portable -Force
 if ((Get-Item -LiteralPath $portable).Length -lt 1000000) {
   throw 'Standalone application executable is unexpectedly small.'
 }
 & gh release upload $tag $portable --clobber
 if ($LASTEXITCODE -ne 0) { throw 'Failed to upload standalone executable.' }
-New-Item -ItemType Directory -Path 'dist-release' -Force | Out-Null
-& gh release download $tag --dir dist-release
+$downloadArgs = @('release', 'download', $tag, '--dir', $staging, '--clobber')
+& gh @downloadArgs
 if ($LASTEXITCODE -ne 0) { throw 'Failed to retrieve release assets for hashing.' }
-$files = @(Get-ChildItem 'dist-release' -File | Sort-Object Name)
+$files = @(Get-ChildItem $staging -File | Sort-Object Name)
 if ($files.Count -ne 7) { throw "Expected exactly seven primary assets. Found $($files.Count)" }
 $names = @($files | ForEach-Object { $_.Name })
 foreach ($required in @('latest.json', 'hebergtonserv-runner-manager.exe', $name)) {
@@ -39,7 +41,7 @@ $lines = @($files | ForEach-Object {
   $digest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   "$digest  $($_.Name)"
 })
-$checksum = Join-Path 'dist-release' 'SHA256SUMS.txt'
+$checksum = Join-Path $staging 'SHA256SUMS.txt'
 [IO.File]::WriteAllLines($checksum, [string[]]$lines, [Text.Encoding]::ASCII)
 if ((Get-Content $checksum).Count -ne 7) { throw 'Invalid checksum file.' }
 & gh release upload $tag $checksum --clobber
