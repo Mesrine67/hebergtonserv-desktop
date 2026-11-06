@@ -110,7 +110,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
     }
   }, [section, panel?.id, server?.identifier, selected]);
 
-  return <section className="space-y-4">
+  return <section className={section === "files" ? "flex min-h-0 flex-1 flex-col gap-3" : "space-y-4"}>
     {section === "files" && <header className="flex flex-wrap items-center gap-3">
       <div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wide text-muted-foreground">{panel?.name ?? "Panel"} · {server?.name ?? "Serveur"}</p><h1 className="text-2xl font-semibold">{title}</h1></div>
       {section === "files" && <Button variant="outline" size="sm" onClick={() => void queryClient.invalidateQueries({ queryKey: ["panel-server-files", panel?.id, requestId] })} disabled={filesFetching}><RefreshCw className={`mr-2 size-4 ${filesFetching ? "animate-spin" : ""}`} />Actualiser</Button>}
@@ -118,8 +118,8 @@ export default function ServerManagementPage({ section }: { section: Section }) 
 
     {!panel && panels.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce panel n’est pas configuré. Retournez à la liste et sélectionnez un compte.</p>}
     {panel && !server && servers.isSuccess && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">Ce serveur n’est pas accessible depuis le panel sélectionné.</p>}
-    {section === "files" && <div className="grid min-h-[min(68vh,720px)] gap-3 lg:grid-cols-[minmax(250px,340px)_1fr]">
-      <aside className="overflow-hidden rounded-xl border bg-card">
+    {section === "files" && <div className="grid min-h-0 flex-1 grid-rows-[minmax(150px,0.36fr)_minmax(0,1fr)] gap-3 overflow-hidden lg:grid-cols-[minmax(250px,340px)_minmax(0,1fr)] lg:grid-rows-1">
+      <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
         <div className="space-y-3 border-b px-4 py-3">
           <div><p className="text-sm font-semibold">Parcourir les fichiers</p><p className="mt-1 truncate font-mono text-xs text-muted-foreground">{path}</p></div>
           <label className="relative block"><Search aria-hidden="true" className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"/><input value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrer les dossiers ouverts…" aria-label="Filtrer les fichiers des dossiers ouverts" className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"/></label>
@@ -128,7 +128,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
             <button type="button" onClick={() => setShowHidden(value => !value)} aria-pressed={showHidden} className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-secondary hover:text-foreground">{showHidden ? <Eye className="size-3.5"/> : <EyeOff className="size-3.5"/>}{showHidden ? "Masqués visibles" : "Afficher les masqués"}</button>
           </div>
         </div>
-        <div className="max-h-[62vh] overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {panel && requestId && <PanelFileTree key={`${panel.id}:${requestId}`} panelId={panel.id} serverId={requestId} path="/" selected={selected} filter={fileFilter} showHidden={showHidden} onSelect={entry => {
             const nextPath = entry.path.split("/").slice(0, -1).join("/") || "/";
             setSelected(entry.path);
@@ -137,11 +137,11 @@ export default function ServerManagementPage({ section }: { section: Section }) 
           }}/>}
         </div>
       </aside>
-      <article className="min-h-[420px] overflow-hidden rounded-xl border bg-card">
+      <article className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
         <div className="flex min-w-0 items-center gap-1 border-b px-4 py-3 text-sm">{breadcrumbs.map((part, index) => <span key={`${part}-${index}`} className="flex min-w-0 items-center gap-1"><span className="truncate">{part}</span>{index < breadcrumbs.length - 1 && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}</span>)}{!breadcrumbs.length && <span className="text-muted-foreground">Racine du serveur</span>}</div>
         {selected ? (
-          <div className="min-w-0 space-y-2 px-3 pb-3">
-            <div className="truncate py-2 font-mono text-xs text-muted-foreground" title={selected}>{selected}</div>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pb-3">
+            <div className="shrink-0 truncate py-2 font-mono text-xs text-muted-foreground" title={selected}>{selected}</div>
             {content.isLoading ? <p role="status" className="p-5 text-sm text-muted-foreground">Lecture du fichier…</p>
               : content.isError ? <p role="alert" className="p-5 text-sm text-destructive">{errorMessage(content.error)}</p>
               : content.isSuccess ? (
@@ -163,7 +163,7 @@ export default function ServerManagementPage({ section }: { section: Section }) 
               ) : null}
           </div>
         ) : (
-          <div className="grid h-[min(60vh,620px)] place-content-center text-center">
+          <div className="grid min-h-0 flex-1 place-content-center text-center">
             <File className="mx-auto mb-3 size-8 text-muted-foreground"/>
             <p className="font-medium">Aucun fichier ouvert</p>
             <p className="mt-1 text-sm text-muted-foreground">Choisissez un fichier lisible dans l'arborescence.</p>

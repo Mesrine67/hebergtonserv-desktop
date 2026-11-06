@@ -102,7 +102,7 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
   }
 
   return (
-    <div className="hts-code-editor flex h-[min(62vh,660px)] min-h-[300px] min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+    <div className="hts-code-editor flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background">
       <div className="flex min-w-0 flex-wrap items-center gap-2 border-b bg-muted/20 px-3 py-2">
         <span className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
           <span className="size-2 rounded-full bg-destructive/60"/>

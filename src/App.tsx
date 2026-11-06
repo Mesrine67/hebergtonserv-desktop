@@ -113,9 +113,9 @@ function Workspace() {
       <div className="hts-workspace-body flex min-h-0 flex-1 overflow-hidden">
       <AppSidebar />
       <SidebarInset className="hts-workspace-panel flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
-        <main id="workspace-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
-          <div className={`mx-auto w-full ${["/panel/servers", "/panel/account"].includes(backgroundLocation.pathname) ? "max-w-screen-2xl" : "max-w-6xl"}`}>
-            <div key={backgroundLocation.pathname} className="hts-route-scene">
+        <main id="workspace-scroll" className={`min-h-0 flex-1 overscroll-contain p-4 md:p-6 ${backgroundLocation.pathname.endsWith("/files") ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
+          <div className={`mx-auto w-full ${backgroundLocation.pathname.endsWith("/files") ? "flex min-h-0 flex-1 flex-col" : ""} ${["/panel/servers", "/panel/account"].includes(backgroundLocation.pathname) ? "max-w-screen-2xl" : backgroundLocation.pathname.endsWith("/files") ? "max-w-none" : "max-w-6xl"}`}>
+            <div key={backgroundLocation.pathname} className={`hts-route-scene ${backgroundLocation.pathname.endsWith("/files") ? "flex min-h-0 flex-1 flex-col" : ""}`}>
             <Suspense fallback={<p role="status" className="px-4 py-6 text-sm text-muted-foreground">Chargement de la page…</p>}>
             <Routes location={backgroundLocation}>
               <Route path="/" element={<Navigate to="/home" replace />} />
