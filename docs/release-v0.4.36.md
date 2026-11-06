@@ -19,4 +19,4 @@
 ## Vérification et livraison
 
 - Vérifications locales : installation `pnpm install --frozen-lockfile --ignore-scripts`, TypeScript, ESLint, 68 tests Vitest, 14 tests du gestionnaire de runner et build Vite.
-- Build et publication Windows signée NSIS/MSI effectués par le workflow GitHub Actions après le tag `v0.4.36`.
+- Le premier workflow de release a été interrompu avant publication après un contrôle visuel ayant révélé une hauteur incorrecte du panneau éditeur. Le correctif et sa livraison sont suivis dans `release-v0.4.37.md`.
