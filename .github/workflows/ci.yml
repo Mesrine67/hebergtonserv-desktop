@@ -64,6 +64,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: "Configure isolated application caches on E:"
+        shell: pwsh
+        run: ./scripts/configure-build-caches.ps1 -PersistForGitHub
+
       - name: Verify Rust toolchain
         shell: pwsh
         run: |

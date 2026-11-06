@@ -55,6 +55,7 @@ Les commandes Rust propres au projet couvrent SSH, appels API panel, fichiers di
 - Synchroniser le numéro de version entre `package.json`, `src-tauri/tauri.conf.json` et `src-tauri/Cargo.toml`.
 - Le workflow `.github/workflows/release.yml` utilise l’action officielle `tauri-apps/tauri-action` v1, génère les manifestes updater, signe les bundles et exige un tag correspondant à une version sur `main`.
 - Après ajout d’un plugin natif, vérifier le lockfile Rust (`src-tauri/Cargo.lock`), le lockfile pnpm (`pnpm-lock.yaml`), les capabilities et le build installé Windows. Les notifications natives doivent notamment être vérifiées depuis un paquet installé.
+- Sur le runner Windows et les postes de build, le script `scripts/configure-build-caches.ps1` place Cargo, le cache npm et les paquets Bun sous `E:\DevCaches\hebergtonserv-desktop`; les commandes `pnpm install` doivent passer `--store-dir $env:PNPM_STORE_DIR` pour stocker le magasin pnpm sur E:. Il exige le volume NTFS `INATECK_STORAGE_1` monté sur E: avec 50 Go libres. Les réglages sont limités au processus/runner du projet; aucun cache Hermes, réglage utilisateur global ou outil Rust installé n’est modifié. Le workflow doit échouer clairement si ce disque amovible est absent.
 
 ## Références
 
