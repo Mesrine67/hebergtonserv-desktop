@@ -12,9 +12,11 @@
 - La page Fichiers utilise maintenant toute la hauteur disponible : l’arborescence et le code défilent dans leurs propres panneaux, y compris quand la fenêtre est maximisée.
 - Le titre de page Fichiers est retiré pour libérer l’espace ; l’action Actualiser est intégrée à la barre d’outils de l’éditeur.
 - Le langage du fichier et ses couleurs de syntaxe sont détectés selon l’extension, avec une couverture élargie des formats de configuration et de code courants.
-- Le langage et les couleurs de syntaxe sont détectés selon l’extension, avec prise en charge étendue des formats de configuration et de code usuels.
+- L’éditeur utilise Monaco, le moteur d’édition issu de VS Code, avec coloration, pliage de code, coloration des paires de crochets et workers dédiés aux langages pris en charge.
+- L’arborescence et l’éditeur peuvent être redimensionnés et la largeur choisie reste mémorisée sur cet appareil.
+- Les dépendances de Monaco et du redimensionnement sont incluses dans le lockfile afin que l’installation verrouillée de CI retrouve tous les modules.
 
 ## Vérification et livraison
 
-- Vérifications locales : `pnpm check` et validation native du placement des onglets dans la titlebar.
-- Validation native des interactions à effectuer dans le workflow Tauri avant la publication de `v0.4.36`.
+- Vérifications locales : installation `pnpm install --frozen-lockfile --ignore-scripts`, TypeScript, ESLint, 68 tests Vitest, 14 tests du gestionnaire de runner et build Vite.
+- Build et publication Windows signée NSIS/MSI effectués par le workflow GitHub Actions après le tag `v0.4.36`.
