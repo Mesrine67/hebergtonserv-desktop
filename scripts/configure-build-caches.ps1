@@ -5,15 +5,19 @@ if ($volume.FileSystemLabel -ne 'INATECK_STORAGE_1' -or $volume.FileSystem -ne '
   throw 'E: must be the NTFS volume INATECK_STORAGE_1 with at least 50 GB free.'
 }
 $root = 'E:\DevCaches\hebergtonserv-desktop'
+$npmConfig = Join-Path $root 'npm.npmrc'
 $paths = @{
   CARGO_HOME = Join-Path $root 'cargo-home'
   CARGO_TARGET_DIR = Join-Path $root 'cargo-target'
   PNPM_STORE_DIR = Join-Path $root 'pnpm-store'
-  npm_config_store_dir = Join-Path $root 'pnpm-store'
   npm_config_cache = Join-Path $root 'npm-cache'
   NPM_CONFIG_PREFIX = Join-Path $root 'npm-global'
+  NPM_CONFIG_USERCONFIG = $npmConfig
 }
-foreach ($path in $paths.Values) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
+foreach ($name in $paths.Keys | Where-Object { $_ -ne 'NPM_CONFIG_USERCONFIG' }) {
+  New-Item -ItemType Directory -Path $paths[$name] -Force | Out-Null
+}
+Set-Content -LiteralPath $npmConfig -Value "cache=$($paths.npm_config_cache.Replace('\','/'))`nprefix=$($paths.NPM_CONFIG_PREFIX.Replace('\','/'))" -Encoding utf8
 foreach ($name in $paths.Keys) { [Environment]::SetEnvironmentVariable($name, $paths[$name], 'Process') }
 # Remove Hermes from this process only so command resolution cannot cross into that unrelated product.
 $env:PATH = (($env:PATH -split ';' | Where-Object { $_ -and $_ -notmatch '(?i)\\AppData\\Local\\hermes(?:\\|$)' }) -join ';')
