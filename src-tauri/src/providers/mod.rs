@@ -71,6 +71,8 @@ pub trait PanelProvider: Send + Sync + 'static {
 
     async fn server_resources(&self, identifier: &str) -> Result<PanelServerResources>;
 
+    async fn send_server_power_signal(&self, identifier: &str, signal: &str) -> Result<()>;
+
     async fn list_server_files(&self, identifier: &str, path: &str) -> Result<Vec<PanelFileEntry>>;
 
     async fn read_server_file(&self, identifier: &str, path: &str) -> Result<String>;

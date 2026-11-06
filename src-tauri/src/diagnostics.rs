@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 const CAPACITY: usize = 1500;
-const MAX_API_DIAGNOSTIC_BYTES: usize = 12 * 1024;
+const MAX_API_DIAGNOSTIC_BYTES: usize = 32 * 1024;
 const MAX_DIAGNOSTIC_DEPTH: usize = 12;
 
 #[derive(Clone, Serialize)]
@@ -120,7 +120,11 @@ pub fn record_batch_summary(total: usize, failures: usize) {
 /// The webview can emit only fixed console lifecycle events; no arbitrary
 /// strings, server output, WebSocket tokens or URLs are accepted.
 #[tauri::command]
-pub fn record_console_connection_event(event: String, provider: Option<String>) {
+pub fn record_console_connection_event(
+    event: String,
+    provider: Option<String>,
+    count: Option<u32>,
+) {
     let (level, code, message) = match event.as_str() {
         "ws_connected" => ("info", "ws_connected", "Connexion Wings établie"),
         "ws_authenticated" => ("info", "ws_authenticated", "Authentification Wings réussie"),
@@ -133,8 +137,22 @@ pub fn record_console_connection_event(event: String, provider: Option<String>) 
         "ws_auth_failed" => ("error", "ws_auth_failed", "Authentification Wings refusée"),
         "ws_expired" => ("warning", "ws_expired", "Jeton Wings expiré"),
         "ws_send_failed" => ("warning", "ws_send_failed", "Envoi WebSocket échoué"),
+        "ws_status_received" => (
+            "info",
+            "ws_status_received",
+            "État du serveur reçu par Wings",
+        ),
+        "ws_logs_requested" => ("info", "ws_logs_requested", "Flux de logs demandé à Wings"),
+        "ws_stats_requested" => (
+            "info",
+            "ws_stats_requested",
+            "Flux de statistiques demandé à Wings",
+        ),
+        "ws_command_sent" => ("info", "ws_command_sent", "Commande envoyée à Wings"),
+        "ws_output_batch" => ("info", "ws_output_batch", "Sorties console reçues"),
         _ => return,
     };
+    let count = count.filter(|count| *count > 0 && *count <= 10_000);
     let provider = match provider.as_deref().map(str::to_ascii_lowercase).as_deref() {
         Some("wisp") => "wisp",
         Some("pterodactyl") => "pterodactyl",
@@ -196,6 +214,37 @@ pub fn record_console_connection_event(event: String, provider: Option<String>) 
             "provider": provider,
             "outcome": "failed",
             "command_text_logged": false,
+        }),
+        "ws_status_received" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "server_status",
+            "provider": provider,
+            "server_status_value_logged": false,
+        }),
+        "ws_logs_requested" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "initial_stream",
+            "provider": provider,
+            "stream": "send logs",
+        }),
+        "ws_stats_requested" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "initial_stream",
+            "provider": provider,
+            "stream": "send stats",
+        }),
+        "ws_command_sent" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "console_command",
+            "provider": provider,
+            "command_text_logged": false,
+        }),
+        "ws_output_batch" => serde_json::json!({
+            "transport": "websocket",
+            "phase": "console_output",
+            "provider": provider,
+            "output_text_logged": false,
+            "batch_entries": count.unwrap_or(0),
         }),
         _ => return,
     };
@@ -305,7 +354,13 @@ pub fn record_app_event(source: String, code: String) {
 /// Timing and outcome only. This allowlist prevents untrusted invocations
 /// (including deliberately crafted command names) from encoding secrets.
 #[tauri::command]
-pub fn record_command_event(operation: String, outcome: String, duration_ms: u32) {
+pub fn record_command_event(
+    operation: String,
+    outcome: String,
+    duration_ms: u32,
+    request_json: Option<Value>,
+    response_json: Option<Value>,
+) {
     let accepted = matches!(
         operation.as_str(),
         "get_git_tools"
@@ -340,6 +395,14 @@ pub fn record_command_event(operation: String, outcome: String, duration_ms: u32
             | "list_panel_servers"
             | "get_panel_resources_batch"
             | "get_panel_server_resources"
+            | "list_panel_server_files"
+            | "read_panel_server_file"
+            | "write_panel_server_file"
+            | "list_panel_server_databases"
+            | "send_panel_server_power_signal"
+            | "get_panel_console_credentials"
+            | "open_detached_console_window"
+            | "export_console_logs"
             | "set_panel_token"
             | "panel_token_configured"
             | "create_panel_api_key"
@@ -365,6 +428,21 @@ pub fn record_command_event(operation: String, outcome: String, duration_ms: u32
     } else {
         ("info", "command_ok")
     };
+    let mut details = serde_json::json!({
+        "outcome": outcome,
+        "duration_ms": duration_ms,
+        "slow_threshold_ms": 1500,
+        "request": { "json": request_json.as_ref().map(|value| redact_diagnostic_json(value, None, 0)) },
+        "response": { "json": response_json.as_ref().map(|value| redact_diagnostic_json(value, None, 0)) },
+    });
+    let encoded = serde_json::to_vec(&details).unwrap_or_default();
+    if encoded.len() > MAX_API_DIAGNOSTIC_BYTES {
+        details["response"]["json"] = serde_json::json!({
+            "_diagnostic": "response_truncated",
+            "sanitized_bytes": encoded.len(),
+            "limit_bytes": MAX_API_DIAGNOSTIC_BYTES,
+        });
+    }
     let entry = new_entry(
         level,
         &operation,
@@ -373,13 +451,7 @@ pub fn record_command_event(operation: String, outcome: String, duration_ms: u32
             "Commande Tauri {} ({} ms) ; arguments et réponse exclus.",
             outcome, duration_ms
         ),
-        Some(serde_json::json!({
-            "outcome": outcome,
-            "duration_ms": duration_ms,
-            "slow_threshold_ms": 1500,
-            "arguments_recorded": false,
-            "result_recorded": false,
-        })),
+        Some(details),
     );
     push_entry(entry);
 }
@@ -427,7 +499,7 @@ fn sensitive_diagnostic_key(key: &str) -> bool {
 fn safe_diagnostic_string_key(key: &str) -> bool {
     matches!(
         key.to_ascii_lowercase().as_str(),
-        "status" | "state" | "current_state" | "type" | "method" | "version" | "action"
+        "status" | "state" | "current_state" | "type" | "method" | "version" | "action" | "signal"
     )
 }
 
@@ -471,16 +543,21 @@ fn redact_diagnostic_json(value: &Value, key: Option<&str>, depth: usize) -> Val
 }
 
 fn bounded_api_details(
+    operation: &str,
     method: &str,
     status: Option<u16>,
     duration_ms: u64,
     content_type: Option<&str>,
+    request: Option<&Value>,
     response: Option<&Value>,
 ) -> Value {
     let mut details = serde_json::json!({
-        "request": { "method": method },
+        "request": { "operation": operation, "method": method },
         "duration_ms": duration_ms,
     });
+    if let Some(request) = request {
+        details["request"]["json"] = redact_diagnostic_json(request, None, 0);
+    }
     if let Some(status) = status {
         details["response"]["status"] = serde_json::json!(status);
     }
@@ -510,6 +587,7 @@ pub struct ApiExchange<'a> {
     pub status: Option<u16>,
     pub duration_ms: u64,
     pub content_type: Option<&'a str>,
+    pub request: Option<&'a Value>,
     pub response: Option<&'a Value>,
 }
 
@@ -535,10 +613,12 @@ pub fn record_api_exchange(
         code,
         message,
         Some(bounded_api_details(
+            operation,
             exchange.method,
             exchange.status,
             exchange.duration_ms,
             exchange.content_type,
+            exchange.request,
             exchange.response,
         )),
     );
@@ -634,6 +714,22 @@ pub async fn export_panel_diagnostics(path: String, format: String) -> Result<()
         .map_err(|_| "Export impossible. Vérifiez les autorisations du dossier.".to_string())
 }
 
+#[tauri::command]
+pub fn export_console_logs(path: String, contents: String) -> Result<(), String> {
+    if contents.len() > 16 * 1024 * 1024 {
+        return Err("La sortie de console dépasse la limite d’export de 16 Mio.".into());
+    }
+    let output = std::path::Path::new(&path);
+    if !matches!(
+        output.extension().and_then(|extension| extension.to_str()),
+        Some("log" | "txt")
+    ) {
+        return Err("Choisissez un fichier .log ou .txt.".into());
+    }
+    std::fs::write(output, contents)
+        .map_err(|_| "Impossible d’enregistrer le fichier de logs.".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -648,12 +744,37 @@ mod tests {
             .lock()
             .expect("test journal lock poisoned");
         clear_panel_diagnostics();
-        record_console_connection_event("ws_connected".into(), Some("wisp".into()));
-        record_console_connection_event("token=do-not-record".into(), None);
+        record_console_connection_event("ws_connected".into(), Some("wisp".into()), None);
+        record_console_connection_event("token=do-not-record".into(), None, None);
         let events = list_panel_diagnostics();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].operation, "console_websocket");
         assert_eq!(events[0].code, "ws_connected");
+        clear_panel_diagnostics();
+    }
+
+    #[test]
+    fn command_json_details_keep_shape_and_redact_sensitive_fields() {
+        let _guard = TEST_JOURNAL_LOCK
+            .lock()
+            .expect("test journal lock poisoned");
+        clear_panel_diagnostics();
+        record_command_event(
+            "list_panel_servers".into(),
+            "ok".into(),
+            24,
+            Some(serde_json::json!({ "id": "private-panel-id", "signal": "restart" })),
+            Some(serde_json::json!({ "data": [{ "state": "running", "token": "private-token" }] })),
+        );
+        let events = list_panel_diagnostics();
+        assert_eq!(events.len(), 1);
+        let encoded = serde_json::to_string(events[0].details.as_ref().unwrap()).unwrap();
+        assert!(encoded.contains("request"));
+        assert!(encoded.contains("response"));
+        assert!(encoded.contains("running"));
+        assert!(encoded.contains("restart"));
+        assert!(!encoded.contains("private-panel-id"));
+        assert!(!encoded.contains("private-token"));
         clear_panel_diagnostics();
     }
 
@@ -703,6 +824,7 @@ mod tests {
                 status: Some(200),
                 duration_ms: 32,
                 content_type: Some("application/json; charset=utf-8"),
+                request: Some(&serde_json::json!({"signal":"restart", "password":"private"})),
                 response: Some(&response),
             },
         );
@@ -731,14 +853,14 @@ mod tests {
     fn api_response_details_are_bounded() {
         let metrics = (0..50)
             .map(|_| {
-                let values = (0..40)
+                let values = (0..64)
                     .map(|index| (format!("metric_{index}"), serde_json::json!(index)))
                     .collect::<Map<_, _>>();
                 Value::Object(values)
             })
             .collect::<Vec<_>>();
         let response = serde_json::json!({"metrics": metrics});
-        let details = bounded_api_details("GET", Some(200), 1, None, Some(&response));
+        let details = bounded_api_details("api", "GET", Some(200), 1, None, None, Some(&response));
         assert!(serde_json::to_vec(&details).unwrap().len() < 1024);
         assert_eq!(
             details["response"]["json"]["_diagnostic"],

@@ -811,6 +811,29 @@ pub async fn get_panel_server_resources(
     result
 }
 
+#[tauri::command]
+pub async fn send_panel_server_power_signal(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    identifier: String,
+    signal: String,
+) -> Result<()> {
+    if !matches!(signal.as_str(), "start" | "restart" | "stop" | "kill") {
+        return Err(app_error("api_invalid_request", "Action serveur invalide."));
+    }
+    let document = Storage::read_json(&state.storage.panels_path, PanelsDocument::default())?;
+    let panel = document
+        .data
+        .panels
+        .iter()
+        .find(|panel| panel.id == id)
+        .ok_or_else(|| app_error("panel_not_found", "Panneau introuvable."))?;
+    provider_for(panel)?
+        .send_server_power_signal(&identifier, &signal)
+        .await?;
+    Ok(())
+}
+
 /// Normalize only the two documented response keys; never log the URL or token.
 fn console_socket_url(data: &serde_json::Value) -> Option<&str> {
     data.get("socket")
