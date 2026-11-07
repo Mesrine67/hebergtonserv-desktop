@@ -16,6 +16,8 @@
 - Préversion non stable. Conserver la v0.4.38 stable pour les services de production.
 - Cette préversion n'utilise pas d'artefacts Tauri updater signés et **ne doit pas** être proposée par l'updater stable.
 - Les installateurs peuvent déclencher SmartScreen faute de signature Authenticode. Vérifier la provenance et les SHA-256.
+- Le MSI porte l'identifiant de package `0.4.39-1` car WiX refuse les suffixes alphanumériques comme `rc.1`. Il contient le même binaire d'application `0.4.39-rc.1` que le NSIS ; seul le numéro de préversion de l'installateur MSI diffère.
+- Le packaging MSI a affiché un avertissement `__TAURI_BUNDLE_TYPE` sans conséquence pour cette Preview, qui ne génère ni mise à jour ni signature d'updater.
 - Une installation officielle Codex indépendante de Hermes se trouve sur PC-MIKE dans `E:\DevCaches\hebergtonserv-desktop\codex-cli`. Pour un autre poste : installer Codex et définir `HTS_CODEX_EXECUTABLE` côté système.
 - Le test App Server a reconnu le compte et huit modèles, mais l'inférence est actuellement bloquée par le quota du forfait ChatGPT/Codex.
 - OAuth direct Sign in with ChatGPT/Responses API, MCP DesktopCommander, agents avec permissions, streaming interactif et previews Monaco avancées : **pas encore inclus**.
