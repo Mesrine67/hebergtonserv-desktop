@@ -1,5 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
+pub mod codex_bridge;
 pub mod commands;
 pub mod desktop;
 pub mod diagnostics;
@@ -177,6 +178,7 @@ pub fn run() {
             );
             storage.ensure_dirs().ok();
             app.manage(AppState::new(storage));
+            app.manage(codex_bridge::CodexSessionState::default());
 
             // Startup via Windows autostart can request a hidden launch.
             // Explicit normal launches must remain visible even if autostart is enabled.
@@ -238,6 +240,13 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            codex_bridge::local_codex_models,
+            codex_bridge::local_codex_message,
+            codex_bridge::local_codex_suggest_executable,
+            codex_bridge::local_codex_login,
+            codex_bridge::local_codex_cancel_run,
+            codex_bridge::local_codex_mcp_root,
+            codex_bridge::local_codex_set_mcp_root,
             greet,
             get_local_identity,
             toggle_app_window_maximize,
