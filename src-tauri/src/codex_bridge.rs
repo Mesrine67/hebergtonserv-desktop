@@ -2,16 +2,35 @@
 //! Only an explicitly selected Codex executable is launched; never through a shell.
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
+use tokio::sync::watch;
 
 #[derive(Default)]
 pub struct CodexSessionState {
     issued_ids: Mutex<HashSet<String>>,
+    active_turns: Arc<Mutex<HashMap<String, watch::Sender<bool>>>>,
+    login_active: Arc<AtomicBool>,
+    mcp_root: Mutex<Option<PathBuf>>,
+}
+
+struct ActiveRunGuard {
+    active: Arc<Mutex<HashMap<String, watch::Sender<bool>>>>,
+    run_id: String,
+}
+
+impl Drop for ActiveRunGuard {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.active.lock() {
+            active.remove(&self.run_id);
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -42,6 +61,26 @@ pub struct CodexQuota {
 pub struct CodexReply {
     thread_id: String,
     text: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexDelta {
+    run_id: String,
+    delta: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexAuthEvent {
+    success: bool,
+    message: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexAuthStart {
+    auth_url: String,
 }
 
 fn executable_path(raw: &str) -> Result<PathBuf, String> {
@@ -94,9 +133,61 @@ struct CodexProcess {
 }
 
 impl CodexProcess {
-    async fn start(executable: &str) -> Result<Self, String> {
+    async fn start(executable: &str, mcp_root: Option<&Path>) -> Result<Self, String> {
         let executable = executable_path(executable)?;
+        // Never inherit the user's global Codex profile, tools, MCPs, hooks or sessions.
+        // This dedicated CODEX_HOME owns only this app's ChatGPT authorization and threads.
+        let home = dirs::data_local_dir()
+            .ok_or("Impossible de trouver le dossier de données de Windows.")?
+            .join("HebergTonServDesktop")
+            .join("codex-isolated");
+        tokio::fs::create_dir_all(&home)
+            .await
+            .map_err(|_| "Impossible de créer le profil Codex isolé.")?;
         let mut command = Command::new(executable);
+        command.env("CODEX_HOME", home);
+        // MCP is not connected unless the user explicitly authorized one folder.
+        // Forbid global MCP servers even when the global Codex profile has them.
+        let mcp_config = if let Some(root) = mcp_root {
+            let node = std::env::var("HTS_NODE_EXECUTABLE")
+                .unwrap_or_else(|_| r"C:\nvm4w\nodejs\node.exe".to_string());
+            let server = std::env::var("HTS_MCP_SERVER_PATH").unwrap_or_else(|_| {
+                r"E:\Projects\hebergtonserv-desktopcommander\dist\index.js".to_string()
+            });
+            let node = Path::new(&node)
+                .canonicalize()
+                .map_err(|_| "Node.js autorisé pour le MCP introuvable.")?;
+            let server = Path::new(&server)
+                .canonicalize()
+                .map_err(|_| "Serveur MCP HébergTonServ introuvable.")?;
+            if !node
+                .file_name()
+                .and_then(|v| v.to_str())
+                .is_some_and(|v| v.eq_ignore_ascii_case("node.exe"))
+                || !server
+                    .file_name()
+                    .and_then(|v| v.to_str())
+                    .is_some_and(|v| v.eq_ignore_ascii_case("index.js"))
+                || node
+                    .to_string_lossy()
+                    .to_ascii_lowercase()
+                    .contains("hermes")
+            {
+                return Err("Binaire MCP non autorisé.".into());
+            }
+            let quote = |s: &str| {
+                serde_json::to_string(s).map_err(|_| "Paramètre MCP invalide.".to_string())
+            };
+            format!(
+                "mcp_servers={{hts_readonly={{command={},args=[{},\"--no-onboarding\"],env={{HTS_MCP_READ_ONLY=\"1\",HTS_MCP_ROOT={}}}}}}}",
+                quote(&node.to_string_lossy())?,
+                quote(&server.to_string_lossy())?,
+                quote(&root.to_string_lossy())?
+            )
+        } else {
+            "mcp_servers={}".to_string()
+        };
+        command.arg("-c").arg(mcp_config);
         command
             .arg("app-server")
             .stdin(std::process::Stdio::piped())
@@ -130,6 +221,24 @@ impl CodexProcess {
         process
             .send(json!({"method":"initialized","params":{}}))
             .await?;
+        // Fail closed: an agent from this UI may not inherit unmanaged MCP tools.
+        let status = process
+            .rpc(
+                42,
+                "mcpServerStatus/list",
+                json!({"limit": 100, "detail":"toolsAndAuthOnly"}),
+            )
+            .await?;
+        let servers = status["data"]
+            .as_array()
+            .ok_or("Catalogue MCP indisponible.")?;
+        let allowed = match mcp_root {
+            None => servers.is_empty(),
+            Some(_) => servers.len() == 1 && servers[0]["name"].as_str() == Some("hts_readonly"),
+        };
+        if !allowed {
+            return Err("Le profil Codex contient des outils MCP non approuvés. Réinitialisez le profil isolé.".into());
+        }
         Ok(process)
     }
 
@@ -171,10 +280,11 @@ impl CodexProcess {
             loop {
                 let message = self.next().await?;
                 if message["id"].as_i64() != Some(id) {
-                    if message["method"]
-                        .as_str()
-                        .is_some_and(|m| m.starts_with("item/") || m.starts_with("turn/"))
-                        && self.pending.len() < 256
+                    if message["method"].as_str().is_some_and(|m| {
+                        m.starts_with("item/")
+                            || m.starts_with("turn/")
+                            || m == "account/login/completed"
+                    }) && self.pending.len() < 256
                     {
                         self.pending.push_back(message);
                     }
@@ -222,7 +332,7 @@ pub fn local_codex_suggest_executable() -> Option<String> {
 
 #[tauri::command]
 pub async fn local_codex_models(executable: String) -> Result<CodexCatalog, String> {
-    let mut server = CodexProcess::start(&executable).await?;
+    let mut server = CodexProcess::start(&executable, None).await?;
     let plan = server.require_chatgpt_plan().await?;
     let catalog = server
         .rpc(3, "model/list", json!({"limit":100,"includeHidden":false}))
@@ -282,15 +392,42 @@ pub async fn local_codex_message(
     thread_id: Option<String>,
     model: String,
     prompt: String,
+    run_id: String,
+    app: AppHandle,
     sessions: tauri::State<'_, CodexSessionState>,
 ) -> Result<CodexReply, String> {
+    if uuid::Uuid::parse_str(&run_id).is_err() {
+        return Err("Identifiant d'exécution invalide.".into());
+    }
     if prompt.trim().is_empty() || prompt.len() > 8000 {
         return Err("Le message doit contenir entre 1 et 8 000 caractères.".into());
     }
     if model.trim().is_empty() || model.len() > 128 {
         return Err("Sélectionnez un modèle disponible.".into());
     }
-    let mut server = CodexProcess::start(&executable).await?;
+    // Claim the run before any awaits; permission revocation must never race an
+    // already-started Codex operation (including startup and model discovery).
+    let (cancel_tx, mut cancel_rx) = watch::channel(false);
+    {
+        let mut active = sessions
+            .active_turns
+            .lock()
+            .map_err(|_| "État des exécutions inaccessible.")?;
+        if !active.is_empty() {
+            return Err("Une réponse Codex est déjà en cours.".into());
+        }
+        active.insert(run_id.clone(), cancel_tx);
+    }
+    let _active_guard = ActiveRunGuard {
+        active: Arc::clone(&sessions.active_turns),
+        run_id: run_id.clone(),
+    };
+    let root = sessions
+        .mcp_root
+        .lock()
+        .map_err(|_| "Autorisations MCP indisponibles.")?
+        .clone();
+    let mut server = CodexProcess::start(&executable, root.as_deref()).await?;
     server.require_chatgpt_plan().await?;
     // Never trust arbitrary model ids supplied by a WebView: check the live account catalog.
     let catalog = server
@@ -353,24 +490,38 @@ pub async fn local_codex_message(
         .lock()
         .map_err(|_| "État des sessions inaccessible.")?
         .insert(thread.clone());
-    server
+    let turn_result = server
         .rpc(
             5,
             "turn/start",
             json!({
-                "threadId": thread,
+                "threadId": thread.clone(),
                 "input": [{"type":"text","text":prompt}]
             }),
         )
         .await?;
+    let turn_id = turn_result["turn"]["id"]
+        .as_str()
+        .ok_or("Identifiant du tour Codex manquant.")?
+        .to_string();
     let mut streamed = String::new();
     let mut completed = String::new();
-    tokio::time::timeout(Duration::from_secs(150), async {
+    let outcome = tokio::time::timeout(Duration::from_secs(150), async {
         loop {
             let event = if let Some(event) = server.pending.pop_front() {
                 event
             } else {
-                server.next().await?
+                tokio::select! {
+                    changed = cancel_rx.changed() => {
+                        if changed.is_ok() && *cancel_rx.borrow_and_update() {
+                            // Send the documented interrupt before dropping this isolated process.
+                            let _ = server.send(json!({"id":99,"method":"turn/interrupt","params":{"threadId":thread,"turnId":turn_id}})).await;
+                            return Err("Réponse Codex interrompue par l'utilisateur.".into());
+                        }
+                        continue;
+                    }
+                    next = server.next() => next?,
+                }
             };
             match event["method"].as_str() {
                 Some("item/agentMessage/delta") => {
@@ -378,6 +529,7 @@ pub async fn local_codex_message(
                         && streamed.len() + delta.len() <= 250_000
                     {
                         streamed.push_str(delta);
+                        let _ = app.emit_to("main", "hts:codex-delta", CodexDelta { run_id: run_id.clone(), delta: delta.to_string() });
                     }
                 }
                 Some("item/completed") => {
@@ -402,7 +554,9 @@ pub async fn local_codex_message(
         }
     })
     .await
-    .map_err(|_| "La réponse a dépassé le délai autorisé.".to_string())??;
+    .map_err(|_| "La réponse a dépassé le délai autorisé.".to_string())
+    .and_then(|result| result);
+    outcome?;
     let text = if completed.is_empty() {
         streamed
     } else {
@@ -418,6 +572,179 @@ pub async fn local_codex_message(
     })
 }
 
+fn validate_mcp_root(raw: &str) -> Result<PathBuf, String> {
+    let path = Path::new(raw);
+    if raw.len() > 1024 || !path.is_absolute() || !path.is_dir() {
+        return Err("Choisissez un dossier local existant et absolu.".into());
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|_| "Impossible de vérifier le dossier choisi.".to_string())?;
+    if canonical.parent().is_none()
+        || dirs::home_dir()
+            .and_then(|p| p.canonicalize().ok())
+            .is_some_and(|home| home == canonical)
+    {
+        return Err(
+            "Choisissez un dossier de projet, pas la racine du disque ou le profil Windows.".into(),
+        );
+    }
+    Ok(canonical)
+}
+
+#[tauri::command]
+pub fn local_codex_mcp_root(
+    sessions: tauri::State<'_, CodexSessionState>,
+) -> Result<Option<String>, String> {
+    let root = sessions
+        .mcp_root
+        .lock()
+        .map_err(|_| "Autorisations MCP indisponibles.")?;
+    Ok(root.as_ref().map(|p| p.to_string_lossy().into_owned()))
+}
+
+/// An explicit per-application-session permission. Nothing is persisted.
+/// The entire user-wide DesktopCommander config is deliberately NOT imported.
+#[tauri::command]
+pub fn local_codex_set_mcp_root(
+    root: Option<String>,
+    sessions: tauri::State<'_, CodexSessionState>,
+) -> Result<Option<String>, String> {
+    let authorized = match root {
+        Some(path) => Some(validate_mcp_root(&path)?),
+        None => None,
+    };
+    let active = sessions
+        .active_turns
+        .lock()
+        .map_err(|_| "État des exécutions inaccessible.")?;
+    if !active.is_empty() {
+        return Err("Arrêtez la réponse en cours avant de modifier les autorisations MCP.".into());
+    }
+    let mut permitted = sessions
+        .mcp_root
+        .lock()
+        .map_err(|_| "Autorisations MCP indisponibles.")?;
+    *permitted = authorized.clone();
+    drop(permitted);
+    drop(active);
+    // No existing thread can silently retain access granted before a permission change.
+    sessions
+        .issued_ids
+        .lock()
+        .map_err(|_| "État des discussions inaccessible.")?
+        .clear();
+    Ok(authorized.map(|p| p.to_string_lossy().into_owned()))
+}
+
+fn browser_login_url(raw: &str) -> Result<String, String> {
+    let url = url::Url::parse(raw).map_err(|_| "Adresse de connexion Codex invalide.")?;
+    if url.scheme() != "https"
+        || !matches!(url.host_str(), Some("chatgpt.com" | "auth.openai.com"))
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err("Adresse de connexion hors des domaines officiels OpenAI.".into());
+    }
+    Ok(url.into())
+}
+
+/// Uses Codex's own official browser login. No website cookies are read by Tauri.
+#[tauri::command]
+pub async fn local_codex_login(
+    executable: String,
+    app: AppHandle,
+    sessions: tauri::State<'_, CodexSessionState>,
+) -> Result<CodexAuthStart, String> {
+    if sessions.login_active.swap(true, Ordering::SeqCst) {
+        return Err("Une connexion ChatGPT est déjà en cours.".into());
+    }
+    let flag = Arc::clone(&sessions.login_active);
+    let result: Result<CodexAuthStart, String> = async {
+        let mut server = CodexProcess::start(&executable, None).await?;
+        let result = server
+            .rpc(
+                2,
+                "account/login/start",
+                json!({
+                    "type": "chatgpt",
+                    "useHostedLoginSuccessPage": true,
+                    "appBrand": "chatgpt"
+                }),
+            )
+            .await?;
+        let auth_url = browser_login_url(
+            result["authUrl"]
+                .as_str()
+                .ok_or("Lien de connexion Codex manquant.")?,
+        )?;
+        let login_id = result["loginId"]
+            .as_str()
+            .ok_or("Identifiant de connexion Codex manquant.")?
+            .to_string();
+        let running = Arc::clone(&flag);
+        tauri::async_runtime::spawn(async move {
+            let outcome = tokio::time::timeout(Duration::from_secs(600), async {
+                loop {
+                    let message = if let Some(event) = server.pending.pop_front() {
+                        event
+                    } else {
+                        server.next().await?
+                    };
+                    if message["method"].as_str() == Some("account/login/completed")
+                        && message["params"]["loginId"].as_str() == Some(login_id.as_str())
+                    {
+                        if message["params"]["success"].as_bool() == Some(true) {
+                            return Ok(());
+                        }
+                        return Err(message["params"]["error"]
+                            .as_str()
+                            .unwrap_or("Connexion ChatGPT refusée.")
+                            .to_string());
+                    }
+                }
+            })
+            .await;
+            running.store(false, Ordering::SeqCst);
+            let message = match outcome {
+                Ok(Ok(())) => CodexAuthEvent {
+                    success: true,
+                    message: "Connexion ChatGPT réussie. Rechargez les modèles.".into(),
+                },
+                Ok(Err(message)) => CodexAuthEvent {
+                    success: false,
+                    message,
+                },
+                Err(_) => CodexAuthEvent {
+                    success: false,
+                    message: "Délai de connexion ChatGPT dépassé.".into(),
+                },
+            };
+            let _ = app.emit_to("main", "hts:codex-auth", message);
+        });
+        Ok(CodexAuthStart { auth_url })
+    }
+    .await;
+    if result.is_err() {
+        flag.store(false, Ordering::SeqCst);
+    }
+    result
+}
+
+#[tauri::command]
+pub fn local_codex_cancel_run(
+    run_id: String,
+    sessions: tauri::State<'_, CodexSessionState>,
+) -> Result<bool, String> {
+    let active = sessions
+        .active_turns
+        .lock()
+        .map_err(|_| "État des exécutions inaccessible.")?;
+    Ok(active
+        .get(&run_id)
+        .is_some_and(|sender| sender.send(true).is_ok()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,5 +752,22 @@ mod tests {
     fn rejects_missing_executable() {
         assert!(executable_path("codex.exe").is_err());
         assert!(executable_path("C:\\invalid\\codex.exe").is_err());
+    }
+    #[test]
+    fn validates_browser_login_urls() {
+        assert!(browser_login_url("https://chatgpt.com/auth/test?state=123").is_ok());
+        assert!(browser_login_url("https://auth.openai.com/login").is_ok());
+        assert!(browser_login_url("http://chatgpt.com/auth").is_err());
+        assert!(browser_login_url("https://chatgpt.com.evil.test/login").is_err());
+        assert!(browser_login_url("https://user:password@chatgpt.com/login").is_err());
+        assert!(browser_login_url("file:///C:/Windows/System32/cmd.exe").is_err());
+    }
+
+    #[test]
+    fn mcp_root_requires_an_existing_project_folder() {
+        let folder = tempfile::tempdir().expect("create temporary project");
+        assert!(validate_mcp_root(folder.path().to_str().unwrap()).is_ok());
+        assert!(validate_mcp_root("missing/relative/folder").is_err());
+        assert!(validate_mcp_root(r"C:\").is_err());
     }
 }

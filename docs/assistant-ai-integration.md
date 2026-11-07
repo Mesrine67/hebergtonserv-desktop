@@ -1,40 +1,43 @@
-# Assistant IA – intégration progressive (7 novembre 2026)
+# Assistant IA – intégration HébergTonServ Desktop
 
-## Architecture effectivement implémentée
+## Fonctionnalités réellement intégrées
 
-- Une entrée **Assistant IA** est ajoutée à l'espace Développement.
-- **ChatGPT Web** ouvre le domaine officiel dans le navigateur externe ; aucune extraction de cookies, de jetons, ni d'appel vers des endpoints internes `backend-api`.
-- **Codex local** est appelé depuis Rust via `codex app-server` et des requêtes JSON-RPC sur **stdio**. La WebView ne reçoit pas de jetons d'authentification. Le programme lancé doit être le `codex.exe` approuvé de l'installation autonome sur E: ou la cible de la variable d'environnement administrateur `HTS_CODEX_EXECUTABLE`. Un chemin arbitraire fourni par la WebView est refusé, et aucune commande shell générique n'est exécutée.
-- `account/read` doit renvoyer un compte de type `chatgpt`. Une session de type `apiKey` est **refusée**, pour empêcher une facturation API involontaire.
-- Le choix du modèle est lu dynamiquement via `model/list`, non fixé dans le code. Le backend revérifie la liste autorisée pour chaque message.
-- `account/rateLimits/read` récupère l'état du quota, y compris la date de réinitialisation. Quand le forfait est bloqué, l'envoi est désactivé.
-- Le binaire Codex peut être installé de façon indépendante sur E: ; aucun outil Hermes n'est requis.
-- Une discussion appelle `thread/start` puis `turn/start`, et une discussion poursuivie appelle `thread/resume`. Les sorties d'agent sont collectées jusqu'à `turn/completed`.
-- Le thread est créé avec `sandbox=read-only` et `approvalPolicy=never`, dans un répertoire de travail vide. Cette étape est réservée aux échanges de diagnostic et à la lecture seule. Les flux de modification seront soumis à un mécanisme d'approbation dédié avant activation.
-- L'historique de la conversation est conservé en mémoire dans la page et n'est pas transmis au journal de diagnostics ; seul le chemin du binaire est conservé dans `localStorage`. **Attention :** Codex App Server peut sauvegarder séparément ses threads dans le répertoire de sessions Codex du compte local.
+- **ChatGPT Web** : ouverture du site officiel dans le navigateur extérieur. Aucune extraction de session, cookie, token ou appel aux endpoints privés `backend-api`.
+- **Codex App Server** : liaison Rust via JSON-RPC sur `stdio`, lancement uniquement d'un `codex.exe` préautorisé (installation autonome sur E: ou variable système `HTS_CODEX_EXECUTABLE`), sans shell arbitraire.
+- **Connexion ChatGPT depuis l'application** : `account/login/start` avec `type=chatgpt`. L'URL OAuth officielle est contrôlée et ouverte dans le navigateur. Le callback est géré par le processus Codex jusqu'à `account/login/completed` ; l'UI reçoit uniquement l'état de connexion, jamais les jetons.
+- **Profil isolé** : le processus reçoit son propre `CODEX_HOME` sous `LocalAppData/HebergTonServDesktop/codex-isolated`. Il ne reprend pas les sessions, hooks, plugins ou MCPs de la configuration Codex globale. Une vérification `mcpServerStatus/list` échoue fermement si un MCP non déclaré est actif. Test de protocole réel : zéro serveur MCP hérité.
+- **Zéro facturation API involontaire** : `account/read` doit renvoyer `type=chatgpt` et les sessions `apiKey` sont refusées.
+- **Modèles et quota** : modèles disponibles obtenus par `model/list` puis revérifiés côté Rust à l'envoi ; limites lues via `account/rateLimits/read`.
+- **Chat** : `thread/start`, `thread/resume`, `turn/start`, notifications `item/agentMessage/delta` relayées à la fenêtre principale avec un identifiant UUID de requête, texte final `turn/completed`.
+- **Annulation** : bouton Arrêter, signal Rust et méthode officielle `turn/interrupt`. L'exécution Codex demeure en lecture seule avec approbations refusées.
+- **Confidentialité** : seul le chemin du binaire est mémorisé par le frontend. Les échanges ne sont pas ajoutés au journal d'application. Codex peut toutefois enregistrer ses threads localement dans le `CODEX_HOME` isolé.
+- **Monaco** : éditeur existant sur `main` conservé.
 
-## Limitations volontaires de ce premier lot
+## Fork DesktopCommanderMCP
 
-- L'authentification Codex doit déjà être active pour l'exécutable sélectionné ; ce lot n'implémente pas encore `account/login/start` et son cycle de callback OAuth.
-- Le pont utilise un processus App Server **par requête** ; il n'a pas encore de streaming progressif dans l'interface, de reprise des événements après fermeture, ni d'annulation interactive.
-- Les MCP configurés dans le profil Codex externe peuvent être chargés par App Server. Avant d'autoriser des outils puissants, créer un profil Codex isolé et un registre de permissions/approbations explicites. `sandbox=read-only` ne remplace pas une politique d'accès aux outils MCP.
-- Sign in with ChatGPT + Responses API exige l'enregistrement officiel d'un client OAuth et l'autorisation `chatgpt.tokens.use.direct`. L'option est documentée mais non activée sans ces prérequis : aucune clé privée ni client OAuth fictif n'est ajoutée.
-- Aucun appel ni proxy vers `chatgpt.com/backend-api`. Les modèles de ChatGPT Web ne sont pas confondus avec le catalogue de Codex ou le catalogue SIWC.
+Le fork est créé à https://github.com/Mesrine67/DesktopCommanderMCP, avec les fichiers upstream préservés.
 
-## Étapes suivantes
+Un mode de développement `HTS_MCP_READ_ONLY=1` est ajouté au fork : dossier `HTS_MCP_ROOT` absolu et obligatoire, quatre outils de lecture uniquement, vérification des liens symboliques, refus des commandes, écritures, configurations, ressources MCP et URL. Les tests unitaires et les tests réels sur stdio sont réussis. **Le fork est maintenant raccordé en mode opt-in** au profil Codex isolé : l'utilisateur choisit explicitement un dossier dans le panneau IA, puis peut révoquer l'autorisation. En l'absence de dossier, aucun serveur MCP n'est lancé. Les permissions sont effacées au redémarrage de l'application. Les commandes et écritures restent interdites.
 
-1. Enregistrer l'application open source dans le parcours Sign in with ChatGPT ; effectuer le flux OAuth PKCE et conserver les jetons uniquement dans un coffre natif.
-2. Utiliser `GET /v1/models` avec le jeton autorisé, puis `POST /v1/responses` avec `store=false` et `stream=true`, en vérifiant l'événement final et les limites du forfait.
-3. Implémenter un processus App Server persistant avec messages en flux, annulation, approbations et connexion ChatGPT entièrement pilotée dans l'UI.
-4. Étudier et adapter DesktopCommanderMCP comme serveur MCP local **désactivé par défaut**, avec liste d'outils autorisés, audit, confirmations et séparation stricte des machines/projets. Ne pas reprendre les services hébergés privés de Remote Desktop Commander.
-5. Conserver Monaco déjà présent sur `main` ; ajouter éventuellement une prévisualisation HTML/CSS sandboxée sans pont Tauri, inspirée de shadcn-playground, après vérification de sécurité.
-6. Tester la compatibilité avec les runners Windows, lancer une PR et un déploiement seulement après validation CI.
+## Ce qui n'est pas encore terminé
 
-## Sources techniques
+- Authentification directe **Sign in with ChatGPT / Responses API** : il faut enregistrer le client OAuth éligible, obtenir les paramètres officiels et l'autorisation `chatgpt.tokens.use.direct`. Aucun jeton de `backend-api` n'est utilisé comme solution de rechange.
+- Serveur Codex maintenu en mémoire entre les tours : la version actuelle ouvre encore un processus isolé par demande ; les événements sont affichés en streaming uniquement pendant le tour actif.
+- Gestion de plusieurs conversations, persistance de l'historique visible, reprise après fermeture et approbations granulaire pour les futurs outils.
+- Pour de futurs outils de modification et d'administration VPS, ajouter des confirmations de chaque action sensible ; seul le MCP de lecture est actuellement disponible.
+- Améliorations du playground Monaco inspirées de shadcn-playground avec prévisualisation HTML/CSS sandboxée.
+
+## Vérifications
+
+- Exécuter `pnpm check` (TypeScript, ESLint, Vitest, build Vite).
+- Exécuter `cargo check --offline`, `cargo clippy --all-targets -- -D warnings`, `cargo test --lib`.
+- Le test de protocole App Server avec un `CODEX_HOME` neuf et `mcp_servers={}` a confirmé que `mcpServerStatus/list` renvoie zéro serveur MCP.
+- L'inférence de bout en bout est soumise aux limites effectives du compte ChatGPT ; lors du précédent essai, le quota était atteint. Ne pas affirmer qu'une génération a été testée si ce blocage persiste.
+
+## Références
 
 - https://learn.chatgpt.com/docs/app-server
 - https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference
-- https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery
-- https://learn.chatgpt.com/docs/extend/mcp
 - https://github.com/wonderwhy-er/DesktopCommanderMCP
+- https://github.com/Mesrine67/DesktopCommanderMCP
 - https://github.com/ephraimduncan/shadcn-playground
