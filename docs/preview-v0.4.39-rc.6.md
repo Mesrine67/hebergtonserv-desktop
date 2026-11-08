@@ -2,6 +2,7 @@
 
 - Le coffre Windows utilisé par les clés API WISP/panels est maintenant séparé : `hebergtonserv-desktop.preview.panel` pour la Preview et `hebergtonserv-desktop.panel` pour la stable. La Preview ne réutilise plus, ne peut pas écraser ni supprimer les identifiants WISP de production.
 - **Important** : dans la Preview, reconnectez explicitement le panel WISP après cette mise à jour. Les paramètres et les identifiants de la version stable ne changent pas.
+- **Protection de l'updater** : aucun contrôle automatique, aucune vérification manuelle ni installation via le canal stable dans la Preview. L'autorisation `updater:default` est également retirée des capacités Tauri de cette édition. Utilisez les préversions GitHub pour mettre à jour la Preview.
 - La CI Windows de la PR #138 est passée sur la version précédente ; nouveau commit de sécurité en vérification.
 
 # HébergTonServ Desktop Preview v0.4.39-rc.6
