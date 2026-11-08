@@ -10,7 +10,11 @@ export const UPDATE_STARTUP_DELAY_MS = 12_000;
 export const UPDATE_CHECK_INTERVAL_MS = 60 * 60_000;
 export const UPDATE_FOCUS_MIN_AGE_MS = 15 * 60_000;
 
-type Status = "idle" | "checking" | "current" | "available" | "installing" | "error";
+type Status = "idle" | "preview" | "checking" | "current" | "available" | "installing" | "error";
+
+export function isPreviewVersion(version: string): boolean {
+  return /^\d+\.\d+\.\d+-/.test(version);
+}
 
 type UpdaterContextValue = {
   currentVersion: string;
@@ -26,9 +30,10 @@ type UpdaterContextValue = {
 
 const UpdaterContext = createContext<UpdaterContextValue | null>(null);
 
-export function AppUpdaterProvider({ children }: { children: ReactNode }) {
-  const [currentVersion, setCurrentVersion] = useState(buildVersion);
-  const [status, setStatus] = useState<Status>("idle");
+export function AppUpdaterProvider({ children, appVersion = buildVersion }: { children: ReactNode; appVersion?: string }) {
+  const preview = isPreviewVersion(appVersion);
+  const [currentVersion, setCurrentVersion] = useState(appVersion);
+  const [status, setStatus] = useState<Status>(preview ? "preview" : "idle");
   const [availableVersion, setAvailableVersion] = useState<string | null>(null);
   const [releaseNotes, setReleaseNotes] = useState<string | null>(null);
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
@@ -41,6 +46,10 @@ export function AppUpdaterProvider({ children }: { children: ReactNode }) {
   const lastNotifiedVersionRef = useRef<string | null>(null);
 
   const checkForUpdates = useCallback(async (silent = false) => {
+    if (preview) {
+      if (!silent) toast.info("Les mises à jour sont désactivées dans cette préversion de test.");
+      return;
+    }
     if (!isTauri()) {
       if (!silent) toast.info("Les mises à jour nécessitent l'application Windows.");
       return;
@@ -83,10 +92,10 @@ export function AppUpdaterProvider({ children }: { children: ReactNode }) {
       lastCheckedRef.current = now;
       setCheckedAt(now);
     }
-  }, []);
+  }, [preview]);
 
   const installUpdate = useCallback(async () => {
-    if (!isTauri() || !updateRef.current || checkingRef.current || installingRef.current) return;
+    if (preview || !isTauri() || !updateRef.current || checkingRef.current || installingRef.current) return;
     installingRef.current = true;
     setStatus("installing");
     setDownloadedBytes(0);
@@ -106,10 +115,10 @@ export function AppUpdaterProvider({ children }: { children: ReactNode }) {
     } finally {
       installingRef.current = false;
     }
-  }, []);
+  }, [preview]);
 
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri() || preview) return;
     void getVersion().then(setCurrentVersion).catch(() => undefined);
     const timeout = window.setTimeout(() => void checkForUpdates(true), UPDATE_STARTUP_DELAY_MS);
     const interval = window.setInterval(() => void checkForUpdates(true), UPDATE_CHECK_INTERVAL_MS);
@@ -129,7 +138,7 @@ export function AppUpdaterProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("hts:check-for-updates", onCheckRequested);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [checkForUpdates]);
+  }, [checkForUpdates, preview]);
 
   useEffect(() => () => {
     if (updateRef.current) void updateRef.current.close().catch(() => undefined);
