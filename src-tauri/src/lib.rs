@@ -1,7 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
-pub mod codex_bridge;
 pub mod chatgpt_plan;
+pub mod codex_bridge;
 pub mod commands;
 pub mod desktop;
 pub mod diagnostics;
