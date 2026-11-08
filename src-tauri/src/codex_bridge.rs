@@ -139,7 +139,11 @@ impl CodexProcess {
         // This dedicated CODEX_HOME owns only this app's ChatGPT authorization and threads.
         let home = dirs::data_local_dir()
             .ok_or("Impossible de trouver le dossier de données de Windows.")?
-            .join("HebergTonServDesktop")
+            .join(if env!("CARGO_PKG_VERSION").contains('-') {
+                "HebergTonServDesktopPreview"
+            } else {
+                "HebergTonServDesktop"
+            })
             .join("codex-isolated");
         tokio::fs::create_dir_all(&home)
             .await

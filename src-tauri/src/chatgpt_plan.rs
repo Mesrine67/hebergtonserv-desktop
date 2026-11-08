@@ -21,7 +21,15 @@ const JWKS_URL: &str = "https://auth.openai.com/.well-known/jwks.json";
 const RESOURCE: &str = "https://api.openai.com/v1";
 const MODELS_URL: &str = "https://api.openai.com/v1/models";
 const RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
-const SERVICE: &str = "hebergtonserv-desktop.chatgpt-plan";
+// Separate experimental identities from stable credentials to avoid leaking
+// sign-in state across side-by-side installed Tauri app identities.
+fn credential_service() -> &'static str {
+    if env!("CARGO_PKG_VERSION").contains('-') {
+        "hebergtonserv-desktop.preview.chatgpt-plan"
+    } else {
+        "hebergtonserv-desktop.chatgpt-plan"
+    }
+}
 const ACCOUNT_KEY: &str = "active";
 const HOST_KEY: &str = "host-id";
 const SCOPE: &str = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
@@ -109,7 +117,8 @@ fn epoch() -> u64 {
 }
 
 fn credential(field: &str) -> Result<Entry, String> {
-    Entry::new(SERVICE, field).map_err(|_| "Coffre de secrets Windows indisponible.".to_string())
+    Entry::new(credential_service(), field)
+        .map_err(|_| "Coffre de secrets Windows indisponible.".to_string())
 }
 
 fn get_host_id() -> Result<String, String> {
@@ -906,6 +915,18 @@ pub async fn chatgpt_plan_logout(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn isolates_preview_credentials_from_stable() {
+        if env!("CARGO_PKG_VERSION").contains('-') {
+            assert_eq!(
+                credential_service(),
+                "hebergtonserv-desktop.preview.chatgpt-plan"
+            );
+        } else {
+            assert_eq!(credential_service(), "hebergtonserv-desktop.chatgpt-plan");
+        }
+    }
+
     #[test]
     fn pkce_and_host_identifiers() {
         let (verifier, challenge) = random_pkce();

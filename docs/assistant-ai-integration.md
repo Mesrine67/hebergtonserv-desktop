@@ -14,7 +14,7 @@ Client open source, selon le processus officiel Sign in with ChatGPT. Aucun secr
 - Échange du code auprès de `https://auth.openai.com/api/accounts/oauth/token`, sans secret client.
 - Vérification cryptographique du `id_token` RSA SHA-256 avec le JWKS public OpenAI, émetteur `https://auth.openai.com`, audience égale au client enregistré, `exp`, identité du compte et nonce du login.
 - Vérification du scope `chatgpt.tokens.use.direct` avant tout appel aux modèles ou à l'inférence. Jetons non transmis au frontend, non consignés dans les diagnostics.
-- Stockage dans **Windows Credential Manager** via `keyring`, par fragments sécurisés en deux banques pour respecter les limites de taille, avec marqueur activé seulement après écriture complète. Aucun fichier contenant des jetons n'est écrit en clair.
+- Stockage dans **Windows Credential Manager** via `keyring`, par fragments sécurisés en deux banques pour respecter les limites de taille, avec marqueur activé seulement après écriture complète. Aucun fichier contenant des jetons n'est écrit en clair. Les éditions Preview (versions contenant un suffixe de préversion) utilisent un **service de coffre distinct de la version stable**.
 - Renouvellement des jetons avant expiration via `refresh_token`, sérialisé pour protéger les rotations ; validation de l'identité en cas de nouveau jeton d'identité.
 - Catalogue du compte : `GET https://api.openai.com/v1/models`, filtrage `visibility=list`, noms et identifiants fournis par le service.
 - Messages : `POST https://api.openai.com/v1/responses` avec `store=false`, `stream=true` et le modèle autorisé, streaming des `response.output_text.delta` vers la fenêtre principale uniquement. Seul `response.completed` signale le succès.
@@ -26,7 +26,7 @@ Client open source, selon le processus officiel Sign in with ChatGPT. Aucun secr
 
 - `codex.exe app-server` lancé par Rust sans shell à partir d'un binaire approuvé, indépendant de Hermes.
 - Le type de compte Codex doit être `chatgpt` ; les connexions avec clé API sont refusées.
-- Profil `CODEX_HOME` isolé de la configuration principale, catalogue `model/list`, limites `account/rateLimits/read`.
+- Profil `CODEX_HOME` isolé de la configuration principale, catalogue `model/list`, limites `account/rateLimits/read`. La Preview utilise un **profil Codex distinct** de la future version stable pour éviter de partager les identifiants et les discussions.
 - Connexion ChatGPT depuis l'application via `account/login/start` ; l'URL officielle s'ouvre dans le navigateur, et seul l'état de connexion revient à l'interface.
 - Discussions avec `thread/start`, `thread/resume`, `turn/start`, texte progressivement affiché et bouton Arrêter via `turn/interrupt`.
 - Mode de travail Codex `read-only`, approbations refusées. Le profil ne récupère pas les MCP mondiaux et refuse tout serveur MCP non attendu.
