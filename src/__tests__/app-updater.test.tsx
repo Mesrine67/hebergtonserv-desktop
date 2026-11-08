@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppUpdaterProvider, useAppUpdater, UPDATE_STARTUP_DELAY_MS, UPDATE_CHECK_INTERVAL_MS } from "../lib/app-updater";
+import { AppUpdaterProvider, useAppUpdater, isPreviewVersion, UPDATE_STARTUP_DELAY_MS, UPDATE_CHECK_INTERVAL_MS } from "../lib/app-updater";
 
 const mocks = vi.hoisted(() => ({
   check: vi.fn(), notify: vi.fn(),
@@ -34,6 +34,23 @@ describe("Automatic updater", () => {
     host = null;
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it("blocks all stable update checks and installations in a Preview", async () => {
+    vi.useFakeTimers();
+    expect(isPreviewVersion("0.4.39-rc.6")).toBe(true);
+    expect(isPreviewVersion("0.4.39")).toBe(false);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root?.render(<AppUpdaterProvider appVersion="0.4.39-rc.6"><Probe /></AppUpdaterProvider>));
+    expect(host.querySelector('[data-testid="status"]')?.textContent).toBe("preview");
+    await act(async () => { await vi.advanceTimersByTimeAsync(UPDATE_CHECK_INTERVAL_MS * 2); });
+    await act(async () => host?.querySelectorAll("button")[0]?.click());
+    await act(async () => host?.querySelectorAll("button")[1]?.click());
+    expect(mocks.check).not.toHaveBeenCalled();
+    expect(mocks.version).not.toHaveBeenCalled();
+    expect(mocks.notify).not.toHaveBeenCalled();
   });
 
   it("checks automatically, shows availability and never installs until confirmed", async () => {

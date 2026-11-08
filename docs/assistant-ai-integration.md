@@ -55,6 +55,8 @@ Pour isoler le cache Cargo de développement du cache de livraison et des autres
 
 Le code direct OAuth peut être vérifié par des tests de construction d'URL, PKCE, audiences, validation des entrées et parsing du streaming. Ne jamais utiliser des jetons réels dans des tests automatisés ou joindre des credentials aux issues/PR.
 
+**Mises à jour :** dans une version portant un suffixe de préversion (par exemple `0.4.39-rc.6`), le provider React de l'updater n'effectue aucune vérification automatique ou manuelle et refuse toute installation. Le menu affiche l'état Preview. Le packaging Preview retire également l'autorisation Tauri `updater:default` en défense supplémentaire ; la stable conserve son updater habituel.
+
 **Ne pas fusionner une préversion expérimentale dans une release stable** avant validation de la connexion OAuth réelle, du comportement après expiration/renouvellement et de la sécurité des permissions MCP sur l'application installée.
 
 ## Références officielles
