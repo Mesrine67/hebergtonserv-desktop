@@ -32,6 +32,7 @@ import "./shadcn-style-modes.css";
 // Route-level splitting keeps the cold-start WebView bundle small.
 const HomePage = lazy(() => import("@/pages/HomePage"));
 const GitHubPage = lazy(() => import("@/pages/GitHubPage"));
+const AiAssistantPage = lazy(() => import("@/pages/AiAssistantPage"));
 const DocumentationPage = lazy(() => import("@/pages/DocumentationPage"));
 const SshKeysPage = lazy(() => import("./pages/SshKeysPage"));
 const SshConfigPage = lazy(() => import("./pages/SshConfigPage"));
@@ -67,6 +68,7 @@ const routeLabels: Record<string, string> = {
   "/panel/account": "Compte du panel",
   "/panel/servers": "Serveurs",
   "/git": "Git / GH",
+  "/assistant": "Assistant IA",
 };
 
 function Workspace() {
@@ -129,6 +131,7 @@ function Workspace() {
               <Route path="/panel/servers" element={<PanelServersPage />} />
               <Route path="/panel/servers/:identifier/files" element={<ServerManagementPage section="files" />} />
               <Route path="/git" element={<GitHubPage />} />
+              <Route path="/assistant" element={<AiAssistantPage />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
             {(isConsolePanel || isDatabasePanel) && <Routes>
