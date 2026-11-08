@@ -1,43 +1,67 @@
-# Assistant IA – intégration HébergTonServ Desktop
+# HébergTonServ Desktop — Assistant IA (ChatGPT Web, forfait ChatGPT, Codex et MCP)
 
-## Fonctionnalités réellement intégrées
+## Trois modes distincts
 
-- **ChatGPT Web** : ouverture du site officiel dans le navigateur extérieur. Aucune extraction de session, cookie, token ou appel aux endpoints privés `backend-api`.
-- **Codex App Server** : liaison Rust via JSON-RPC sur `stdio`, lancement uniquement d'un `codex.exe` préautorisé (installation autonome sur E: ou variable système `HTS_CODEX_EXECUTABLE`), sans shell arbitraire.
-- **Connexion ChatGPT depuis l'application** : `account/login/start` avec `type=chatgpt`. L'URL OAuth officielle est contrôlée et ouverte dans le navigateur. Le callback est géré par le processus Codex jusqu'à `account/login/completed` ; l'UI reçoit uniquement l'état de connexion, jamais les jetons.
-- **Profil isolé** : le processus reçoit son propre `CODEX_HOME` sous `LocalAppData/HebergTonServDesktop/codex-isolated`. Il ne reprend pas les sessions, hooks, plugins ou MCPs de la configuration Codex globale. Une vérification `mcpServerStatus/list` échoue fermement si un MCP non déclaré est actif. Test de protocole réel : zéro serveur MCP hérité.
-- **Zéro facturation API involontaire** : `account/read` doit renvoyer `type=chatgpt` et les sessions `apiKey` sont refusées.
-- **Modèles et quota** : modèles disponibles obtenus par `model/list` puis revérifiés côté Rust à l'envoi ; limites lues via `account/rateLimits/read`.
-- **Chat** : `thread/start`, `thread/resume`, `turn/start`, notifications `item/agentMessage/delta` relayées à la fenêtre principale avec un identifiant UUID de requête, texte final `turn/completed`.
-- **Annulation** : bouton Arrêter, signal Rust et méthode officielle `turn/interrupt`. L'exécution Codex demeure en lecture seule avec approbations refusées.
-- **Confidentialité** : seul le chemin du binaire est mémorisé par le frontend. Les échanges ne sont pas ajoutés au journal d'application. Codex peut toutefois enregistrer ses threads localement dans le `CODEX_HOME` isolé.
-- **Monaco** : éditeur existant sur `main` conservé.
+### 1. ChatGPT Web
+Le bouton ouvre le site officiel `https://chatgpt.com/` dans le navigateur du poste. Aucune requête vers les endpoints privés `chatgpt.com/backend-api` ni lecture de cookies, sessions ou jetons WebView2. Les conversations ChatGPT Web ne sont pas importées dans l'application.
 
-## Fork DesktopCommanderMCP
+### 2. ChatGPT plan / Responses API (intégration native)
 
-Le fork est créé à https://github.com/Mesrine67/DesktopCommanderMCP, avec les fichiers upstream préservés.
+Client open source, selon le processus officiel Sign in with ChatGPT. Aucun secret client et aucune clé API payante ne sont nécessaires.
 
-Un mode de développement `HTS_MCP_READ_ONLY=1` est ajouté au fork : dossier `HTS_MCP_ROOT` absolu et obligatoire, quatre outils de lecture uniquement, vérification des liens symboliques, refus des commandes, écritures, configurations, ressources MCP et URL. Les tests unitaires et les tests réels sur stdio sont réussis. **Le fork est maintenant raccordé en mode opt-in** au profil Codex isolé : l'utilisateur choisit explicitement un dossier dans le panneau IA, puis peut révoquer l'autorisation. En l'absence de dossier, aucun serveur MCP n'est lancé. Les permissions sont effacées au redémarrage de l'application. Les commandes et écritures restent interdites.
+- Enregistrement dynamique initial `client_id=dynamic_agent_client`, nom réel de l'application et identifiant d'hôte stable `urn:uuid:…`. Au retour, conserver le `client_id` émis pour le poste.
+- Ouverture du navigateur par l'application (action volontaire). Callback HTTP limité à `127.0.0.1` sur un port éphémère, chemin strict `/auth/callback`, `state` et `nonce` aléatoires, PKCE S256.
+- Échange du code auprès de `https://auth.openai.com/api/accounts/oauth/token`, sans secret client.
+- Vérification cryptographique du `id_token` RSA SHA-256 avec le JWKS public OpenAI, émetteur `https://auth.openai.com`, audience égale au client enregistré, `exp`, identité du compte et nonce du login.
+- Vérification du scope `chatgpt.tokens.use.direct` avant tout appel aux modèles ou à l'inférence. Jetons non transmis au frontend, non consignés dans les diagnostics.
+- Stockage dans **Windows Credential Manager** via `keyring`, par fragments sécurisés en deux banques pour respecter les limites de taille, avec marqueur activé seulement après écriture complète. Aucun fichier contenant des jetons n'est écrit en clair.
+- Renouvellement des jetons avant expiration via `refresh_token`, sérialisé pour protéger les rotations ; validation de l'identité en cas de nouveau jeton d'identité.
+- Catalogue du compte : `GET https://api.openai.com/v1/models`, filtrage `visibility=list`, noms et identifiants fournis par le service.
+- Messages : `POST https://api.openai.com/v1/responses` avec `store=false`, `stream=true` et le modèle autorisé, streaming des `response.output_text.delta` vers la fenêtre principale uniquement. Seul `response.completed` signale le succès.
+- Déconnexion : tentative de révocation distante du renouvellement, puis effacement local des fragments sécurisés. Une révocation distante impossible est signalée explicitement.
 
-## Ce qui n'est pas encore terminé
+**Limitation de cette première implémentation :** un compte ChatGPT plan à la fois. L'inférence réelle reste à vérifier par une connexion volontaire d'un utilisateur éligible ; les tests automatiques n'utilisent pas de vrai compte ni de jeton de production. Les quotas et les autorisations dépendent du compte, et rien n'est illimité.
 
-- Authentification directe **Sign in with ChatGPT / Responses API** : il faut enregistrer le client OAuth éligible, obtenir les paramètres officiels et l'autorisation `chatgpt.tokens.use.direct`. Aucun jeton de `backend-api` n'est utilisé comme solution de rechange.
-- Serveur Codex maintenu en mémoire entre les tours : la version actuelle ouvre encore un processus isolé par demande ; les événements sont affichés en streaming uniquement pendant le tour actif.
-- Gestion de plusieurs conversations, persistance de l'historique visible, reprise après fermeture et approbations granulaire pour les futurs outils.
-- Pour de futurs outils de modification et d'administration VPS, ajouter des confirmations de chaque action sensible ; seul le MCP de lecture est actuellement disponible.
-- Améliorations du playground Monaco inspirées de shadcn-playground avec prévisualisation HTML/CSS sandboxée.
+### 3. Codex App Server
 
-## Vérifications
+- `codex.exe app-server` lancé par Rust sans shell à partir d'un binaire approuvé, indépendant de Hermes.
+- Le type de compte Codex doit être `chatgpt` ; les connexions avec clé API sont refusées.
+- Profil `CODEX_HOME` isolé de la configuration principale, catalogue `model/list`, limites `account/rateLimits/read`.
+- Connexion ChatGPT depuis l'application via `account/login/start` ; l'URL officielle s'ouvre dans le navigateur, et seul l'état de connexion revient à l'interface.
+- Discussions avec `thread/start`, `thread/resume`, `turn/start`, texte progressivement affiché et bouton Arrêter via `turn/interrupt`.
+- Mode de travail Codex `read-only`, approbations refusées. Le profil ne récupère pas les MCP mondiaux et refuse tout serveur MCP non attendu.
+- Le moteur Codex peut conserver des threads dans son profil isolé ; ces données ne sont pas équivalentes aux conversations ChatGPT Web.
 
-- Exécuter `pnpm check` (TypeScript, ESLint, Vitest, build Vite).
-- Exécuter `cargo check --offline`, `cargo clippy --all-targets -- -D warnings`, `cargo test --lib`.
-- Le test de protocole App Server avec un `CODEX_HOME` neuf et `mcp_servers={}` a confirmé que `mcpServerStatus/list` renvoie zéro serveur MCP.
-- L'inférence de bout en bout est soumise aux limites effectives du compte ChatGPT ; lors du précédent essai, le quota était atteint. Ne pas affirmer qu'une génération a été testée si ce blocage persiste.
+## DesktopCommander MCP
 
-## Références
+Fork : https://github.com/Mesrine67/DesktopCommanderMCP
 
-- https://learn.chatgpt.com/docs/app-server
+Le mode `HTS_MCP_READ_ONLY=1` nécessite un `HTS_MCP_ROOT` absolu. Quatre outils seulement : `read_file`, `read_multiple_files`, `list_directory`, `get_file_info`. Les écritures, commandes, accès URL, changements de configuration et ressources UI sont bloqués. Les chemins sont canonisés pour interdire les liens symboliques et jonctions Windows hors de la racine.
+
+Dans le panneau IA, l'utilisateur peut autoriser un dossier ou révoquer son accès. Aucun MCP n'est lancé sans autorisation, et la permission disparaît au redémarrage de l'application. Le fork et le binaire Node doivent être installés et approuvés sur la machine concernée. Pas d'accès SSH/VPS ni d'actions administratives.
+
+## Monaco et interface
+
+Monaco Editor est **déjà intégré à main** et conservé. Une prévisualisation dynamique HTML/CSS inspirée de shadcn-playground doit être isolée de l'IPC Tauri avant toute activation ; le dépôt Next.js externe n'est pas ajouté comme dépendance de l'application.
+
+## Validation et publication
+
+Frontend : `pnpm check` (TypeScript, ESLint, Vitest, build Vite).
+
+Rust : `cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --lib`.
+
+Pour isoler le cache Cargo de développement du cache de livraison et des autres projets, définir `CARGO_TARGET_DIR=E:\DevCaches\hebergtonserv-desktop\cargo-target-siwc-check` lors des vérifications. Conserver `CARGO_HOME` sur le cache dédié de `E:`.
+
+Le code direct OAuth peut être vérifié par des tests de construction d'URL, PKCE, audiences, validation des entrées et parsing du streaming. Ne jamais utiliser des jetons réels dans des tests automatisés ou joindre des credentials aux issues/PR.
+
+**Ne pas fusionner une préversion expérimentale dans une release stable** avant validation de la connexion OAuth réelle, du comportement après expiration/renouvellement et de la sécurité des permissions MCP sur l'application installée.
+
+## Références officielles
+
+- https://developers.openai.com/siwc/token-sharing-open-source/
+- https://developers.openai.com/siwc/token-sharing-open-source/sign-in
+- https://developers.openai.com/siwc/token-sharing-open-source/accounts-and-sessions
 - https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference
-- https://github.com/wonderwhy-er/DesktopCommanderMCP
+- https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server
+- https://learn.chatgpt.com/docs/app-server
 - https://github.com/Mesrine67/DesktopCommanderMCP
-- https://github.com/ephraimduncan/shadcn-playground

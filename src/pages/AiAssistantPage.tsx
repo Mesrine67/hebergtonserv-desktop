@@ -3,9 +3,10 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Bot, CheckCircle2, ExternalLink, FolderOpen, LoaderCircle, Send, ShieldCheck, Sparkles, Square, LogIn, LockKeyhole } from "lucide-react";
+import { Bot, CheckCircle2, ExternalLink, FolderOpen, LoaderCircle, Send, ShieldCheck, Square, LogIn, LockKeyhole } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-shell";
+import { ChatgptPlanPanel } from "@/components/chatgpt-plan-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -245,18 +246,7 @@ export default function AiAssistantPage() {
             {quota?.limited && <p role="alert" className="text-xs text-destructive">Quota Codex atteint.{quota.resetsAt ? ` Réinitialisation estimée : ${new Date(quota.resetsAt * 1000).toLocaleString("fr-FR")}.` : " Réessayez après la réinitialisation du forfait."}</p>}
           </CardContent>
         </Card>
-        <Card className="xl:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="size-4" /> ChatGPT plan · Responses API</CardTitle>
-            <CardDescription>Intégration officielle Sign in with ChatGPT, distincte de Codex.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              L'authentification directe nécessite l'enregistrement OAuth de HébergTonServ Desktop.
-              Ce mode sera activé après l'autorisation de l'application ; aucune clé API facturable n'est demandée ici.
-            </p>
-          </CardContent>
-        </Card>
+        <ChatgptPlanPanel />
       </div>
 
       <Card>
