@@ -1,6 +1,6 @@
 [package]
 name = "hebergtonserv-desktop"
-version = "0.4.39"
+version = "0.4.39-rc.6"
 description = "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement"
 authors = ["HébergTonServ <contact@hebergtonserv.com>"]
 edition = "2024"
