@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "HébergTonServ Desktop",
-  "version": "0.4.39",
-  "identifier": "com.hebergtonserv.desktop",
+  "productName": "HébergTonServ Desktop Preview",
+  "version": "0.4.39-rc.4",
+  "identifier": "com.hebergtonserv.desktop.preview",
   "mainBinaryName": "hebergtonserv-desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "HébergTonServ Desktop",
+        "title": "HébergTonServ Desktop Preview",
         "windowClassname": "Tools.fxmp.org",
         "width": 520,
         "height": 360,
@@ -23,7 +23,7 @@
         "decorations": false,
         "visible": true,
         "backgroundColor": "#0f172a",
-        "userAgent": "hebergtonserv.desktop/0.4.39",
+        "userAgent": "hebergtonserv.desktop.preview/0.4.39-rc.4",
         "devtools": true,
         "browserExtensionsEnabled": true
       }
@@ -49,7 +49,7 @@
     "shortDescription": "HébergTonServ Desktop — gestion des clés SSH, connexions et panels d'hébergement",
     "longDescription": "HébergTonServ Desktop est une application de gestion des clés SSH, des connexions et des panels d'hébergement. Elle permet aux utilisateurs de gérer facilement leurs serveurs et services d'hébergement à partir d'une interface conviviale.",
     "copyright": "Copyright © 2026 HebergTonServ. All rights reserved.",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "active": true,
     "targets": "all",
     "resources": [
