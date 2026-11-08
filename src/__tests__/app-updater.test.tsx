@@ -63,7 +63,7 @@ describe("Automatic updater", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    await act(async () => root?.render(<AppUpdaterProvider><Probe /></AppUpdaterProvider>));
+    await act(async () => root?.render(<AppUpdaterProvider appVersion="0.4.39"><Probe /></AppUpdaterProvider>));
     expect(mocks.check).toHaveBeenCalledTimes(0);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(UPDATE_STARTUP_DELAY_MS);
