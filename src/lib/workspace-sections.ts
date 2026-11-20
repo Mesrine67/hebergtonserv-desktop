@@ -30,7 +30,7 @@ export const sectionsByWorkspace: Record<WorkspaceId, NavSection[]> = {
   development: [
     {
       title: "Développement", icon: GitBranch,
-      items: [{ title: "Git / GH", url: "/git" }],
+      items: [{ title: "Git / GH", url: "/git" }, { title: "Assistant IA", url: "/assistant" }],
     },
   ],
 };

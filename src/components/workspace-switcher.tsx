@@ -16,7 +16,7 @@ const spaces = [
 
 export function workspaceForPath(pathname: string): WorkspaceId {
   if (pathname.startsWith("/ssh-") || pathname === "/profiles") return "ssh";
-  if (pathname === "/git") return "development";
+  if (pathname === "/git" || pathname === "/assistant") return "development";
   return "infrastructure";
 }
 

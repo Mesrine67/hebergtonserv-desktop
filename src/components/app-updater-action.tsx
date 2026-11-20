@@ -39,7 +39,9 @@ export function AppUpdaterAction({ onOpenChangelog }: { onOpenChangelog?: () => 
         <DropdownMenuSeparator />
         <div className="space-y-3 px-2 py-3 text-xs">
           <p className="text-muted-foreground">Version installée : <strong className="text-foreground">v{updater.currentVersion}</strong></p>
-          {available ? (
+          {updater.status === "preview" ? (
+            <p role="status" className="text-muted-foreground">Préversion de test : les mises à jour vers la version stable sont désactivées. Utilisez les releases Preview sur GitHub.</p>
+          ) : available ? (
             <p role="status" className="flex items-center gap-2 text-foreground">
               <ArrowDownToLine className="size-4 shrink-0 text-primary" />
               Nouvelle version v{updater.availableVersion} disponible.
@@ -61,12 +63,14 @@ export function AppUpdaterAction({ onOpenChangelog }: { onOpenChangelog?: () => 
               {updater.totalBytes ? " / " + (updater.totalBytes / 1048576).toFixed(1) + " Mo" : ""}
             </p>
           )}
-          <Button id="hts-update-check" className="w-full" variant="outline" size="sm" disabled={busy}
-            onClick={() => void updater.checkForUpdates(false)}>
-            <RefreshCw className={"size-4 " + (busy ? "animate-spin" : "")} />
-            {updater.status === "checking" ? "Vérification…" : "Vérifier maintenant"}
-          </Button>
-          {available && (
+          {updater.status !== "preview" && (
+            <Button id="hts-update-check" className="w-full" variant="outline" size="sm" disabled={busy}
+              onClick={() => void updater.checkForUpdates(false)}>
+              <RefreshCw className={"size-4 " + (busy ? "animate-spin" : "")} />
+              {updater.status === "checking" ? "Vérification…" : "Vérifier maintenant"}
+            </Button>
+          )}
+          {updater.status !== "preview" && available && (
             <Button className="w-full" size="sm" disabled={busy} onClick={() => void updater.installUpdate()}>
               <ArrowDownToLine className="size-4" /> Installer v{updater.availableVersion}
             </Button>
@@ -74,7 +78,7 @@ export function AppUpdaterAction({ onOpenChangelog }: { onOpenChangelog?: () => 
           {updater.checkedAt !== null && <p className="text-[11px] text-muted-foreground">
             Dernière vérification : {new Date(updater.checkedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>}
-          <p className="text-[11px] text-muted-foreground">Détection automatique ; installation uniquement après confirmation.</p>
+          {updater.status !== "preview" && <p className="text-[11px] text-muted-foreground">Détection automatique ; installation uniquement après confirmation.</p>}
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onOpenChangelog?.()}>
