@@ -13,6 +13,7 @@ describe("Workspace switcher routing", () => {
     expect(workspaceForPath("/ssh-config")).toBe("ssh");
     expect(workspaceForPath("/profiles")).toBe("ssh");
     expect(workspaceForPath("/git")).toBe("development");
+    expect(workspaceForPath("/assistant")).toBe("development");
   });
 
   it("only lists navigation links owned by the active workspace", () => {
@@ -21,7 +22,8 @@ describe("Workspace switcher routing", () => {
     expect(names("/panel/servers/abc/files")).toEqual(["Panels", "Compte du panel", "Serveurs"]);
     expect(names("/ssh-config")).toEqual(["Clés SSH", "Configuration", "Profils"]);
     expect(names("/profiles")).toEqual(["Clés SSH", "Configuration", "Profils"]);
-    expect(names("/git")).toEqual(["Git / GH"]);
+    expect(names("/git")).toEqual(["Git / GH", "Assistant IA"]);
+    expect(names("/assistant")).toEqual(["Git / GH", "Assistant IA"]);
     expect(names("/settings")).toEqual(["Panels", "Compte du panel", "Serveurs"]);
     expect(names("/home")).toEqual(["Panels", "Compte du panel", "Serveurs"]);
   });

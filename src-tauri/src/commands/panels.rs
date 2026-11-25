@@ -21,8 +21,18 @@ pub struct PanelCheckResult {
     pub ssh_keys_supported: bool,
 }
 
+fn panel_credential_service() -> &'static str {
+    // A Preview must never read, overwrite or delete panel API credentials
+    // belonging to the user's stable installation.
+    if env!("CARGO_PKG_VERSION").contains('-') {
+        "hebergtonserv-desktop.preview.panel"
+    } else {
+        "hebergtonserv-desktop.panel"
+    }
+}
+
 fn credential_entry(panel_id: &str) -> Result<Entry> {
-    Entry::new("hebergtonserv-desktop.panel", panel_id).map_err(|_| {
+    Entry::new(panel_credential_service(), panel_id).map_err(|_| {
         app_error(
             "panel_keyring",
             "Le coffre de secrets Windows est indisponible.",
@@ -614,6 +624,23 @@ pub async fn get_panel_thumbnail(
         "data:{content_type};base64,{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)
     ))
+}
+
+#[cfg(test)]
+mod panel_credential_isolation_tests {
+    use super::panel_credential_service;
+
+    #[test]
+    fn preview_cannot_reuse_stable_panel_credentials() {
+        if env!("CARGO_PKG_VERSION").contains('-') {
+            assert_eq!(
+                panel_credential_service(),
+                "hebergtonserv-desktop.preview.panel"
+            );
+        } else {
+            assert_eq!(panel_credential_service(), "hebergtonserv-desktop.panel");
+        }
+    }
 }
 
 #[cfg(test)]

@@ -36,8 +36,8 @@ tauri-plugin-snap-layout = "=1.0.9"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
 thiserror = "=2.0.21"
-tokio = { version = "=1.54.1", features = ["process", "fs", "time", "sync", "macros"] }
-reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls", "json", "http2", "charset"] }
+tokio = { version = "=1.54.1", features = ["process", "fs", "time", "sync", "macros", "io-util", "net"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls", "json", "http2", "charset", "form"] }
 ssh-key = { version = "=0.6.7", features = ["encryption", "ed25519", "rsa", "ecdsa", "rand_core"] }
 keyring = "=4.2.0"
 dirs = "=7.0.0"
@@ -48,6 +48,8 @@ zeroize = "=1.9.1"
 async-trait = "=0.1.92"
 ipnet = { version = "=2.12.2", features = ["serde"] }
 base64 = "=0.23.1"
+sha2 = "=0.10.9"
+jsonwebtoken = { version = "=9.3.1", default-features = false }
 log = "=0.4.35"
 tauri-plugin-websocket = "2"
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }

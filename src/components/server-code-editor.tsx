@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "../../node_modules/monaco-editor/esm/vs/editor/editor.api.js";
 import { useTheme } from "next-themes";
-import { Check, Copy, File, Keyboard, RefreshCw, RotateCcw, Save, WrapText, X } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, File, Keyboard, RefreshCw, RotateCcw, Save, WrapText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import { buildSafeMonacoPreview } from "@/lib/monaco-preview";
 import "../../node_modules/monaco-editor/min/vs/editor/editor.main.css";
 import "../../node_modules/monaco-editor/esm/vs/language/json/monaco.contribution.js";
 import "../../node_modules/monaco-editor/esm/vs/language/css/monaco.contribution.js";
@@ -96,10 +97,12 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
   const [wrap, setWrap] = useState(false);
   const [showNumbers, setShowNumbers] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const { resolvedTheme } = useTheme();
   const dirty = value !== original;
   const lines = useMemo(() => value.split("\n").length, [value]);
   const languageId = serverFileMonacoLanguage(path);
+  const previewDocument = useMemo(() => buildSafeMonacoPreview(path, value), [path, value]);
   const fileName = path.split("/").pop() ?? path;
   saveRef.current = onSave;
   dirtyRef.current = dirty;
@@ -139,8 +142,9 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
         <span className="min-w-0 flex-1 truncate pr-2 font-mono text-[10px] text-muted-foreground" title={path}>{path}</span>
         {dirty && <span role="status" className="text-[10px] text-amber-500">Modifié</span>}
       </div>
-      <div className="hts-monaco-container min-h-0 min-w-0 flex-1 overflow-hidden">
-        <Editor
+      <div className="hts-monaco-container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="min-h-[160px] min-w-0 flex-1 overflow-hidden">
+          <Editor
           path={path}
           value={value}
           language={languageId}
@@ -174,7 +178,12 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
             readOnly: false,
             ariaLabel: `Éditeur du fichier ${fileName}`,
           }}
-        />
+          />
+        </div>
+        {showPreview && previewDocument && <section className="flex min-h-[150px] min-w-0 flex-1 flex-col border-t lg:border-l lg:border-t-0" aria-label="Prévisualisation isolée HTML et CSS">
+          <div className="border-b bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground">Aperçu isolé · scripts et réseau bloqués</div>
+          <iframe title="Aperçu sécurisé du code" sandbox="" referrerPolicy="no-referrer" srcDoc={previewDocument} className="min-h-0 w-full flex-1 bg-white" />
+        </section>}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t bg-muted/15 px-3 py-1 text-[10px] text-muted-foreground">
         <span className="shrink-0">{lines} ligne(s) · {value.length} caractères</span>
@@ -197,6 +206,7 @@ export function ServerCodeEditor({ path, value, original, onChange, onSave, savi
           </Popover>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={onRefresh} disabled={refreshing} aria-label="Actualiser les fichiers du serveur" title="Actualiser les fichiers du serveur"><RefreshCw className={refreshing ? "animate-spin" : "size-3.5"} /></Button>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => setShowNumbers(v => !v)} aria-label="Afficher ou masquer les numéros de ligne" aria-pressed={showNumbers} title="Numéros de ligne">#</Button>
+          {previewDocument && <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2" onClick={() => setShowPreview(v => !v)} aria-label={showPreview ? "Fermer la prévisualisation sécurisée" : "Ouvrir la prévisualisation sécurisée"} aria-pressed={showPreview} title="Aperçu HTML/CSS sans script ni réseau">{showPreview ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}<span className="hidden sm:inline">Aperçu</span></Button>}
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => setWrap(v => !v)} aria-label="Retour à la ligne automatique" aria-pressed={wrap} title="Retour à la ligne"><WrapText className="size-3.5" /></Button>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" onClick={() => void copyCode()} aria-label="Copier le code" title="Copier le code">{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}</Button>
           <Button type="button" variant="ghost" size="icon-sm" className="size-7" disabled={!dirty || saving} onClick={() => onChange(original)} aria-label="Annuler les modifications" title="Annuler les modifications"><RotateCcw className="size-3.5" /></Button>
