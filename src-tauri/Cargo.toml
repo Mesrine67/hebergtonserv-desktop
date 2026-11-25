@@ -52,7 +52,6 @@ log = "=0.4.35"
 tauri-plugin-websocket = "2"
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
-[dev-dependencies]
 tempfile = "=3.27.0"
 
 [profile.release]
