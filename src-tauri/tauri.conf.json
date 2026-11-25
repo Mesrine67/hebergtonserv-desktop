@@ -24,8 +24,8 @@
         "visible": true,
         "backgroundColor": "#0f172a",
         "userAgent": "hebergtonserv.desktop/0.4.39",
-        "devtools": true,
-        "browserExtensionsEnabled": true
+        "devtools": false,
+        "browserExtensionsEnabled": false
       }
     ],
     "security": {
