@@ -16,21 +16,21 @@ name = "hebergtonserv-desktop"
 path = "src/main.rs"
 
 [build-dependencies]
-tauri-build = { version = "=2.7.4", features = [] }
+tauri-build = { version = "=2.7.5", features = [] }
 
 [dependencies]
 tauri = { version = "=2.12.5", features = ["tray-icon", "image-png"] }
 tauri-plugin-single-instance = "=2.5.5"
 tauri-plugin-window-state = "=2.5.0"
 tauri-plugin-dialog = "=2.8.4"
-tauri-plugin-opener = "=2.7.2"
+tauri-plugin-opener = "=2.7.3"
 tauri-plugin-clipboard-manager = "=2.5.0"
-tauri-plugin-log = "=2.10.1"
+tauri-plugin-log = "=2.10.2"
 tauri-plugin-store = "=2.5.0"
 tauri-plugin-updater = { version = "=2.14.1", default-features = false, features = ["native-tls", "system-proxy", "zip"] }
 tauri-plugin-process = "=2.4.0"
 tauri-plugin-autostart = "=2.7.0"
-tauri-plugin-notification = "=2.8.0"
+tauri-plugin-notification = "=2.8.1"
 tauri-plugin-snap-layout = "=1.0.9"
 
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -42,7 +42,7 @@ ssh-key = { version = "=0.6.7", features = ["encryption", "ed25519", "rsa", "ecd
 keyring = "=4.2.0"
 dirs = "=7.0.0"
 url = { version = "=2.5.8", features = ["serde"] }
-uuid = { version = "=1.29.0", features = ["v4", "serde"] }
+uuid = { version = "=1.29.3", features = ["v4", "serde"] }
 chrono = { version = "=0.4.45", features = ["serde"] }
 zeroize = "=1.9.1"
 async-trait = "=0.1.92"
