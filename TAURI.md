@@ -47,7 +47,7 @@ Les commandes Rust propres au projet couvrent SSH, appels API panel, fichiers di
 - Chaque permission frontend doit être listée dans une capability et le plugin correspondant initialisé côté Rust. Ne pas utiliser `core:default` comme justification pour ouvrir des permissions additionnelles.
 - Toute nouvelle fenêtre doit recevoir une capability limitée à son label; vérifier que les labels déclarés correspondent aux fenêtres créées au runtime.
 - Conserver le CSP strict de `tauri.conf.json`. Ajouter une source uniquement avec une fonctionnalité correspondante et vérifiée.
-- En production, revalider `devtools` et `browserExtensionsEnabled` dans la configuration de build : les activer uniquement si le débogage/extension est une exigence produit documentée.
+- En production, `devtools` et `browserExtensionsEnabled` sont désactivés. Pour déboguer, utiliser une configuration locale non versionnée passée explicitement à `tauri dev --config` ; ne jamais réutiliser cette configuration pour une release.
 - Les accès réseau et fichiers doivent continuer à valider hôtes, protocoles, chemins et tailles; les secrets ne doivent jamais apparaître dans les diagnostics.
 
 ## Release
