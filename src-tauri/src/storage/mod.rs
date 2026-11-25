@@ -1,7 +1,11 @@
 pub mod models;
 
 use crate::errors::{Result, app_error};
+use std::io::Write;
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+static STORAGE_WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 pub struct Storage {
     pub app_data_dir: PathBuf,
@@ -39,21 +43,30 @@ impl Storage {
     }
 
     pub fn atomic_write(path: &std::path::Path, contents: &str) -> Result<()> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        let _guard = STORAGE_WRITE_LOCK
+            .lock()
+            .map_err(|_| app_error("storage_write", "Verrou de stockage indisponible."))?;
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| std::path::Path::new("."));
+        std::fs::create_dir_all(parent)?;
         let file_name = path
             .file_name()
             .and_then(|value| value.to_str())
-            .unwrap_or("data")
-            .to_string();
-        let temp = path.with_file_name(format!("{file_name}.tmp"));
-        std::fs::write(&temp, contents)?;
+            .unwrap_or("data");
+        let mut temp = tempfile::NamedTempFile::new_in(parent)?;
+        temp.write_all(contents.as_bytes())?;
+        temp.as_file().sync_all()?;
         if path.exists() {
             let backup = path.with_file_name(format!("{file_name}.bak"));
-            let _ = std::fs::copy(path, &backup);
+            let mut backup_temp = tempfile::NamedTempFile::new_in(parent)?;
+            let mut original = std::fs::File::open(path)?;
+            std::io::copy(&mut original, &mut backup_temp)?;
+            backup_temp.as_file().sync_all()?;
+            backup_temp.persist(backup).map_err(|error| error.error)?;
         }
-        std::fs::rename(&temp, path)?;
+        temp.persist(path).map_err(|error| error.error)?;
         Ok(())
     }
 
@@ -107,5 +120,43 @@ impl Storage {
             .map_err(|_| app_error("storage_write", "Écriture impossible."))?;
         Self::atomic_write(path, &content)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replacement_preserves_previous_contents() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        Storage::atomic_write(&path, "first").unwrap();
+        Storage::atomic_write(&path, "second").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "second");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("settings.json.bak")).unwrap(),
+            "first"
+        );
+    }
+
+    #[test]
+    fn concurrent_writes_remain_complete() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    Storage::atomic_write(&path, &i.to_string().repeat(4096)).unwrap();
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        let contents = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(contents.len(), 4096);
+        assert!(contents.bytes().all(|byte| byte == contents.as_bytes()[0]));
     }
 }
