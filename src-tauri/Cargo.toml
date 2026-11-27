@@ -44,7 +44,7 @@ dirs = "=7.0.0"
 url = { version = "=2.5.8", features = ["serde"] }
 uuid = { version = "=1.29.3", features = ["v4", "serde"] }
 chrono = { version = "=0.4.45", features = ["serde"] }
-zeroize = "=1.9.1"
+zeroize = "=1.9.2"
 async-trait = "=0.1.92"
 ipnet = { version = "=2.12.2", features = ["serde"] }
 base64 = "=0.23.1"
